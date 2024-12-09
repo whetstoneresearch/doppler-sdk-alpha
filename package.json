@@ -42,8 +42,5 @@
     "ethers": "^5.7.2",
     "turbo": "^2.3.2",
     "viem": "^2.21.45"
-  },
-  "peerDependencies": {
-    "viem": "^2.21.45"
   }
 }
