@@ -37,9 +37,8 @@ export class ReadWriteFactory extends ReadFactory {
 
   async create(
     params: CreateParams,
-    options?: ContractWriteOptions & OnMinedParam
+    options?: ContractWriteOptions
   ): Promise<Hex> {
-    console.log('airlock addr', this.airlock.address);
     return this.airlock.write('create', params, options);
   }
 }

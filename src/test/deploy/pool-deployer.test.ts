@@ -54,12 +54,14 @@ describe('Doppler Pool Deployment', () => {
 
     const readWriteFactory = new ReadWriteFactory(addresses.airlock, drift);
     const config = buildConfig(configParams, addresses);
-    await readWriteFactory.airlock.simulateWrite('create', config);
-    try {
-      await readWriteFactory.create(config);
-    } catch (e) {
-      console.log(e);
-    }
+    const result = await readWriteFactory.airlock.simulateWrite(
+      'create',
+      config
+    );
+    console.log('config', config);
+    console.log('result', result);
+    // await readWriteFactory.create(config);
+    await readWriteFactory.airlock.write('create', config);
 
     const doppler = new ReadDoppler(
       config.poolKey.currency1,
