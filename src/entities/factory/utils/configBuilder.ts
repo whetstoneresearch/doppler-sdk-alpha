@@ -7,10 +7,11 @@ import {
 import { DAY_SECONDS, DEFAULT_PD_SLUGS, MAX_TICK_SPACING } from '@/constants';
 import { DopplerAddresses } from '@/types';
 import { Price, Token } from '@uniswap/sdk-core';
-import { priceToClosestTick } from '@uniswap/v4-sdk';
+import { encodeSqrtRatioX96, tickToPrice, TickMath } from '@uniswap/v3-sdk';
 import { Address, encodeAbiParameters, parseEther, toHex } from 'viem';
 import { ETH_ADDRESS } from '@/constants';
 import { CreateParams, MineParams, mine } from '@/entities/factory';
+import { sortsBefore } from '@uniswap/v4-sdk';
 
 /**
  * Validates and builds pool configuration from user-friendly parameters
@@ -233,6 +234,31 @@ function validateBasicParams(params: DopplerPreDeploymentConfig) {
   if (params.priceRange.startPrice === params.priceRange.endPrice) {
     throw new Error('Start and end prices must be different');
   }
+}
+
+export function priceToClosestTick(price: Price<Token, Token>): number {
+  const sorted = sortsBefore(price.baseCurrency, price.quoteCurrency);
+
+  const sqrtRatioX96 = sorted
+    ? encodeSqrtRatioX96(price.numerator, price.denominator)
+    : encodeSqrtRatioX96(price.denominator, price.numerator);
+
+  let tick = TickMath.getTickAtSqrtRatio(sqrtRatioX96);
+  const nextTickPrice = tickToPrice(
+    price.baseCurrency,
+    price.quoteCurrency,
+    tick + 1
+  );
+  if (sorted) {
+    if (!price.lessThan(nextTickPrice)) {
+      tick++;
+    }
+  } else {
+    if (!price.greaterThan(nextTickPrice)) {
+      tick++;
+    }
+  }
+  return tick;
 }
 
 // // Helper to suggest optimal epoch length based on duration
