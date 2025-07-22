@@ -97,7 +97,7 @@ export class DynamicAuction {
     // Calculate current epoch
     const currentTime = BigInt(Math.floor(Date.now() / 1000))
     const elapsedTime = currentTime > startingTime ? currentTime - startingTime : BigInt(0)
-    const currentEpoch = Number(elapsedTime / epochLength)
+    const currentEpoch = epochLength > 0n ? Number(elapsedTime / epochLength) : 0
     
     // Determine token addresses from poolKey
     const isToken0 = poolKey.currency0 !== '0x0000000000000000000000000000000000000000'
@@ -247,13 +247,13 @@ export class DynamicAuction {
     // Calculate current epoch
     const currentTime = BigInt(Math.floor(Date.now() / 1000))
     const elapsedTime = currentTime > startingTime ? currentTime - startingTime : BigInt(0)
-    const currentEpoch = Number(elapsedTime / epochLength)
+    const currentEpoch = epochLength > 0n ? Number(elapsedTime / epochLength) : 0
     
     // Calculate current tick based on the auction progression
     // The tick moves from startingTick towards endingTick based on epochs and gamma
     const direction = endingTick > startingTick ? 1 : -1
-    const tickMovement = currentEpoch * gamma * direction
-    const currentTick = startingTick + tickMovement
+    const tickMovement = Math.floor(currentEpoch * gamma * direction)
+    const currentTick = Math.floor(startingTick + tickMovement)
     
     // Convert tick to price
     // price = 1.0001^tick

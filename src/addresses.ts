@@ -13,7 +13,7 @@ export const CHAIN_IDS = {
 export type SupportedChainId = typeof CHAIN_IDS[keyof typeof CHAIN_IDS]
 
 // Contract addresses per chain
-interface ChainAddresses {
+export interface ChainAddresses {
   // Core contracts
   airlock: Address
   tokenFactory: Address

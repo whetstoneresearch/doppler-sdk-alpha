@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "start": "tsc watch ./src/**",
-    "test": "vitest",
+    "test": "vitest run",
     "build": "tsup",
     "build:watch": "tsup --watch",
     "test:watch": "vitest watch",

@@ -138,7 +138,9 @@ export class StaticAuction {
     const Q96 = BigInt(2) ** BigInt(96)
     
     // price0 = amount of token1 per token0
-    const price0 = (sqrtPriceX96 * sqrtPriceX96) / Q96 / Q96
+    const sqrtPriceX96Squared = sqrtPriceX96 * sqrtPriceX96
+    const Q96Squared = Q96 * Q96
+    const price0 = sqrtPriceX96Squared / Q96Squared
     
     // Return price based on which token is the auction token
     if (poolInfo.tokenAddress === token0) {
@@ -147,7 +149,7 @@ export class StaticAuction {
     } else {
       // Auction token is token1, return reciprocal price
       // price1 = 1 / price0 (with precision handling)
-      return (Q96 * Q96) / price0
+      return Q96Squared / price0
     }
   }
   

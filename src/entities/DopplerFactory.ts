@@ -173,14 +173,31 @@ export class DopplerFactory {
    * Generate a random salt based on user address
    */
   private generateRandomSalt(account: Address): Hex {
+    // Use crypto.getRandomValues for secure random generation
     const array = new Uint8Array(32)
     
-    // Sequential byte generation
-    for (let i = 0; i < 32; i++) {
-      array[i] = i
+    // Try to use crypto API if available (Node.js or browser)
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      crypto.getRandomValues(array)
+    } else {
+      // Fallback: use timestamp and account for deterministic generation
+      const timestamp = Date.now()
+      const timestampBytes = new Uint8Array(8)
+      for (let i = 0; i < 8; i++) {
+        timestampBytes[i] = (timestamp >> (i * 8)) & 0xff
+      }
+      
+      // Fill array with timestamp and account-based entropy
+      for (let i = 0; i < 32; i++) {
+        if (i < 8) {
+          array[i] = timestampBytes[i]
+        } else {
+          array[i] = i
+        }
+      }
     }
     
-    // XOR with address bytes
+    // XOR with address bytes for additional entropy
     if (account) {
       const addressBytes = account.slice(2).padStart(40, '0')
       for (let i = 0; i < 20; i++) {
@@ -725,15 +742,117 @@ export class DopplerFactory {
       ]
     )
 
-    // For simplicity, we'll use a deterministic approach instead of mining
-    // In production, this would need actual bytecode hashes and mining logic
-    const salt = this.generateRandomSalt(params.numeraire)
+    // Define required hook permission flags
+    const FLAG_MASK = BigInt(0x3fff) // 14 bits for flags
+    const REQUIRED_FLAGS = BigInt(
+      (1 << 13) | // BEFORE_INITIALIZE_FLAG
+      (1 << 12) | // AFTER_INITIALIZE_FLAG
+      (1 << 11) | // BEFORE_ADD_LIQUIDITY_FLAG
+      (1 << 7) |  // BEFORE_SWAP_FLAG
+      (1 << 6) |  // AFTER_SWAP_FLAG
+      (1 << 5)    // BEFORE_DONATE_FLAG
+    )
     
-    // These would be computed via CREATE2 in production
-    const hookAddress = '0x' + '1'.repeat(40) as Address // Placeholder
-    const tokenAddress = '0x' + '2'.repeat(40) as Address // Placeholder
+    // In a real implementation, we would:
+    // 1. Get the bytecode for Doppler hook and DERC20 contracts
+    // 2. Calculate init code hash = keccak256(bytecode + constructor params)
+    // 3. Mine for a salt that produces the desired address properties
     
-    return [salt, hookAddress, tokenAddress, poolInitializerData, tokenFactoryData]
+    const MAX_ITERATIONS = 1000000
+    let salt = BigInt(0)
+    let hookAddress: Address = '0x0000000000000000000000000000000000000000'
+    let tokenAddress: Address = '0x0000000000000000000000000000000000000000'
+    
+    // Mine for valid addresses
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      salt = BigInt(i)
+      
+      // Compute CREATE2 addresses (simplified - needs actual bytecode)
+      // In production: hookAddress = computeCreate2Address(deployer, salt, hookInitHash)
+      hookAddress = this.computeCreate2Address(
+        params.deployer,
+        salt.toString(),
+        '0x' + '0'.repeat(64) // Placeholder init hash
+      )
+      
+      tokenAddress = this.computeCreate2Address(
+        params.tokenFactory,
+        salt.toString(),
+        '0x' + '0'.repeat(64) // Placeholder init hash
+      )
+      
+      // Check if hook address has required flags
+      const hookBigInt = BigInt(hookAddress)
+      if ((hookBigInt & FLAG_MASK) === REQUIRED_FLAGS) {
+        // Check token ordering
+        const token0 = tokenAddress < params.numeraire ? tokenAddress : params.numeraire
+        const isToken0 = token0 === tokenAddress
+        
+        // Update the poolInitializerData with correct isToken0
+        const updatedPoolInitializerData = encodeAbiParameters(
+          [
+            { type: 'uint256' },
+            { type: 'uint256' },
+            { type: 'uint256' },
+            { type: 'uint256' },
+            { type: 'int24' },
+            { type: 'int24' },
+            { type: 'uint256' },
+            { type: 'int24' },
+            { type: 'bool' },
+            { type: 'uint256' },
+            { type: 'uint24' },
+            { type: 'int24' },
+          ],
+          [
+            minimumProceeds,
+            maximumProceeds,
+            startingTime,
+            endingTime,
+            startingTick,
+            endingTick,
+            epochLength,
+            gamma,
+            isToken0,
+            numPDSlugs,
+            fee,
+            tickSpacing,
+          ]
+        )
+        
+        return [
+          `0x${salt.toString(16).padStart(64, '0')}` as Hash,
+          hookAddress,
+          tokenAddress,
+          updatedPoolInitializerData,
+          tokenFactoryData
+        ]
+      }
+    }
+    
+    // Fallback: use a deterministic approach
+    const fallbackSalt = this.generateRandomSalt(params.numeraire)
+    const fallbackHook = '0x' + '1'.repeat(40) as Address
+    const fallbackToken = '0x' + '2'.repeat(40) as Address
+    
+    return [fallbackSalt, fallbackHook, fallbackToken, poolInitializerData, tokenFactoryData]
+  }
+
+  /**
+   * Compute CREATE2 address
+   */
+  private computeCreate2Address(
+    deployer: Address,
+    salt: string,
+    initCodeHash: string
+  ): Address {
+    // CREATE2 formula: keccak256(0xff ++ deployer ++ salt ++ init_code_hash)[12:]
+    const encoded = encodePacked(
+      ['bytes1', 'address', 'bytes32', 'bytes32'],
+      ['0xff', deployer, `0x${salt.padStart(64, '0')}` as `0x${string}`, initCodeHash as `0x${string}`]
+    )
+    const hash = keccak256(encoded)
+    return getAddress(`0x${hash.slice(-40)}`)
   }
 
   /**

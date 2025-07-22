@@ -58,8 +58,8 @@ export class DopplerSDK {
    * @param poolAddress The address of the pool
    */
   async getPoolInfo(poolAddress: Address): Promise<PoolInfo> {
-    // TODO: Fetch and return pool information
-    throw new Error('getPoolInfo not yet implemented')
+    const auction = new StaticAuction(this.publicClient, poolAddress)
+    return auction.getPoolInfo()
   }
 
   /**
@@ -67,8 +67,8 @@ export class DopplerSDK {
    * @param hookAddress The address of the hook
    */
   async getHookInfo(hookAddress: Address): Promise<HookInfo> {
-    // TODO: Fetch and return hook information
-    throw new Error('getHookInfo not yet implemented')
+    const auction = new DynamicAuction(this.publicClient, hookAddress)
+    return auction.getHookInfo()
   }
 
   /**
