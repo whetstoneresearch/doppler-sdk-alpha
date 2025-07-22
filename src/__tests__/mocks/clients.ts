@@ -15,6 +15,7 @@ export const createMockPublicClient = (): PublicClient => {
   client.simulateContract = vi.fn()
   client.getTransactionReceipt = vi.fn()
   client.waitForTransactionReceipt = vi.fn()
+  client.getBalance = vi.fn()
 
   return client
 }
