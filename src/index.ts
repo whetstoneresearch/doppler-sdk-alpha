@@ -1,8 +1,42 @@
 export const VERSION = '0.0.1'
 
-export type DopplerVersion = 'v3' | 'v4'
+// Export the main SDK class
+export { DopplerSDK } from './DopplerSDK'
 
-export interface DopplerSDKConfig {
-  version: DopplerVersion
-  rpcUrl?: string
-}
+// Export factory and auction classes
+export { DopplerFactory } from './entities/DopplerFactory'
+export { StaticAuction, DynamicAuction } from './entities/auction'
+
+// Export all types
+export type {
+  // Core types
+  TokenConfig,
+  SaleConfig,
+  StaticPoolConfig,
+  DynamicAuctionConfig,
+  VestingConfig,
+  BeneficiaryData,
+  MigrationConfig,
+  
+  // Parameter types
+  CreateStaticAuctionParams,
+  CreateDynamicAuctionParams,
+  
+  // Configuration types
+  DopplerSDKConfig,
+  
+  // Information types
+  PoolInfo,
+  HookInfo,
+  QuoteResult
+} from './types'
+
+// Export constants
+export * from './constants'
+
+// Export addresses and utilities
+export { ADDRESSES, CHAIN_IDS, getAddresses } from './addresses'
+export type { SupportedChainId } from './addresses'
+
+// Export ABIs
+export * from './abis'
