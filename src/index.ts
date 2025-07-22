@@ -44,5 +44,8 @@ export * from './constants'
 export { ADDRESSES, CHAIN_IDS, getAddresses } from './addresses'
 export type { SupportedChainId } from './addresses'
 
+// Export utility functions
+export * from './utils'
+
 // Export ABIs
 export * from './abis'
