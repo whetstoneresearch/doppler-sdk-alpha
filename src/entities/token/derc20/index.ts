@@ -1,0 +1,1 @@
+export { Derc20 } from './Derc20'

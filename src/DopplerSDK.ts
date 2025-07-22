@@ -2,13 +2,14 @@ import type { Address, PublicClient, WalletClient } from 'viem'
 import type { DopplerSDKConfig, HookInfo, PoolInfo } from './types'
 import { DopplerFactory } from './entities/DopplerFactory'
 import { StaticAuction, DynamicAuction } from './entities/auction'
+import { Quoter } from './entities/quoter'
 
 export class DopplerSDK {
   private publicClient: PublicClient
   private walletClient?: WalletClient
   private chainId: number
   private _factory?: DopplerFactory
-  private _quoter?: any // Will be Quoter instance
+  private _quoter?: Quoter
 
   constructor(config: DopplerSDKConfig) {
     this.publicClient = config.publicClient
@@ -29,10 +30,9 @@ export class DopplerSDK {
   /**
    * Get the quoter instance for price queries
    */
-  get quoter(): any {
+  get quoter(): Quoter {
     if (!this._quoter) {
-      // TODO: Initialize Quoter with client and chainId
-      throw new Error('Quoter not yet implemented')
+      this._quoter = new Quoter(this.publicClient, this.chainId)
     }
     return this._quoter
   }

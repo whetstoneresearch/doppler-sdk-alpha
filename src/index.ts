@@ -7,6 +7,12 @@ export { DopplerSDK } from './DopplerSDK'
 export { DopplerFactory } from './entities/DopplerFactory'
 export { StaticAuction, DynamicAuction } from './entities/auction'
 
+// Export quoter
+export { Quoter } from './entities/quoter'
+
+// Export token entities
+export { Derc20, Eth } from './entities/token'
+
 // Export all types
 export type {
   // Core types
