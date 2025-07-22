@@ -15,21 +15,44 @@ import {
 import type { 
   CreateStaticAuctionParams, 
   CreateDynamicAuctionParams,
-  MigrationConfig 
+  MigrationConfig,
+  StaticAuctionBuildConfig,
+  DynamicAuctionBuildConfig,
+  PriceRange,
+  TickRange
 } from '../types'
 import { getAddresses } from '../addresses'
 import { 
   WAD, 
-  DEAD_ADDRESS, 
-  DEFAULT_EPOCH_LENGTH, 
+  DEAD_ADDRESS,
+  ZERO_ADDRESS,
+  DEFAULT_EPOCH_LENGTH,
+  DEFAULT_AUCTION_DURATION,
   DEFAULT_LOCK_DURATION, 
   BASIS_POINTS,
   DEFAULT_PD_SLUGS,
   DAY_SECONDS,
   FLAG_MASK,
-  DOPPLER_FLAGS
+  DOPPLER_FLAGS,
+  DEFAULT_V3_START_TICK,
+  DEFAULT_V3_END_TICK,
+  DEFAULT_V3_NUM_POSITIONS,
+  DEFAULT_V3_FEE,
+  DEFAULT_V3_VESTING_DURATION,
+  DEFAULT_V3_INITIAL_SUPPLY,
+  DEFAULT_V3_NUM_TOKENS_TO_SELL,
+  DEFAULT_V3_YEARLY_MINT_RATE,
+  DEFAULT_V3_PRE_MINT,
+  DEFAULT_V3_MAX_SHARE_TO_BE_SOLD,
+  DEFAULT_V4_YEARLY_MINT_RATE,
+  DEFAULT_V3_INITIAL_VOTING_DELAY,
+  DEFAULT_V3_INITIAL_VOTING_PERIOD,
+  DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD,
+  DEFAULT_V4_INITIAL_VOTING_DELAY,
+  DEFAULT_V4_INITIAL_VOTING_PERIOD,
+  DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
 } from '../constants'
-import { airlockAbi, uniswapV3InitializerAbi, uniswapV4InitializerAbi, v2MigratorAbi, v3MigratorAbi, v4MigratorAbi } from '../abis'
+import { airlockAbi, uniswapV3InitializerAbi, uniswapV4InitializerAbi, v2MigratorAbi, v3MigratorAbi, v4MigratorAbi, DERC20Bytecode, DopplerBytecode } from '../abis'
 
 export class DopplerFactory {
   private publicClient: PublicClient
@@ -40,6 +63,194 @@ export class DopplerFactory {
     this.publicClient = publicClient
     this.walletClient = walletClient
     this.chainId = chainId
+  }
+
+  /**
+   * Build configuration for creating a new dynamic auction (V4-style)
+   * This method provides sensible defaults and automatic calculations similar to V4 SDK's buildConfig
+   * 
+   * @param config - Build configuration with minimal required parameters
+   * @param userAddress - User address for vesting and salt generation
+   * @returns Complete parameters ready for createDynamicAuction
+   */
+  public buildDynamicAuctionConfig(
+    config: DynamicAuctionBuildConfig,
+    userAddress: Address
+  ): CreateDynamicAuctionParams {
+    // Apply defaults
+    const duration = config.duration ?? DEFAULT_AUCTION_DURATION
+    const epochLength = config.epochLength ?? DEFAULT_EPOCH_LENGTH
+    const numeraire = config.numeraire ?? ZERO_ADDRESS
+    const numPdSlugs = config.numPdSlugs ?? DEFAULT_PD_SLUGS
+    const yearlyMintRate = config.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE
+    const useGovernance = config.useGovernance ?? true
+    const integrator = config.integrator ?? ZERO_ADDRESS
+
+    // Validate that either priceRange or tickRange is provided
+    if (!config.priceRange && !config.tickRange) {
+      throw new Error('Either priceRange or tickRange must be provided')
+    }
+
+    // Calculate ticks from price range if needed
+    let startTick: number
+    let endTick: number
+    
+    if (config.priceRange) {
+      const ticks = this.computeTicks(config.priceRange, config.tickSpacing)
+      startTick = ticks.startTick
+      endTick = ticks.endTick
+    } else if (config.tickRange) {
+      startTick = config.tickRange.startTick
+      endTick = config.tickRange.endTick
+    } else {
+      throw new Error('Failed to determine tick range')
+    }
+
+    // Calculate gamma if not provided
+    const gamma = config.gamma ?? this.computeOptimalGamma(
+      startTick,
+      endTick,
+      duration,
+      epochLength,
+      config.tickSpacing
+    )
+
+    // Prepare vesting configuration
+    const hasVesting = config.recipients.length > 0 && config.amounts.length > 0
+    const vestingConfig = hasVesting ? {
+      duration: Number(config.vestingDuration),
+      cliffDuration: 0 // V4 SDK doesn't use cliff duration
+    } : undefined
+
+    // Prepare governance configuration
+    const governanceConfig = useGovernance ? {
+      initialVotingDelay: DEFAULT_V4_INITIAL_VOTING_DELAY,
+      initialVotingPeriod: DEFAULT_V4_INITIAL_VOTING_PERIOD,
+      initialProposalThreshold: DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
+    } : undefined
+
+    // Build the complete configuration
+    return {
+      token: {
+        name: config.name,
+        symbol: config.symbol,
+        tokenURI: config.tokenURI,
+        yearlyMintRate: yearlyMintRate
+      },
+      sale: {
+        initialSupply: config.totalSupply,
+        numTokensToSell: config.numTokensToSell,
+        numeraire: numeraire
+      },
+      auction: {
+        duration: duration,
+        epochLength: epochLength,
+        startTick: startTick,
+        endTick: endTick,
+        gamma: gamma,
+        minProceeds: config.minProceeds,
+        maxProceeds: config.maxProceeds,
+        numPdSlugs: numPdSlugs
+      },
+      pool: {
+        fee: config.fee,
+        tickSpacing: config.tickSpacing
+      },
+      vesting: vestingConfig,
+      governance: governanceConfig,
+      migration: config.migration,
+      integrator: integrator,
+      userAddress: userAddress,
+      startTimeOffset: config.startTimeOffset,
+      blockTimestamp: config.blockTimestamp
+    }
+  }
+
+  /**
+   * Build configuration for creating a new static auction (V3-style)
+   * This method provides sensible defaults similar to V3 SDK
+   * 
+   * @param config - Build configuration with minimal required parameters
+   * @param userAddress - User address for vesting and salt generation
+   * @returns Complete parameters ready for createStaticAuction
+   */
+  public buildStaticAuctionConfig(
+    config: StaticAuctionBuildConfig,
+    userAddress: Address
+  ): CreateStaticAuctionParams {
+    // Apply defaults
+    const totalSupply = config.totalSupply ?? DEFAULT_V3_INITIAL_SUPPLY
+    const numTokensToSell = config.numTokensToSell ?? DEFAULT_V3_NUM_TOKENS_TO_SELL
+    const fee = config.fee ?? DEFAULT_V3_FEE
+    const numPositions = config.numPositions ?? DEFAULT_V3_NUM_POSITIONS
+    const maxShareToBeSold = config.maxShareToBeSold ?? DEFAULT_V3_MAX_SHARE_TO_BE_SOLD
+    const yearlyMintRate = config.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
+    const vestingDuration = config.vestingDuration ?? DEFAULT_V3_VESTING_DURATION
+    const useGovernance = config.useGovernance ?? true
+    const integrator = config.integrator ?? ZERO_ADDRESS
+
+    // Handle vesting recipients and amounts
+    const recipients = config.recipients ?? [userAddress]
+    const amounts = config.amounts ?? [DEFAULT_V3_PRE_MINT]
+
+    // Validate that either priceRange or tickRange is provided
+    if (!config.priceRange && !config.tickRange) {
+      // Use default tick range if neither is provided
+      var startTick = DEFAULT_V3_START_TICK
+      var endTick = DEFAULT_V3_END_TICK
+    } else if (config.priceRange) {
+      // Calculate tick spacing based on fee
+      const tickSpacing = fee === 100 ? 1 : fee === 500 ? 10 : fee === 3000 ? 60 : 200
+      const ticks = this.computeTicks(config.priceRange, tickSpacing)
+      var startTick = ticks.startTick
+      var endTick = ticks.endTick
+    } else if (config.tickRange) {
+      var startTick = config.tickRange.startTick
+      var endTick = config.tickRange.endTick
+    } else {
+      throw new Error('Failed to determine tick range')
+    }
+
+    // Prepare vesting configuration
+    const hasVesting = recipients.length > 0 && amounts.length > 0
+    const vestingConfig = hasVesting ? {
+      duration: Number(vestingDuration),
+      cliffDuration: 0 // V3 SDK doesn't use cliff duration
+    } : undefined
+
+    // Prepare governance configuration
+    const governanceConfig = useGovernance ? {
+      initialVotingDelay: DEFAULT_V3_INITIAL_VOTING_DELAY,
+      initialVotingPeriod: DEFAULT_V3_INITIAL_VOTING_PERIOD,
+      initialProposalThreshold: DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
+    } : undefined
+
+    // Build the complete configuration
+    return {
+      token: {
+        name: config.name,
+        symbol: config.symbol,
+        tokenURI: config.tokenURI,
+        yearlyMintRate: yearlyMintRate
+      },
+      sale: {
+        initialSupply: totalSupply,
+        numTokensToSell: numTokensToSell,
+        numeraire: config.numeraire
+      },
+      pool: {
+        startTick: startTick,
+        endTick: endTick,
+        fee: fee,
+        numPositions: numPositions,
+        maxShareToBeSold: maxShareToBeSold
+      },
+      vesting: vestingConfig,
+      governance: governanceConfig,
+      migration: config.migration,
+      integrator: integrator,
+      userAddress: userAddress
+    }
   }
 
   /**
@@ -83,32 +294,64 @@ export class DopplerFactory {
     
     // 3. Encode token parameters
     const vestingDuration = params.vesting?.duration ?? BigInt(0)
-    const yearlyMintRate = parseEther('0.02') // 2% yearly mint rate
+    const yearlyMintRate = params.token.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
     
-    const tokenParams = {
-      name: params.token.name,
-      symbol: params.token.symbol,
-      tokenURI: params.token.tokenURI,
-      vestingDuration: BigInt(vestingDuration),
-      yearlyMintRate: yearlyMintRate,
-      totalSupply: params.sale.initialSupply,
-      initialRecipients: params.vesting ? [params.userAddress] : [],
-      initialAmounts: params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : []
-    }
+    const tokenFactoryData = encodeAbiParameters(
+      [
+        { type: 'string' },
+        { type: 'string' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'address[]' },
+        { type: 'uint256[]' },
+        { type: 'string' },
+      ],
+      [
+        params.token.name,
+        params.token.symbol,
+        yearlyMintRate,
+        BigInt(vestingDuration),
+        params.vesting ? [params.userAddress] : [],
+        params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
+        params.token.tokenURI
+      ]
+    )
     
-    // 4. Create the creation params for Airlock
-    const creationParams = {
-      poolInitializer: addresses.v3Initializer,
-      liquidityMigrator: this.getMigratorAddress(params.migration),
-      governor: addresses.governanceFactory, // Using default governance factory
-      numeraire: params.sale.numeraire,
-      integrator: params.integrator ?? DEAD_ADDRESS,
-      poolInitializerData: poolInitializerData,
-      liquidityMigratorData: liquidityMigratorData
-    }
+    // 4. Encode governance factory data
+    const governanceFactoryData = encodeAbiParameters(
+      [
+        { type: 'string' },
+        { type: 'uint48' },
+        { type: 'uint32' },
+        { type: 'uint256' },
+      ],
+      [
+        params.token.name,
+        params.governance?.initialVotingDelay ?? DEFAULT_V3_INITIAL_VOTING_DELAY,
+        params.governance?.initialVotingPeriod ?? DEFAULT_V3_INITIAL_VOTING_PERIOD,
+        params.governance?.initialProposalThreshold ?? DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
+      ]
+    )
     
     // 5. Generate a unique salt
     const salt = this.generateRandomSalt(params.userAddress)
+    
+    // Build the complete CreateParams for the V4-style ABI
+    const createParams = {
+      initialSupply: params.sale.initialSupply,
+      numTokensToSell: params.sale.numTokensToSell,
+      numeraire: params.sale.numeraire,
+      tokenFactory: addresses.tokenFactory,
+      tokenFactoryData: tokenFactoryData,
+      governanceFactory: addresses.governanceFactory,
+      governanceFactoryData: governanceFactoryData,
+      poolInitializer: addresses.v3Initializer,
+      poolInitializerData: poolInitializerData,
+      liquidityMigrator: this.getMigratorAddress(params.migration),
+      liquidityMigratorData: liquidityMigratorData,
+      integrator: params.integrator ?? ZERO_ADDRESS,
+      salt: salt,
+    }
     
     // Call the airlock contract to create the pool
     if (!this.walletClient) {
@@ -119,7 +362,7 @@ export class DopplerFactory {
       address: addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
-      args: [tokenParams, creationParams],
+      args: [{...createParams}],
       account: this.walletClient.account,
     })
     
@@ -159,10 +402,12 @@ export class DopplerFactory {
         topics: createEvent.topics as [`0x${string}`, ...`0x${string}`[]],
       })
       
-      return {
-        poolAddress: decoded.args.poolOrHook as Address,
-        tokenAddress: decoded.args.asset as Address,
-        transactionHash: hash
+      if (decoded.eventName === 'Create') {
+        return {
+          poolAddress: (decoded.args as any).poolOrHook as Address,
+          tokenAddress: (decoded.args as any).asset as Address,
+          transactionHash: hash
+        }
       }
     }
     
@@ -240,9 +485,19 @@ export class DopplerFactory {
     )
     
     // 2. Prepare time parameters
-    const currentTime = Math.floor(Date.now() / 1000)
-    const startTime = currentTime + 30 // Start 30 seconds from now
-    const endTime = startTime + params.auction.duration * DAY_SECONDS
+    // Use provided block timestamp or fetch the latest
+    let blockTimestamp: number
+    if (params.blockTimestamp !== undefined) {
+      blockTimestamp = params.blockTimestamp
+    } else {
+      const latestBlock = await this.publicClient.getBlock({ blockTag: 'latest' })
+      blockTimestamp = Number(latestBlock.timestamp)
+    }
+    
+    // Use startTimeOffset if provided, otherwise default to 30 seconds
+    const startTimeOffset = params.startTimeOffset ?? 30
+    const startTime = blockTimestamp + startTimeOffset
+    const endTime = blockTimestamp + params.auction.duration * DAY_SECONDS + startTimeOffset
     
     // 3. Prepare hook initialization data
     const dopplerData = {
@@ -262,7 +517,7 @@ export class DopplerFactory {
     
     // 4. Prepare token parameters
     const vestingDuration = params.vesting?.duration ?? BigInt(0)
-    const yearlyMintRate = parseEther('0.02') // 2% yearly mint rate
+    const yearlyMintRate = params.token.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE
     
     const tokenFactoryData = {
       name: params.token.name,
@@ -303,36 +558,30 @@ export class DopplerFactory {
       ],
       [
         params.token.name,
-        7200,  // Initial voting delay
-        50400, // Initial voting period  
-        BigInt(0) // Initial proposal threshold
+        params.governance?.initialVotingDelay ?? DEFAULT_V4_INITIAL_VOTING_DELAY,
+        params.governance?.initialVotingPeriod ?? DEFAULT_V4_INITIAL_VOTING_PERIOD,
+        params.governance?.initialProposalThreshold ?? DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
       ]
     )
     
-    // 8. Create the token parameters for Airlock
-    const tokenParams = {
-      name: params.token.name,
-      symbol: params.token.symbol,
-      tokenURI: params.token.tokenURI,
-      vestingDuration: BigInt(vestingDuration),
-      yearlyMintRate: yearlyMintRate,
-      totalSupply: params.sale.initialSupply,
-      initialRecipients: params.vesting ? [params.userAddress] : [],
-      initialAmounts: params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : []
-    }
-    
-    // 9. Create the creation params for Airlock
-    const creationParams = {
-      poolInitializer: addresses.v4Initializer,
-      liquidityMigrator: this.getMigratorAddress(params.migration),
-      governor: addresses.governanceFactory,
+    // 8. Build the complete CreateParams for the V4-style ABI
+    const createParams = {
+      initialSupply: params.sale.initialSupply,
+      numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
-      integrator: params.integrator ?? DEAD_ADDRESS,
+      tokenFactory: addresses.tokenFactory,
+      tokenFactoryData: encodedTokenFactoryData,
+      governanceFactory: addresses.governanceFactory,
+      governanceFactoryData: governanceFactoryData,
+      poolInitializer: addresses.v4Initializer,
       poolInitializerData: poolInitializerData,
-      liquidityMigratorData: liquidityMigratorData
+      liquidityMigrator: this.getMigratorAddress(params.migration),
+      liquidityMigratorData: liquidityMigratorData,
+      integrator: params.integrator ?? ZERO_ADDRESS,
+      salt: salt,
     }
     
-    // 10. Call the airlock contract to create the pool
+    // Call the airlock contract to create the pool
     if (!this.walletClient) {
       throw new Error('Wallet client required for write operations')
     }
@@ -341,7 +590,7 @@ export class DopplerFactory {
       address: addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
-      args: [tokenParams, creationParams],
+      args: [{...createParams}],
       account: this.walletClient.account,
     })
     
@@ -355,8 +604,9 @@ export class DopplerFactory {
     let actualTokenAddress: Address = tokenAddress
     
     if (result && Array.isArray(result) && result.length >= 2) {
-      actualHookAddress = result[0] as Address // For V4, pool is the hook address
-      actualTokenAddress = result[1] as Address
+      // The create function returns [asset, pool, governance, timelock, migrationPool]
+      actualTokenAddress = result[0] as Address
+      actualHookAddress = result[1] as Address // For V4, pool is the hook address
     } else {
       // Fallback: Parse the Create event from logs
       const createEvent = receipt.logs.find(log => {
@@ -379,8 +629,10 @@ export class DopplerFactory {
           topics: createEvent.topics as [`0x${string}`, ...`0x${string}`[]],
         })
         
-        actualHookAddress = decoded.args.poolOrHook as Address
-        actualTokenAddress = decoded.args.asset as Address
+        if (decoded.eventName === 'Create') {
+          actualHookAddress = (decoded.args as any).poolOrHook as Address
+          actualTokenAddress = (decoded.args as any).asset as Address
+        }
       }
     }
     
@@ -423,20 +675,27 @@ export class DopplerFactory {
         
       case 'uniswapV4':
         // Encode V4 migration data with streamable fees config
-        const beneficiaries = config.streamableFees.beneficiaries
+        // The V4 migrator expects beneficiaries with shares in WAD (1e18) format
+        const WAD = BigInt(1e18)
+        const beneficiaryData: { beneficiary: Address; shares: bigint }[] = []
         
-        // Sort beneficiaries by address in ascending order
-        const sortedBeneficiaries = [...beneficiaries].sort((a, b) => {
-          const aNum = BigInt(a.address)
-          const bNum = BigInt(b.address)
-          return aNum < bNum ? -1 : aNum > bNum ? 1 : 0
+        // Convert percentage-based beneficiaries to shares-based
+        for (const b of config.streamableFees.beneficiaries) {
+          beneficiaryData.push({
+            beneficiary: b.address,
+            shares: (BigInt(b.percentage) * WAD) / BigInt(BASIS_POINTS)
+          })
+        }
+        
+        // Sort beneficiaries by address in ascending order (required by contract)
+        beneficiaryData.sort((a, b) => {
+          const addrA = a.beneficiary.toLowerCase()
+          const addrB = b.beneficiary.toLowerCase()
+          return addrA < addrB ? -1 : addrA > addrB ? 1 : 0
         })
         
-        // Validate that percentages sum to 10000 (100%)
-        const totalPercentage = sortedBeneficiaries.reduce((sum, b) => sum + b.percentage, 0)
-        if (totalPercentage !== BASIS_POINTS) {
-          throw new Error(`Beneficiary percentages must sum to ${BASIS_POINTS} (100%), but got ${totalPercentage}`)
-        }
+        // Note: The contract will validate that the airlock owner gets at least 5%
+        // If not present, the SDK user should add it manually
         
         return encodeAbiParameters(
           [
@@ -455,9 +714,9 @@ export class DopplerFactory {
             config.fee,
             config.tickSpacing,
             config.streamableFees.lockDuration,
-            sortedBeneficiaries.map(b => ({
-              beneficiary: b.address,
-              shares: BigInt(b.percentage) * WAD / BigInt(BASIS_POINTS) // Convert percentage to shares in WAD
+            beneficiaryData.map(b => ({
+              beneficiary: b.beneficiary,
+              shares: b.shares
             }))
           ]
         )
@@ -620,6 +879,23 @@ export class DopplerFactory {
   }
 
   /**
+   * Computes tick values from price range
+   * @param priceRange - The price range in human-readable format
+   * @param tickSpacing - The tick spacing for the pool
+   * @returns The tick range
+   */
+  private computeTicks(priceRange: PriceRange, tickSpacing: number): TickRange {
+    // Convert prices to ticks using the formula: tick = log(price) / log(1.0001) * tickSpacing
+    const startTick = Math.floor(Math.log(priceRange.startPrice) / Math.log(1.0001) / tickSpacing) * tickSpacing
+    const endTick = Math.ceil(Math.log(priceRange.endPrice) / Math.log(1.0001) / tickSpacing) * tickSpacing
+
+    return {
+      startTick,
+      endTick
+    }
+  }
+
+  /**
    * Compute optimal gamma parameter based on price range and time parameters
    * Gamma determines how much the price can move per epoch during the sale.
    */
@@ -636,7 +912,7 @@ export class DopplerFactory {
     // Calculate required tick movement per epoch to cover the range
     const tickDelta = Math.abs(endTick - startTick)
     // Round up to nearest multiple of tick spacing
-    let gamma = Math.ceil(tickDelta / totalEpochs / tickSpacing) * tickSpacing
+    let gamma = Math.ceil(tickDelta / totalEpochs) * tickSpacing
     // Ensure gamma is at least 1 tick spacing
     gamma = Math.max(tickSpacing, gamma)
 
@@ -648,7 +924,17 @@ export class DopplerFactory {
   }
 
   /**
-   * Mine a salt and hook address with the appropriate flags for V4
+   * Mines a salt and hook address with the appropriate flags
+   * 
+   * This method iterates through possible salt values to find a combination that:
+   * - Produces a hook address with required Doppler flags
+   * - Maintains proper token ordering relative to numeraire
+   * - Ensures deterministic deployment addresses
+   * 
+   * @param params - Parameters for hook address mining
+   * @returns Tuple of [salt, hook address, token address, pool data, token data]
+   * @throws {Error} If no valid salt can be found within the search limit
+   * @private
    */
   private mineHookAddress(params: {
     airlock: Address
@@ -661,6 +947,7 @@ export class DopplerFactory {
     tokenFactoryData: any
     poolInitializer: Address
     poolInitializerData: any
+    customDerc20Bytecode?: `0x${string}`
   }): [Hash, Address, Address, Hex, Hex] {
     const isToken0 = params.numeraire !== '0x0000000000000000000000000000000000000000'
 
@@ -678,7 +965,6 @@ export class DopplerFactory {
       tickSpacing,
     } = params.poolInitializerData
 
-    // Encode pool initializer data
     const poolInitializerData = encodeAbiParameters(
       [
         { type: 'uint256' },
@@ -710,7 +996,50 @@ export class DopplerFactory {
       ]
     )
 
-    // Encode token factory data  
+    const { poolManager, numTokensToSell, poolInitializer } = params
+
+    const hookInitHashData = encodeAbiParameters(
+      [
+        { type: 'address' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'int24' },
+        { type: 'int24' },
+        { type: 'uint256' },
+        { type: 'int24' },
+        { type: 'bool' },
+        { type: 'uint256' },
+        { type: 'address' },
+        { type: 'uint24' },
+      ],
+      [
+        poolManager,
+        numTokensToSell,
+        minimumProceeds,
+        maximumProceeds,
+        startingTime,
+        endingTime,
+        startingTick,
+        endingTick,
+        epochLength,
+        gamma,
+        isToken0,
+        numPDSlugs,
+        poolInitializer,
+        fee,
+      ]
+    )
+
+    const hookInitHash = keccak256(
+      encodePacked(
+        ['bytes', 'bytes'],
+        [DopplerBytecode as Hex, hookInitHashData]
+      )
+    )
+
     const {
       name,
       symbol,
@@ -721,6 +1050,7 @@ export class DopplerFactory {
       tokenURI,
     } = params.tokenFactoryData
 
+    // Encode token factory data using helper method
     const tokenFactoryData = encodeAbiParameters(
       [
         { type: 'string' },
@@ -742,9 +1072,41 @@ export class DopplerFactory {
       ]
     )
 
-    // Define required hook permission flags
-    const FLAG_MASK = BigInt(0x3fff) // 14 bits for flags
-    const REQUIRED_FLAGS = BigInt(
+    const { airlock, initialSupply } = params
+
+    const initHashData = encodeAbiParameters(
+      [
+        { type: 'string' },
+        { type: 'string' },
+        { type: 'uint256' },
+        { type: 'address' },
+        { type: 'address' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'address[]' },
+        { type: 'uint256[]' },
+        { type: 'string' },
+      ],
+      [
+        name,
+        symbol,
+        initialSupply,
+        airlock,
+        airlock,
+        yearlyMintRate,
+        vestingDuration,
+        recipients,
+        amounts,
+        tokenURI,
+      ]
+    )
+
+    const tokenInitHash = keccak256(
+      encodePacked(['bytes', 'bytes'], [params.customDerc20Bytecode as Hex ?? DERC20Bytecode as Hex, initHashData])
+    )
+
+    // Use the exact flags from V4 SDK
+    const flags = BigInt(
       (1 << 13) | // BEFORE_INITIALIZE_FLAG
       (1 << 12) | // AFTER_INITIALIZE_FLAG
       (1 << 11) | // BEFORE_ADD_LIQUIDITY_FLAG
@@ -752,107 +1114,54 @@ export class DopplerFactory {
       (1 << 6) |  // AFTER_SWAP_FLAG
       (1 << 5)    // BEFORE_DONATE_FLAG
     )
-    
-    // In a real implementation, we would:
-    // 1. Get the bytecode for Doppler hook and DERC20 contracts
-    // 2. Calculate init code hash = keccak256(bytecode + constructor params)
-    // 3. Mine for a salt that produces the desired address properties
-    
-    const MAX_ITERATIONS = 1000000
-    let salt = BigInt(0)
-    let hookAddress: Address = '0x0000000000000000000000000000000000000000'
-    let tokenAddress: Address = '0x0000000000000000000000000000000000000000'
-    
-    // Mine for valid addresses
-    for (let i = 0; i < MAX_ITERATIONS; i++) {
-      salt = BigInt(i)
-      
-      // Compute CREATE2 addresses (simplified - needs actual bytecode)
-      // In production: hookAddress = computeCreate2Address(deployer, salt, hookInitHash)
-      hookAddress = this.computeCreate2Address(
-        params.deployer,
-        salt.toString(),
-        '0x' + '0'.repeat(64) // Placeholder init hash
+
+    for (let salt = BigInt(0); salt < BigInt(1_000_000); salt++) {
+      const saltBytes = `0x${salt.toString(16).padStart(64, '0')}` as Hash
+      const hook = this.computeCreate2Address(
+        saltBytes,
+        hookInitHash,
+        params.deployer
       )
-      
-      tokenAddress = this.computeCreate2Address(
-        params.tokenFactory,
-        salt.toString(),
-        '0x' + '0'.repeat(64) // Placeholder init hash
+      const token = this.computeCreate2Address(
+        saltBytes,
+        tokenInitHash,
+        params.tokenFactory
       )
-      
-      // Check if hook address has required flags
-      const hookBigInt = BigInt(hookAddress)
-      if ((hookBigInt & FLAG_MASK) === REQUIRED_FLAGS) {
-        // Check token ordering
-        const token0 = tokenAddress < params.numeraire ? tokenAddress : params.numeraire
-        const isToken0 = token0 === tokenAddress
-        
-        // Update the poolInitializerData with correct isToken0
-        const updatedPoolInitializerData = encodeAbiParameters(
-          [
-            { type: 'uint256' },
-            { type: 'uint256' },
-            { type: 'uint256' },
-            { type: 'uint256' },
-            { type: 'int24' },
-            { type: 'int24' },
-            { type: 'uint256' },
-            { type: 'int24' },
-            { type: 'bool' },
-            { type: 'uint256' },
-            { type: 'uint24' },
-            { type: 'int24' },
-          ],
-          [
-            minimumProceeds,
-            maximumProceeds,
-            startingTime,
-            endingTime,
-            startingTick,
-            endingTick,
-            epochLength,
-            gamma,
-            isToken0,
-            numPDSlugs,
-            fee,
-            tickSpacing,
-          ]
-        )
-        
-        return [
-          `0x${salt.toString(16).padStart(64, '0')}` as Hash,
-          hookAddress,
-          tokenAddress,
-          updatedPoolInitializerData,
-          tokenFactoryData
-        ]
+
+      const hookBigInt = BigInt(hook)
+      const tokenBigInt = BigInt(token)
+      const numeraireBigInt = BigInt(params.numeraire)
+
+      if (
+        (hookBigInt & FLAG_MASK) === flags &&
+        ((isToken0 && tokenBigInt < numeraireBigInt) ||
+          (!isToken0 && tokenBigInt > numeraireBigInt))
+      ) {
+        return [saltBytes, hook, token, poolInitializerData, tokenFactoryData]
       }
     }
-    
-    // Fallback: use a deterministic approach
-    const fallbackSalt = this.generateRandomSalt(params.numeraire)
-    const fallbackHook = '0x' + '1'.repeat(40) as Address
-    const fallbackToken = '0x' + '2'.repeat(40) as Address
-    
-    return [fallbackSalt, fallbackHook, fallbackToken, poolInitializerData, tokenFactoryData]
+
+    throw new Error('AirlockMiner: could not find salt')
   }
 
   /**
-   * Compute CREATE2 address
+   * Computes the CREATE2 address for a contract deployment
+   * @param salt - The salt used for deployment
+   * @param initCodeHash - Hash of the initialization code
+   * @param deployer - Address of the deploying contract
+   * @returns The computed contract address
+   * @private
    */
   private computeCreate2Address(
-    deployer: Address,
-    salt: string,
-    initCodeHash: string
+    salt: Hash,
+    initCodeHash: Hash,
+    deployer: Address
   ): Address {
-    // CREATE2 formula: keccak256(0xff ++ deployer ++ salt ++ init_code_hash)[12:]
     const encoded = encodePacked(
       ['bytes1', 'address', 'bytes32', 'bytes32'],
-      ['0xff', deployer, `0x${salt.padStart(64, '0')}` as `0x${string}`, initCodeHash as `0x${string}`]
+      ['0xff', deployer, salt, initCodeHash]
     )
-    const hash = keccak256(encoded)
-    return getAddress(`0x${hash.slice(-40)}`)
+    return getAddress(`0x${keccak256(encoded).slice(-40)}`)
   }
 
   /**
