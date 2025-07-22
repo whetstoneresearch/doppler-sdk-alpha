@@ -70,8 +70,9 @@ export class StaticAuction {
       args: [token0],
     })
     
-    // If token0 has asset data in Airlock, it's the auction token
-    const isToken0AuctionToken = assetData.poolOrHook !== getAddress('0x0000000000000000000000000000000000000000')
+    // The getAssetData returns: [numeraire, timelock, governance, liquidityMigrator, poolInitializer, pool, migrationPool, numTokensToSell, totalSupply, integrator]
+    // If token0 has asset data in Airlock (pool is not zero), it's the auction token
+    const isToken0AuctionToken = assetData[5] !== getAddress('0x0000000000000000000000000000000000000000')
     
     return {
       address: this.poolAddress,
@@ -106,8 +107,9 @@ export class StaticAuction {
       args: [tokenAddress],
     })
     
+    // The getAssetData returns: [numeraire, timelock, governance, liquidityMigrator, poolInitializer, pool, migrationPool, numTokensToSell, totalSupply, integrator]
     // Check if the asset is graduated (liquidityMigrator is set to address(0))
-    return assetData.liquidityMigrator === getAddress('0x0000000000000000000000000000000000000000')
+    return assetData[3] === getAddress('0x0000000000000000000000000000000000000000')
   }
   
   /**

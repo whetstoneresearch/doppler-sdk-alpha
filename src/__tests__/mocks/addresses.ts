@@ -28,3 +28,17 @@ export const mockAddresses: ChainAddresses = {
 export const mockTokenAddress = '0xaaaa000000000000000000000000000000000001' as Address
 export const mockPoolAddress = '0xbbbb000000000000000000000000000000000002' as Address
 export const mockHookAddress = '0xcccc000000000000000000000000000000000003' as Address
+export const mockGovernanceAddress = '0xdddd000000000000000000000000000000000004' as Address
+export const mockTimelockAddress = '0xeeee000000000000000000000000000000000005' as Address
+export const mockV2PoolAddress = '0xffff000000000000000000000000000000000006' as Address
+
+// Add a type extension for test use
+export const mockAddressesWithExtras = {
+  ...mockAddresses,
+  token: mockTokenAddress,
+  hook: mockHookAddress,
+  governance: mockGovernanceAddress,
+  timelock: mockTimelockAddress,
+  v2Pool: mockV2PoolAddress,
+  user: '0x1234567890123456789012345678901234567890' as Address,
+}

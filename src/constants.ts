@@ -1,4 +1,4 @@
-import { Address } from 'viem'
+import { Address, parseEther } from 'viem'
 
 // Common constants
 export const WAD = 10n ** 18n
@@ -26,11 +26,32 @@ export const SECONDS_PER_DAY = 86400
 export const SECONDS_PER_YEAR = 365 * SECONDS_PER_DAY
 
 // Default values
-export const DEFAULT_EPOCH_LENGTH = 3600 // 1 hour in seconds
+export const DEFAULT_EPOCH_LENGTH = 43200 // 12 hours in seconds (matching V4 SDK)
 export const DEFAULT_AUCTION_DURATION = 7 // 7 days
 export const DEFAULT_LOCK_DURATION = SECONDS_PER_YEAR // 1 year
 export const DEFAULT_PD_SLUGS = 5 // Default price discovery slugs
 export const DAY_SECONDS = SECONDS_PER_DAY // Alias for consistency
+
+// V3 Default parameters
+export const DEFAULT_V3_START_TICK = 175000
+export const DEFAULT_V3_END_TICK = 225000
+export const DEFAULT_V3_NUM_POSITIONS = 15
+export const DEFAULT_V3_FEE = 10000 // 1% fee tier
+export const DEFAULT_V3_INITIAL_VOTING_DELAY = 172800 // 2 days
+export const DEFAULT_V3_INITIAL_VOTING_PERIOD = 1209600 // 14 days
+export const DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD = 0n
+export const DEFAULT_V3_VESTING_DURATION = BigInt(SECONDS_PER_YEAR)
+export const DEFAULT_V3_INITIAL_SUPPLY = parseEther('1000000000') // 1 billion tokens
+export const DEFAULT_V3_NUM_TOKENS_TO_SELL = parseEther('900000000') // 900 million tokens
+export const DEFAULT_V3_YEARLY_MINT_RATE = parseEther('0.02') // 2% yearly mint rate
+export const DEFAULT_V3_PRE_MINT = parseEther('9000000') // 9 million tokens (0.9%)
+export const DEFAULT_V3_MAX_SHARE_TO_BE_SOLD = parseEther('0.35') // 35%
+
+// V4 Default parameters
+export const DEFAULT_V4_INITIAL_VOTING_DELAY = 7200 // 2 hours
+export const DEFAULT_V4_INITIAL_VOTING_PERIOD = 50400 // 14 hours
+export const DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD = 0n
+export const DEFAULT_V4_YEARLY_MINT_RATE = parseEther('0.02') // 2% yearly mint rate
 
 // Price bounds
 export const MIN_SQRT_RATIO = 4295128739n

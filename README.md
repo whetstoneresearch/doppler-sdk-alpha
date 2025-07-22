@@ -54,7 +54,89 @@ const sdk = new DopplerSDK({
 
 ## Creating Auctions
 
-### Static Auction (Fixed Price Range)
+### Using Build Configurations (Recommended)
+
+The SDK provides convenient `buildConfig` methods that apply sensible defaults and automatically calculate parameters, similar to the V4 SDK's buildConfig functionality.
+
+#### Build Dynamic Auction Configuration
+
+```typescript
+// Minimal configuration with defaults applied
+const config = sdk.factory.buildDynamicAuctionConfig({
+  // Required token details
+  name: 'My Token',
+  symbol: 'MTK',
+  totalSupply: parseEther('1000000'),
+  numTokensToSell: parseEther('900000'),
+  tokenURI: 'https://example.com/metadata.json',
+  
+  // Price range (automatically converts to ticks)
+  priceRange: { startPrice: 0.0001, endPrice: 0.01 },
+  tickSpacing: 60,
+  fee: 3000,
+  
+  // Sale parameters
+  minProceeds: parseEther('100'),
+  maxProceeds: parseEther('1000'),
+  
+  // Vesting
+  vestingDuration: BigInt(365 * 24 * 60 * 60),
+  recipients: [],
+  amounts: [],
+  
+  // Migration
+  migration: { type: 'uniswapV2' },
+  
+  // Optional parameters (defaults shown)
+  // duration: 7,              // 7 days
+  // epochLength: 3600,        // 1 hour
+  // numPdSlugs: 5,           // Price discovery slugs
+  // gamma: auto-calculated,   // Price movement per epoch
+  // useGovernance: true,      // Use governance factory
+}, userAddress);
+
+// Create the auction with built config
+const result = await sdk.factory.createDynamicAuction(config);
+```
+
+#### Build Static Auction Configuration
+
+```typescript
+// Minimal configuration with V3 defaults
+const config = sdk.factory.buildStaticAuctionConfig({
+  // Required token details
+  name: 'My Token',
+  symbol: 'MTK',
+  tokenURI: 'https://example.com/metadata.json',
+  
+  // Required numeraire
+  numeraire: '0x...', // WETH address
+  
+  // Price range (optional - has defaults)
+  priceRange: { startPrice: 0.0001, endPrice: 0.001 },
+  
+  // Migration
+  migration: { type: 'uniswapV2' },
+  
+  // Optional parameters with defaults:
+  // totalSupply: parseEther('1000000000'),     // 1 billion
+  // numTokensToSell: parseEther('900000000'),  // 900 million
+  // fee: 10000,                                // 1%
+  // numPositions: 15,                          // 15 positions
+  // maxShareToBeSold: parseEther('0.35'),      // 35%
+  // yearlyMintRate: parseEther('0.02'),        // 2%
+  // vestingDuration: 365 * 24 * 60 * 60,       // 1 year
+}, userAddress);
+
+// Create the auction with built config
+const result = await sdk.factory.createStaticAuction(config);
+```
+
+### Direct Creation (Advanced)
+
+For full control over all parameters, you can also create auctions directly:
+
+#### Static Auction (Fixed Price Range)
 
 Static auctions use Uniswap V3 pools with concentrated liquidity in a fixed price range. They're ideal for simple, predictable price discovery.
 
@@ -85,7 +167,7 @@ console.log('Pool address:', result.poolAddress);
 console.log('Token address:', result.tokenAddress);
 ```
 
-### Dynamic Auction (Dutch Auction)
+#### Dynamic Auction (Dutch Auction)
 
 Dynamic auctions use Uniswap V4 hooks to implement gradual Dutch auctions where the price moves over time.
 
@@ -104,10 +186,8 @@ const result = await sdk.factory.createDynamicAuction({
   auction: {
     duration: 7, // 7 days
     epochLength: 3600, // 1 hour epochs
-    priceRange: { 
-      startPrice: 0.0001, // Starting price in ETH
-      endPrice: 0.01,    // Target end price
-    },
+    startTick: -92103,
+    endTick: -69080,
     minProceeds: parseEther('50'), // Min 50 ETH
     maxProceeds: parseEther('500'), // Max 500 ETH
   },

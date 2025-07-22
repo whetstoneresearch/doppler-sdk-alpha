@@ -31,4 +31,4 @@ export {
 } from './priceHelpers'
 
 // Re-export the existing address miner
-export { getHookAddress } from './getHookAddress'
+// export { getHookAddress } from './getHookAddress' // File doesn't exist yet
