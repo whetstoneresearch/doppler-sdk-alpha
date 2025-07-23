@@ -269,23 +269,26 @@ export class DopplerFactory {
     const addresses = getAddresses(this.chainId)
     
     // 1. Encode pool initializer data
+    // V3 initializer expects InitData struct with specific field order
     const poolInitializerData = encodeAbiParameters(
       [
         { 
           type: 'tuple',
           components: [
-            { type: 'uint256', name: 'numTokensToSell' },
-            { type: 'int24', name: 'startTick' },
-            { type: 'int24', name: 'endTick' },
-            { type: 'uint24', name: 'fee' }
+            { type: 'uint24', name: 'fee' },
+            { type: 'int24', name: 'tickLower' },
+            { type: 'int24', name: 'tickUpper' },
+            { type: 'uint16', name: 'numPositions' },
+            { type: 'uint256', name: 'maxShareToBeSold' }
           ]
         }
       ],
       [{
-        numTokensToSell: params.sale.numTokensToSell,
-        startTick: params.pool.startTick,
-        endTick: params.pool.endTick,
-        fee: params.pool.fee
+        fee: params.pool.fee,
+        tickLower: params.pool.startTick,
+        tickUpper: params.pool.endTick,
+        numPositions: params.pool.numPositions ?? DEFAULT_V3_NUM_POSITIONS,
+        maxShareToBeSold: params.pool.maxShareToBeSold ?? DEFAULT_V3_MAX_SHARE_TO_BE_SOLD
       }]
     )
     
@@ -371,12 +374,12 @@ export class DopplerFactory {
     // Wait for transaction and get the receipt
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
     
-    // The create function returns [pool, token] directly
+    // The create function returns [asset, pool, governance, timelock, migrationPool]
     // We can get these from the simulation result or parse from logs
     if (result && Array.isArray(result) && result.length >= 2) {
       return {
-        poolAddress: result[0] as Address,
-        tokenAddress: result[1] as Address,
+        poolAddress: result[1] as Address, // pool is the second element
+        tokenAddress: result[0] as Address, // asset (token) is the first element
         transactionHash: hash
       }
     }

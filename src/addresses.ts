@@ -118,7 +118,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     dopplerDeployer: '0x60a039e4add40ca95e0475c11e8a4182d06c9aa0' as Address,
     poolManager: '0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408' as Address,
     stateView: '0x571291b572ed32ce6751a2cb2486ebee8defb9b4' as Address,
-    v2Migrator: '0xb2ec6559704467306d04322a5dc082b2af4562dd' as Address,
+    v2Migrator: '0x04a898f3722c38f9def707bd17dc78920efa977c' as Address,
     v3Migrator: '0xb2ec6559704467306d04322a5dc082b2af4562dd' as Address,
     v4Migrator: '0xb2ec6559704467306d04322a5dc082b2af4562dd' as Address,
     v4MigratorHook: '0x508812fcdd4972a59b66eb2cad3772279c052000' as Address,
