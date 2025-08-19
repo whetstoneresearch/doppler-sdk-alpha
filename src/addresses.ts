@@ -97,7 +97,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v2Migrator: '0x5F3bA43D44375286296Cb85F1EA2EBfa25dde731' as Address,
     v3Migrator: '0x5F3bA43D44375286296Cb85F1EA2EBfa25dde731' as Address,
     v4Migrator: '0xa24e35a5d71d02a59b41e7c93567626302da1958' as Address,
-    governanceFactory: '0xa82c66b6ddeb92089015c3565e05b5c9750b2d4b' as Address,
+    governanceFactory: '0xb4deE32EB70A5E55f3D2d861F49Fb3D79f7a14d9' as Address,
     noOpGovernanceFactory: '0xe7dfbd5b0a2c3b4464653a9becdc489229ef090e' as Address,
     streamableFeesLocker: '0x0a00775d71a42cd33d62780003035e7f5b47bd3a' as Address,
     universalRouter: '0x6ff5693b99212da76ad316178a184ab56d299b43' as Address,
