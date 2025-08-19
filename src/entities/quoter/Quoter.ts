@@ -37,7 +37,7 @@ export class Quoter {
   }> {
     const addresses = getAddresses(this.chainId)
     
-    const result = await this.publicClient.simulateContract({
+    const { result } = await this.publicClient.simulateContract({
       address: addresses.v3Quoter,
       abi: quoterV2Abi,
       functionName: 'quoteExactInputSingle',
@@ -51,10 +51,10 @@ export class Quoter {
     })
     
     return {
-      amountOut: result.result[0],
-      sqrtPriceX96After: result.result[1],
-      initializedTicksCrossed: result.result[2],
-      gasEstimate: result.result[3],
+      amountOut: result[0],
+      sqrtPriceX96After: result[1],
+      initializedTicksCrossed: result[2],
+      gasEstimate: result[3],
     }
   }
   
@@ -77,7 +77,7 @@ export class Quoter {
   }> {
     const addresses = getAddresses(this.chainId)
     
-    const result = await this.publicClient.simulateContract({
+    const { result } = await this.publicClient.simulateContract({
       address: addresses.v3Quoter,
       abi: quoterV2Abi,
       functionName: 'quoteExactOutputSingle',
@@ -91,10 +91,10 @@ export class Quoter {
     })
     
     return {
-      amountIn: result.result[0],
-      sqrtPriceX96After: result.result[1],
-      initializedTicksCrossed: result.result[2],
-      gasEstimate: result.result[3],
+      amountIn: result[0],
+      sqrtPriceX96After: result[1],
+      initializedTicksCrossed: result[2],
+      gasEstimate: result[3],
     }
   }
   
@@ -149,7 +149,7 @@ export class Quoter {
   }
   
   /**
-   * Get a price quote for swapping on Uniswap V4
+   * Get a price quote for swapping an exact amount of input tokens on Uniswap V4
    * @param params Parameters for the quote
    * @returns Quote result for V4 pools
    */
@@ -170,32 +170,40 @@ export class Quoter {
   }> {
     const addresses = getAddresses(this.chainId)
     
-    const result = await this.publicClient.simulateContract({
-      address: addresses.dopplerLens, // V4 quoter is the dopplerLens contract
-      abi: v4QuoterAbi,
-      functionName: 'quoteExactInputSingle',
-      args: [{
-        poolKey: {
-          currency0: params.poolKey.currency0,
-          currency1: params.poolKey.currency1,
-          fee: params.poolKey.fee,
-          tickSpacing: params.poolKey.tickSpacing,
-          hooks: params.poolKey.hooks,
-        },
-        zeroForOne: params.zeroForOne,
-        exactAmount: params.exactAmount,
-        hookData: (params.hookData ?? '0x') as `0x${string}`,
-      }],
-    })
+    // Use v4Quoter if available, otherwise use dopplerLens (they're the same contract)
+    const quoterAddress = addresses.dopplerLens
     
-    return {
-      amountOut: result.result[0],
-      gasEstimate: result.result[1],
+    if (!quoterAddress) {
+      throw new Error('No V4 quoter available on this chain')
+    }
+    
+    try {
+      // First try simulateContract for better gas estimation
+      const { result } = await this.publicClient.simulateContract({
+        address: quoterAddress,
+        abi: v4QuoterAbi,
+        functionName: 'quoteExactInputSingle',
+        args: [{
+          poolKey: params.poolKey,
+          zeroForOne: params.zeroForOne,
+          exactAmount: params.exactAmount,
+          hookData: (params.hookData ?? '0x') as `0x${string}`,
+        }],
+      })
+      
+      return {
+        amountOut: result[0],
+        gasEstimate: result[1],
+      }
+    } catch (simulateError) {
+      // If simulation fails, throw the error
+      // Most V4 quoters need simulation, not direct reads
+      throw simulateError
     }
   }
-  
+
   /**
-   * Get a price quote for receiving exact output on Uniswap V4
+   * Get a price quote for receiving an exact amount of output tokens on Uniswap V4
    * @param params Parameters for the quote
    * @returns Quote result for V4 pools
    */
@@ -216,18 +224,19 @@ export class Quoter {
   }> {
     const addresses = getAddresses(this.chainId)
     
-    const result = await this.publicClient.simulateContract({
-      address: addresses.dopplerLens, // V4 quoter is the dopplerLens contract
+    // Use v4Quoter if available, otherwise use dopplerLens (they're the same contract)
+    const quoterAddress = addresses.dopplerLens
+    
+    if (!quoterAddress) {
+      throw new Error('No V4 quoter available on this chain')
+    }
+    
+    const { result } = await this.publicClient.simulateContract({
+      address: quoterAddress,
       abi: v4QuoterAbi,
       functionName: 'quoteExactOutputSingle',
       args: [{
-        poolKey: {
-          currency0: params.poolKey.currency0,
-          currency1: params.poolKey.currency1,
-          fee: params.poolKey.fee,
-          tickSpacing: params.poolKey.tickSpacing,
-          hooks: params.poolKey.hooks,
-        },
+        poolKey: params.poolKey,
         zeroForOne: params.zeroForOne,
         exactAmount: params.exactAmount,
         hookData: (params.hookData ?? '0x') as `0x${string}`,
@@ -235,8 +244,8 @@ export class Quoter {
     })
     
     return {
-      amountIn: result.result[0],
-      gasEstimate: result.result[1],
+      amountIn: result[0],
+      gasEstimate: result[1],
     }
   }
 }

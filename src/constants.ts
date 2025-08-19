@@ -70,3 +70,7 @@ export const DOPPLER_FLAGS = BigInt(
   (1 << 6) |  // AFTER_SWAP_FLAG
   (1 << 5)    // BEFORE_DONATE_FLAG
 )
+
+// V4 Dynamic Fee Flag
+export const DYNAMIC_FEE_FLAG = 0x800000 // 8388608 in decimal
+export const FEE_AMOUNT_MASK = 0xFFFFFF // Mask to extract actual fee from dynamic fee
