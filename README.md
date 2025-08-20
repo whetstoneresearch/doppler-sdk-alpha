@@ -59,42 +59,20 @@ const sdk = new DopplerSDK({
 Static auctions use Uniswap V3 pools with concentrated liquidity in a fixed price range. They're ideal for simple, predictable price discovery.
 
 ```typescript
-const result = await sdk.factory.createStaticAuction({
-  token: {
-    name: 'My Token',
-    symbol: 'MTK',
-    tokenURI: 'https://example.com/metadata.json',
-    totalSupply: parseEther('1000000000'), // 1 billion tokens
-  },
-  sale: {
-    numTokensToSell: parseEther('900000000'), // Sell 900 million
-    numeraire: '0x...', // WETH address
-  },
-  pool: {
-    startTick: -92103, // ~0.0001 ETH per token
-    endTick: -69080,   // ~0.001 ETH per token
-    fee: 10000,        // 1%
-    numPositions: 15,  // Number of liquidity positions
-  },
-  vesting: {
-    duration: BigInt(365 * 24 * 60 * 60), // 1 year
-    recipients: [
-      { address: '0x...', amount: parseEther('50000000') }, // 50M tokens
-      { address: '0x...', amount: parseEther('50000000') }, // 50M tokens
-    ],
-  },
-  migration: {
-    type: 'uniswapV2', // Migrate to V2 after auction
-  },
-  governance: {
-    maxShareToBeSold: parseEther('0.35'), // 35% max
-    yearlyMintRate: parseEther('0.02'),   // 2% annual
-  },
-  userAddress: '0x...', // Your address
-});
+import { StaticAuctionBuilder } from '@whetstone-research/doppler-sdk'
 
-console.log('Pool address:', result.poolAddress);
-console.log('Token address:', result.tokenAddress);
+const params = new StaticAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
+  .saleConfig({ initialSupply: parseEther('1000000000'), numTokensToSell: parseEther('900000000'), numeraire: '0x...' })
+  .poolByTicks({ startTick: -92103, endTick: -69080, fee: 10000, numPositions: 15 })
+  .withVesting({ duration: BigInt(365 * 24 * 60 * 60) })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress('0x...')
+  .build()
+
+const result = await sdk.factory.createStaticAuction(params)
+console.log('Pool address:', result.poolAddress)
+console.log('Token address:', result.tokenAddress)
 ```
 
 ### Dynamic Auction (Dutch Auction)
@@ -102,55 +80,40 @@ console.log('Token address:', result.tokenAddress);
 Dynamic auctions use Uniswap V4 hooks to implement gradual Dutch auctions where the price moves over time.
 
 ```typescript
-const result = await sdk.factory.createDynamicAuction({
-  token: {
-    name: 'My Token',
-    symbol: 'MTK',
-    tokenURI: 'https://example.com/metadata.json',
-    totalSupply: parseEther('1000000'), // 1M tokens
-  },
-  sale: {
-    numTokensToSell: parseEther('900000'), // Sell 900k
-    numeraire: '0x...', // WETH address
-    minProceeds: parseEther('100'), // Min 100 ETH
-    maxProceeds: parseEther('1000'), // Max 1000 ETH
-  },
-  auction: {
-    duration: 7, // 7 days
-    epochLength: 3600, // 1 hour epochs
-    startTick: -92103, // ~0.0001 ETH per token
-    endTick: -69080,   // ~0.01 ETH per token
-    gamma: parseEther('0.998'), // Price decrease rate
-    numPdSlugs: 5, // Price discovery slugs
-  },
-  pool: {
-    fee: 3000,       // 0.3%
-    tickSpacing: 60, // Standard for 0.3% pools
-  },
-  vesting: {
-    duration: BigInt(365 * 24 * 60 * 60), // 1 year
-    recipients: [
-      { address: '0x...', amount: parseEther('50000') },
-      { address: '0x...', amount: parseEther('50000') },
-    ],
-  },
-  migration: {
+import { DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk'
+
+const params = new DynamicAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: '0x...' })
+  .poolConfig({ fee: 3000, tickSpacing: 60 })
+  .auctionByTicks({
+    durationDays: 7,
+    epochLength: 3600,
+    startTick: -92103,
+    endTick: -69080,
+    minProceeds: parseEther('100'),
+    maxProceeds: parseEther('1000'),
+    numPdSlugs: 5,
+  })
+  .withVesting({ duration: BigInt(365 * 24 * 60 * 60) })
+  .withMigration({
     type: 'uniswapV4',
     fee: 3000,
     tickSpacing: 60,
     streamableFees: {
-      lockDuration: 365 * 24 * 60 * 60, // 1 year
+      lockDuration: 365 * 24 * 60 * 60,
       beneficiaries: [
-        { address: '0x...', percentage: 5000 }, // 50%
-        { address: '0x...', percentage: 5000 }, // 50%
+        { address: '0x...', percentage: 5000 },
+        { address: '0x...', percentage: 5000 },
       ],
     },
-  },
-  userAddress: '0x...',
-});
+  })
+  .withUserAddress('0x...')
+  .build()
 
-console.log('Hook address:', result.hookAddress);
-console.log('Token address:', result.tokenAddress);
+const result = await sdk.factory.createDynamicAuction(params)
+console.log('Hook address:', result.hookAddress)
+console.log('Token address:', result.tokenAddress)
 ```
 
 ### Builder Pattern (Recommended)
@@ -194,52 +157,33 @@ const stat = await sdk.factory.createStaticAuction(staticParams)
 The SDK intelligently applies defaults when parameters are omitted. Here are examples with minimal configuration:
 
 ```typescript
-// Minimal static auction
-const result = await sdk.factory.createStaticAuction({
-  token: {
-    name: 'My Token',
-    symbol: 'MTK',
-    tokenURI: 'https://example.com/metadata.json',
-    // totalSupply defaults to 1 billion
-  },
-  sale: {
-    // numTokensToSell defaults to 90% of total supply
-    numeraire: '0x...', // WETH address (required)
-  },
-  pool: {
-    // Defaults: fee=10000 (1%), numPositions=15
-    // Start/end ticks calculated from reasonable price range
-  },
-  migration: {
-    type: 'uniswapV2', // Required
-  },
-  userAddress: '0x...', // Required
-});
+// Minimal static auction via builder
+const staticMinimal = new StaticAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
+  .saleConfig({ initialSupply: parseEther('1000000000'), numTokensToSell: parseEther('900000000'), numeraire: '0x...' })
+  .poolByTicks({ fee: 10000 }) // uses default tick range and numPositions
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress('0x...')
+  .build()
 
-// Minimal dynamic auction
-const result = await sdk.factory.createDynamicAuction({
-  token: {
-    name: 'My Token',
-    symbol: 'MTK',
-    tokenURI: 'https://example.com/metadata.json',
-  },
-  sale: {
-    numeraire: '0x...', // WETH address
+const staticResult = await sdk.factory.createStaticAuction(staticMinimal)
+
+// Minimal dynamic auction via builder
+const dynamicMinimal = new DynamicAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: '0x...' })
+  .poolConfig({ fee: 3000, tickSpacing: 60 })
+  .auctionByTicks({
+    startTick: -92103,
+    endTick: -69080,
     minProceeds: parseEther('100'),
     maxProceeds: parseEther('1000'),
-  },
-  auction: {
-    // Defaults: duration=7 days, epochLength=1 hour
-    // gamma and numPdSlugs auto-calculated
-  },
-  pool: {
-    // Defaults: fee=3000 (0.3%), tickSpacing=60
-  },
-  migration: {
-    type: 'uniswapV4',
-  },
-  userAddress: '0x...',
-});
+  }) // duration/epoch defaults applied; gamma computed automatically
+  .withMigration({ type: 'uniswapV4' })
+  .withUserAddress('0x...')
+  .build()
+
+const dynamicResult = await sdk.factory.createDynamicAuction(dynamicMinimal)
 ```
 
 ## Interacting with Auctions
