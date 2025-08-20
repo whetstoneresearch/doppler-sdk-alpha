@@ -153,6 +153,42 @@ console.log('Hook address:', result.hookAddress);
 console.log('Token address:', result.tokenAddress);
 ```
 
+### Builder Pattern (Recommended)
+
+Prefer using the builders to construct `CreateStaticAuctionParams` and `CreateDynamicAuctionParams` fluently and safely. Builders apply sensible defaults and can compute ticks and gamma for you.
+
+```typescript
+import { StaticAuctionBuilder, DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
+
+// Dynamic auction via builder
+const dynamicParams = new DynamicAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('500000'), numeraire: wethAddress })
+  .poolConfig({ fee: 3000, tickSpacing: 60 })
+  .auctionByPriceRange({
+    priceRange: { startPrice: 0.0001, endPrice: 0.001 },
+    minProceeds: parseEther('100'),
+    maxProceeds: parseEther('1000'),
+  })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress('0x...')
+  .build()
+
+const dyn = await sdk.factory.createDynamicAuction(dynamicParams)
+
+// Static auction via builder
+const staticParams = new StaticAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
+  .saleConfig({ initialSupply: parseEther('1000000000'), numTokensToSell: parseEther('900000000'), numeraire: wethAddress })
+  .poolByPriceRange({ priceRange: { startPrice: 0.0001, endPrice: 0.001 }, fee: 3000 })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress('0x...')
+  .build()
+
+const stat = await sdk.factory.createStaticAuction(staticParams)
+```
+
 ### Simplified Creation with Defaults
 
 The SDK intelligently applies defaults when parameters are omitted. Here are examples with minimal configuration:

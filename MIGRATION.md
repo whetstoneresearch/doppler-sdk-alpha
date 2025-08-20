@@ -66,7 +66,7 @@ const sdk = new DopplerSDK({
 const factory = sdk.factory;
 ```
 
-## Creating Pools with buildConfig
+## Creating Auctions with Builders
 
 ### V4 SDK
 ```typescript
@@ -115,35 +115,30 @@ const { createParams, hook, token } = factory.buildConfig({
 const txHash = await factory.create(createParams);
 ```
 
-### Unified SDK
+### Unified SDK (Recommended: Builder Pattern)
 ```typescript
-import { parseEther } from 'viem';
+import { parseEther } from 'viem'
+import { DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk'
 
-// Build config with minimal parameters
-const config = sdk.factory.buildDynamicAuctionConfig({
-  // Token details (same as V4)
-  name: "Community Token",
-  symbol: "COMM",
-  totalSupply: parseEther("1000000"),
-  numTokensToSell: parseEther("500000"),
-  tokenURI: "https://example.com/metadata.json",
-  
-  // Price parameters (simplified)
-  priceRange: { startPrice: 0.001, endPrice: 0.01 },
-  tickSpacing: 60,
-  fee: 3000,
-  
-  // Sale parameters (same)
-  minProceeds: parseEther("100"),
-  maxProceeds: parseEther("10000"),
-  
-  // Vesting (simplified)
-  vestingDuration: BigInt(365 * 24 * 60 * 60),
-  recipients: [recipient1, recipient2],
-  amounts: [parseEther("50000"), parseEther("50000")],
-  
-  // Migration (structured)
-  migration: {
+// Build params with a fluent, type-safe builder
+const params = new DynamicAuctionBuilder()
+  .tokenConfig({
+    name: 'Community Token',
+    symbol: 'COMM',
+    tokenURI: 'https://example.com/metadata.json',
+  })
+  .saleConfig({
+    initialSupply: parseEther('1000000'),
+    numTokensToSell: parseEther('500000'),
+    numeraire: wethAddress,
+  })
+  .poolConfig({ fee: 3000, tickSpacing: 60 })
+  .auctionByPriceRange({
+    priceRange: { startPrice: 0.001, endPrice: 0.01 },
+    minProceeds: parseEther('100'),
+    maxProceeds: parseEther('10000'),
+  })
+  .withMigration({
     type: 'uniswapV4',
     fee: 3000,
     tickSpacing: 60,
@@ -154,24 +149,17 @@ const config = sdk.factory.buildDynamicAuctionConfig({
         { address: beneficiary2, percentage: 5000 },
       ],
     },
-  },
-  
-  // Optional parameters with defaults:
-  // duration: 30,             // defaults to 7 days
-  // epochLength: 3600,        // defaults to 1 hour
-  // numeraire: undefined,     // defaults to zero address
-  // yearlyMintRate: undefined,// defaults to 2%
-  // integrator: undefined,    // defaults to dead address
-}, userAddress);
+  })
+  .withUserAddress(userAddress)
+  .build()
 
-// Create the auction directly
-const result = await sdk.factory.createDynamicAuction(config);
-console.log('Hook address:', result.hookAddress);
-console.log('Token address:', result.tokenAddress);
-console.log('Pool ID:', result.poolId);
+const result = await sdk.factory.createDynamicAuction(params)
+console.log('Hook address:', result.hookAddress)
+console.log('Token address:', result.tokenAddress)
+console.log('Pool ID:', result.poolId)
 ```
 
-## Key Differences in buildConfig
+## Builder Defaults and Differences
 
 ### 1. Simplified Time Parameters
 - **V4 SDK**: Required `blockTimestamp` and `startTimeOffset`
@@ -191,9 +179,9 @@ The unified SDK provides more defaults:
 
 ### 4. Return Values
 - **V4 SDK**: Returns `{ createParams, hook, token }`
-- **Unified SDK**: `buildConfig` returns complete params, `create` returns addresses and poolId
+- **Unified SDK**: Builder returns typed params; `create*Auction` returns addresses and poolId
 
-## Direct Pool Creation (Without buildConfig)
+## Direct Creation (Without Builders)
 
 ### V4 SDK
 ```typescript
@@ -447,36 +435,31 @@ const txHash = await factory.create(createParams);
 
 ### After (Unified SDK)
 ```typescript
-import { DopplerSDK } from '@doppler/sdk';
-import { parseEther } from 'viem';
+import { DopplerSDK, DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
 
 // Setup (simpler)
-const sdk = new DopplerSDK({ publicClient, walletClient, chainId });
+const sdk = new DopplerSDK({ publicClient, walletClient, chainId })
 
-// Build config (cleaner API with defaults)
-const config = sdk.factory.buildDynamicAuctionConfig({
-  name: "Example Token",
-  symbol: "EXT",
-  totalSupply: parseEther("1000000"),
-  numTokensToSell: parseEther("900000"),
-  tokenURI: "ipfs://...",
-  priceRange: { startPrice: 0.001, endPrice: 0.01 },
-  tickSpacing: 60,
-  fee: 3000,
-  minProceeds: parseEther("100"),
-  maxProceeds: parseEther("10000"),
-  vestingDuration: BigInt(365 * 24 * 60 * 60),
-  recipients: [teamAddress],
-  amounts: [parseEther("100000")],
-  migration: { type: 'uniswapV2' },
-  // duration, epochLength, numeraire, yearlyMintRate use defaults
-}, myAddress);
+// Build params with the builder
+const params = new DynamicAuctionBuilder()
+  .tokenConfig({ name: 'Example Token', symbol: 'EXT', tokenURI: 'ipfs://...' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: wethAddress })
+  .poolConfig({ fee: 3000, tickSpacing: 60 })
+  .auctionByPriceRange({
+    priceRange: { startPrice: 0.001, endPrice: 0.01 },
+    minProceeds: parseEther('100'),
+    maxProceeds: parseEther('10000'),
+  })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress(myAddress)
+  .build()
 
 // Create auction (returns more info)
-const result = await sdk.factory.createDynamicAuction(config);
-console.log('Created hook:', result.hookAddress);
-console.log('Created token:', result.tokenAddress);
-console.log('Pool ID:', result.poolId);
+const result = await sdk.factory.createDynamicAuction(params)
+console.log('Created hook:', result.hookAddress)
+console.log('Created token:', result.tokenAddress)
+console.log('Pool ID:', result.poolId)
 ```
 
 ## Summary of Benefits

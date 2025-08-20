@@ -114,38 +114,28 @@ const { poolAddress, tokenAddress } = await factory.create({
 
 #### After
 ```typescript
-const result = await sdk.factory.createStaticAuction({
-  token: {
-    name: 'My Token',
-    symbol: 'MTK',
-    tokenURI: 'https://example.com/token',
-  },
-  sale: {
+import { StaticAuctionBuilder } from '@whetstone-research/doppler-sdk'
+
+const params = new StaticAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/token' })
+  .saleConfig({
     initialSupply: parseEther('1000000'),
     numTokensToSell: parseEther('500000'),
     numeraire: wethAddress,
-  },
-  pool: {
-    startTick: -92103,
-    endTick: -69080,
-    fee: 3000,
-  },
-  migration: {
+  })
+  .poolByTicks({ startTick: -92103, endTick: -69080, fee: 3000 })
+  .withMigration({
     type: 'uniswapV4',
     fee: 3000,
     tickSpacing: 60,
-    streamableFees: {
-      lockDuration: 365 * 24 * 60 * 60,
-      beneficiaries: sortedBeneficiaries,
-    },
-  },
-  vesting: {
-    duration: 0,
-    recipients: [],
-  },
-  integrator: integratorAddress,
-  userAddress: governorAddress,
-});
+    streamableFees: { lockDuration: 365 * 24 * 60 * 60, beneficiaries: sortedBeneficiaries },
+  })
+  .withVesting({ duration: 0n })
+  .withIntegrator(integratorAddress)
+  .withUserAddress(governorAddress)
+  .build()
+
+const result = await sdk.factory.createStaticAuction(params)
 ```
 
 ### Dynamic Auctions (Previously V4)
@@ -185,43 +175,29 @@ const { hookAddress, tokenAddress } = await factory.create({
 
 #### After
 ```typescript
-const result = await sdk.factory.createDynamicAuction({
-  token: {
-    name: 'My Token',
-    symbol: 'MTK',
-    tokenURI: 'https://example.com/token',
-  },
-  sale: {
-    initialSupply: parseEther('1000000'),
-    numTokensToSell: parseEther('500000'),
-    numeraire: wethAddress,
-  },
-  auction: {
-    duration: 7, // days
-    epochLength: 3600, // seconds
-    priceRange: {
-      startPrice: 0.0001,
-      endPrice: 0.01,
-    },
+import { DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk'
+
+const params = new DynamicAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/token' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('500000'), numeraire: wethAddress })
+  .poolConfig({ fee: 3000, tickSpacing: 60 })
+  .auctionByPriceRange({
+    priceRange: { startPrice: 0.0001, endPrice: 0.01 },
     minProceeds: parseEther('50'),
     maxProceeds: parseEther('500'),
-    // gamma is auto-calculated if not provided
-  },
-  pool: {
-    fee: 3000,
-    tickSpacing: 60,
-  },
-  migration: {
+    durationDays: 7,
+    epochLength: 3600,
+  })
+  .withMigration({
     type: 'uniswapV4',
     fee: 3000,
     tickSpacing: 60,
-    streamableFees: {
-      lockDuration: 365 * 24 * 60 * 60,
-      beneficiaries: [...],
-    },
-  },
-  userAddress: governorAddress,
-});
+    streamableFees: { lockDuration: 365 * 24 * 60 * 60, beneficiaries: [...] },
+  })
+  .withUserAddress(governorAddress)
+  .build()
+
+const result = await sdk.factory.createDynamicAuction(params)
 ```
 
 ## Interacting with Auctions
@@ -363,7 +339,7 @@ async function createV3Pool() {
 }
 
 // New Unified SDK
-import { DopplerSDK } from '@doppler/sdk';
+import { DopplerSDK, StaticAuctionBuilder } from '@whetstone-research/doppler-sdk';
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { mainnet } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -386,13 +362,15 @@ async function createStaticAuction() {
     chainId: mainnet.id,
   });
   
-  const result = await sdk.factory.createStaticAuction({
-    token: { name: 'Token', symbol: 'TKN', tokenURI: '...' },
-    sale: { initialSupply: 1000000n, numTokensToSell: 500000n, numeraire: '0x...' },
-    pool: { startTick: -92103, endTick: -69080, fee: 3000 },
-    migration: { type: 'uniswapV2' },
-    userAddress: '0x...',
-  });
+  const params = new StaticAuctionBuilder()
+    .tokenConfig({ name: 'Token', symbol: 'TKN', tokenURI: '...' })
+    .saleConfig({ initialSupply: 1000000n, numTokensToSell: 500000n, numeraire: '0x...' })
+    .poolByTicks({ startTick: -92103, endTick: -69080, fee: 3000 })
+    .withMigration({ type: 'uniswapV2' })
+    .withUserAddress('0x...')
+    .build()
+
+  const result = await sdk.factory.createStaticAuction(params);
   
   return result;
 }

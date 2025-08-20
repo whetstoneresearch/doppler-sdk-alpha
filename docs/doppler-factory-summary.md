@@ -53,36 +53,30 @@
 ## Usage Example
 
 ```typescript
-// Create a static auction with V4 migration
-const result = await sdk.factory.createStaticAuction({
-  token: { name: "My Token", symbol: "MTK", tokenURI: "..." },
-  sale: { initialSupply: parseEther("1000000"), ... },
-  pool: { startTick: 175000, endTick: 225000, fee: 3000 },
-  migration: {
-    type: 'uniswapV4',
-    fee: 3000,
-    tickSpacing: 60,
-    streamableFees: { ... }
-  },
-  userAddress: '0x...'
-})
+import { StaticAuctionBuilder, DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk'
 
-// Create a dynamic auction
-const result = await sdk.factory.createDynamicAuction({
-  token: { name: "My Token", symbol: "MTK", tokenURI: "..." },
-  sale: { initialSupply: parseEther("1000000"), ... },
-  auction: {
-    duration: 7, // days
-    epochLength: 3600, // 1 hour
-    startTick: -60000,
-    endTick: 60000,
-    minProceeds: parseEther("100"),
-    maxProceeds: parseEther("10000")
-  },
-  pool: { fee: 3000, tickSpacing: 60 },
-  migration: { type: 'uniswapV2' },
-  userAddress: '0x...'
-})
+// Create a static auction with V4 migration via builder
+const staticParams = new StaticAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: '...' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: wethAddress })
+  .poolByTicks({ startTick: 175000, endTick: 225000, fee: 3000 })
+  .withMigration({ type: 'uniswapV4', fee: 3000, tickSpacing: 60, streamableFees: { /* ... */ } })
+  .withUserAddress('0x...')
+  .build()
+
+const staticResult = await sdk.factory.createStaticAuction(staticParams)
+
+// Create a dynamic auction via builder
+const dynamicParams = new DynamicAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: '...' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('500000'), numeraire: wethAddress })
+  .poolConfig({ fee: 3000, tickSpacing: 60 })
+  .auctionByTicks({ durationDays: 7, epochLength: 3600, startTick: -60000, endTick: 60000, minProceeds: parseEther('100'), maxProceeds: parseEther('10000') })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress('0x...')
+  .build()
+
+const dynamicResult = await sdk.factory.createDynamicAuction(dynamicParams)
 ```
 
 The DopplerFactory is now feature-complete for creating both static and dynamic auctions with proper viem integration!
