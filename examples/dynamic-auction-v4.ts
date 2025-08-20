@@ -7,11 +7,10 @@
  * - Setting up V4 migration with fee streaming
  */
 
-import { DopplerSDK } from 'doppler-sdk'
+import { DopplerSDK, DynamicAuctionBuilder } from 'doppler-sdk'
 import { createPublicClient, createWalletClient, http, parseEther, formatEther, type Address } from 'viem'
 import { base } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
-import type { CreateDynamicAuctionParams } from 'doppler-sdk'
 
 // Load environment variables
 const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`
@@ -39,53 +38,40 @@ async function main() {
     chainId: base.id
   })
 
-  // 3. Define dynamic auction parameters
-  const params: CreateDynamicAuctionParams = {
-    token: {
-      name: 'Dynamic Token',
-      symbol: 'DYN',
-      tokenURI: 'https://example.com/dynamic-token.json'
-    },
-    sale: {
+  // 3. Define dynamic auction parameters via builder
+  const params = new DynamicAuctionBuilder()
+    .tokenConfig({ name: 'Dynamic Token', symbol: 'DYN', tokenURI: 'https://example.com/dynamic-token.json' })
+    .saleConfig({
       initialSupply: parseEther('10000000'), // 10M tokens
       numTokensToSell: parseEther('5000000'), // Sell 5M tokens
-      numeraire: '0x4200000000000000000000000000000000000006' // WETH on Base
-    },
-    auction: {
-      duration: 7, // 7 days
-      epochLength: 3600, // 1 hour epochs
-      startTick: -92103, // ~0.0001 ETH per token
-      endTick: -69080,   // ~0.001 ETH per token  
-      minProceeds: parseEther('100'), // Minimum 100 ETH
-      maxProceeds: parseEther('5000'), // Maximum 5000 ETH (early exit)
-      // gamma will be auto-calculated based on duration and tick range
-    },
-    pool: {
-      fee: 3000,      // 0.3% fee
-      tickSpacing: 60 // Standard for 0.3% pools
-    },
-    migration: {
+      numeraire: '0x4200000000000000000000000000000000000006', // WETH on Base
+    })
+    .poolConfig({ fee: 3000, tickSpacing: 60 })
+    .auctionByTicks({
+      durationDays: 7,
+      epochLength: 3600,
+      startTick: -92103,
+      endTick: -69080,
+      minProceeds: parseEther('100'),
+      maxProceeds: parseEther('5000'),
+    })
+    .withMigration({
       type: 'uniswapV4',
       fee: 3000,
       tickSpacing: 60,
       streamableFees: {
-        lockDuration: 365 * 24 * 60 * 60, // 1 year lock
-        beneficiaries: [
-          {
-            address: account.address, // Could be DAO treasury
-            percentage: 10000 // 100% (in basis points)
-          }
-        ]
-      }
-    },
-    userAddress: account.address
-  }
+        lockDuration: 365 * 24 * 60 * 60,
+        beneficiaries: [{ address: account.address, percentage: 10000 }],
+      },
+    })
+    .withUserAddress(account.address)
+    .build()
 
   console.log('Creating dynamic auction...')
   console.log('Token:', params.token.name, `(${params.token.symbol})`)
   console.log('Selling:', formatEther(params.sale.numTokensToSell), 'tokens')
   console.log('Duration:', params.auction.duration, 'days')
-  console.log('Epochs:', params.auction.duration * 24, 'total (1 hour each)')
+  console.log('Epochs:', (params.auction.duration * 24), 'total (1 hour each)')
   console.log('Price will gradually increase from ~0.0001 to ~0.001 ETH')
 
   try {

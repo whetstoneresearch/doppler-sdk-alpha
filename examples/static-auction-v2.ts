@@ -7,11 +7,10 @@
  * - Monitoring auction progress
  */
 
-import { DopplerSDK } from 'doppler-sdk'
+import { DopplerSDK, StaticAuctionBuilder } from 'doppler-sdk'
 import { createPublicClient, createWalletClient, http, parseEther, formatEther } from 'viem'
 import { base } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
-import type { CreateStaticAuctionParams } from 'doppler-sdk'
 
 // Load environment variables
 const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`
@@ -39,29 +38,18 @@ async function main() {
     chainId: base.id
   })
 
-  // 3. Define auction parameters
-  const params: CreateStaticAuctionParams = {
-    token: {
-      name: 'Example Token',
-      symbol: 'EXAMPLE',
-      tokenURI: 'https://example.com/token-metadata.json'
-    },
-    sale: {
+  // 3. Define auction parameters via builder
+  const params = new StaticAuctionBuilder()
+    .tokenConfig({ name: 'Example Token', symbol: 'EXAMPLE', tokenURI: 'https://example.com/token-metadata.json' })
+    .saleConfig({
       initialSupply: parseEther('1000000'), // 1M tokens
       numTokensToSell: parseEther('500000'), // Sell 500k tokens
-      numeraire: '0x4200000000000000000000000000000000000006' // WETH on Base
-    },
-    pool: {
-      // Price range: 0.0001 ETH to 0.001 ETH per token
-      startTick: 175000, // ~0.0001 ETH per token
-      endTick: 225000,   // ~0.001 ETH per token
-      fee: 3000          // 0.3% fee tier
-    },
-    migration: {
-      type: 'uniswapV2' // Simple V2 migration after 7 days
-    },
-    userAddress: account.address
-  }
+      numeraire: '0x4200000000000000000000000000000000000006', // WETH on Base
+    })
+    .poolByTicks({ startTick: 175000, endTick: 225000, fee: 3000 })
+    .withMigration({ type: 'uniswapV2' })
+    .withUserAddress(account.address)
+    .build()
 
   console.log('Creating static auction...')
   console.log('Token:', params.token.name, `(${params.token.symbol})`)

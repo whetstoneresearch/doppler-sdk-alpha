@@ -1,7 +1,7 @@
-import { DopplerSDK } from '../src'
+import { DopplerSDK, StaticAuctionBuilder } from '../src'
 import { parseEther, createPublicClient, createWalletClient, http } from 'viem'
 import { base } from 'viem/chains'
-import type { CreateStaticAuctionParams } from '../src/types'
+// Using the builder pattern to construct params
 
 // Example: Creating a static auction that migrates to Uniswap V4
 async function createStaticAuctionExample() {
@@ -16,6 +16,10 @@ async function createStaticAuctionExample() {
     transport: http(),
     // account: '0x...' // Your account
   })
+
+  if (!publicClient || !walletClient) {
+    throw new Error('Failed to create viem clients')
+  }
   
   // Initialize the SDK
   const sdk = new DopplerSDK({
@@ -24,37 +28,21 @@ async function createStaticAuctionExample() {
     chainId: 8453, // Base mainnet
   })
 
-  // Configure the static auction
-  const params: CreateStaticAuctionParams = {
-    // Token configuration
-    token: {
+  // Configure the static auction with the builder
+  const params = new StaticAuctionBuilder()
+    .tokenConfig({
       name: 'My Token',
       symbol: 'MTK',
       tokenURI: 'https://example.com/token-metadata.json',
-    },
-
-    // Sale configuration
-    sale: {
+    })
+    .saleConfig({
       initialSupply: parseEther('1000000000'), // 1 billion tokens
       numTokensToSell: parseEther('900000000'), // 900 million for sale
       numeraire: '0x4200000000000000000000000000000000000006', // WETH on Base
-    },
-
-    // Static Auction (Uniswap v3) Pool configuration
-    pool: {
-      startTick: 175000,
-      endTick: 225000,
-      fee: 3000, // 0.3%
-    },
-
-    // Optional vesting configuration
-    vesting: {
-      duration: 365 * 24 * 60 * 60, // 1 year
-      cliffDuration: 0, // No cliff
-    },
-
-    // Explicit, type-safe migration config
-    migration: {
+    })
+    .poolByTicks({ startTick: 175000, endTick: 225000, fee: 3000 })
+    .withVesting({ duration: BigInt(365 * 24 * 60 * 60), cliffDuration: 0 })
+    .withMigration({
       type: 'uniswapV4',
       fee: 3000,
       tickSpacing: 60,
@@ -66,10 +54,9 @@ async function createStaticAuctionExample() {
           { address: '0xBeneficiary3...', percentage: 2000 }, // 20%
         ],
       },
-    },
-
-    userAddress: '0xYourAddress...',
-  }
+    })
+    .withUserAddress('0xYourAddress...')
+    .build()
 
   // Create the static auction
   const result = await sdk.factory.createStaticAuction(params)
@@ -107,28 +94,17 @@ async function createSimpleStaticAuction() {
     chainId: 8453,
   })
 
-  const params: CreateStaticAuctionParams = {
-    token: {
-      name: 'Simple Token',
-      symbol: 'SIMPLE',
-      tokenURI: 'ipfs://...',
-    },
-    sale: {
+  const params = new StaticAuctionBuilder()
+    .tokenConfig({ name: 'Simple Token', symbol: 'SIMPLE', tokenURI: 'ipfs://...' })
+    .saleConfig({
       initialSupply: parseEther('1000000'),
       numTokensToSell: parseEther('900000'),
       numeraire: '0x4200000000000000000000000000000000000006', // WETH
-    },
-    pool: {
-      startTick: 175000,
-      endTick: 225000,
-      fee: 10000, // 1%
-    },
-    // Simple migration to Uniswap V2
-    migration: {
-      type: 'uniswapV2',
-    },
-    userAddress: '0xYourAddress...',
-  }
+    })
+    .poolByTicks({ startTick: 175000, endTick: 225000, fee: 10000 })
+    .withMigration({ type: 'uniswapV2' })
+    .withUserAddress('0xYourAddress...')
+    .build()
 
   const result = await sdk.factory.createStaticAuction(params)
   console.log('Created:', result)
