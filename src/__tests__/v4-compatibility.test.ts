@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { parseEther } from 'viem'
 import { DopplerFactory } from '../entities/DopplerFactory'
+import { DynamicAuctionBuilder } from '../builders'
 import { createMockPublicClient, createMockWalletClient } from './mocks/clients'
 import { mockAddresses, mockTokenAddress, mockHookAddress, mockGovernanceAddress, mockTimelockAddress, mockV2PoolAddress, mockAddressesWithExtras } from './mocks/addresses'
 import type { CreateDynamicAuctionParams } from '../types'
@@ -53,7 +54,7 @@ describe('V4 SDK Compatibility', () => {
 
     // Mock the simulation to capture the args
     let capturedArgs: any
-    vi.mocked(publicClient.simulateContract).mockImplementation(async (args) => {
+    vi.mocked(publicClient.simulateContract).mockImplementation(async (args: any) => {
       capturedArgs = args
       return {
         request: {} as any,
@@ -93,31 +94,22 @@ describe('V4 SDK Compatibility', () => {
   })
 
   it('should use correct defaults when not explicitly provided', () => {
-    const config = {
-      name: "Test",
-      symbol: "TST",
-      tokenURI: "https://test.com",
-      totalSupply: parseEther("1000000"),
-      numTokensToSell: parseEther("500000"),
-      numeraire: mockAddresses.weth,
-      tickRange: { startTick: -92203, endTick: -91003 },
-      fee: 3000,
-      tickSpacing: 60,
-      minProceeds: parseEther("100"),
-      maxProceeds: parseEther("1000"),
-      migration: { type: 'uniswapV2' as const },
-      recipients: [],
-      amounts: [],
-    }
+    const builder = new DynamicAuctionBuilder()
+      .tokenConfig({ name: 'Test', symbol: 'TST', tokenURI: 'https://test.com' })
+      .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('500000'), numeraire: mockAddresses.weth })
+      .poolConfig({ fee: 3000, tickSpacing: 60 })
+      .auctionByTicks({ startTick: -92203, endTick: -91003, minProceeds: parseEther('100'), maxProceeds: parseEther('1000') })
+      .withMigration({ type: 'uniswapV2' as const })
+      .withUserAddress(mockAddressesWithExtras.user)
 
-    const result = factory.buildDynamicAuctionConfig(config, mockAddressesWithExtras.user)
+    const result = builder.build()
     
     // Check defaults match V4 SDK
     expect(result.auction.epochLength).toBe(43200) // 12 hours
     expect(result.integrator).toBe("0x0000000000000000000000000000000000000000") // ZERO_ADDRESS
     
     // Check gamma calculation with new epoch length
-    const expectedGamma = 120 // With 12 hour epochs and the tick range (1200 ticks / 14 epochs = ~86, rounded up to 120)
+    const expectedGamma = 120 // With 12 hour epochs and the tick range (1200 ticks / 14 epochs ~= 86, rounded up to 120)
     expect(result.auction.gamma).toBe(expectedGamma)
   })
 })
