@@ -13,6 +13,9 @@ export { Quoter } from './entities/quoter'
 // Export token entities
 export { Derc20, Eth } from './entities/token'
 
+// Export builders
+export { StaticAuctionBuilder, DynamicAuctionBuilder } from './builders'
+
 // Export all types
 export type {
   // Core types

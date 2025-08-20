@@ -15,11 +15,7 @@ import {
 import type { 
   CreateStaticAuctionParams, 
   CreateDynamicAuctionParams,
-  MigrationConfig,
-  StaticAuctionBuildConfig,
-  DynamicAuctionBuildConfig,
-  PriceRange,
-  TickRange
+  MigrationConfig
 } from '../types'
 import { getAddresses } from '../addresses'
 import { 
@@ -65,193 +61,9 @@ export class DopplerFactory {
     this.chainId = chainId
   }
 
-  /**
-   * Build configuration for creating a new dynamic auction (V4-style)
-   * This method provides sensible defaults and automatic calculations similar to V4 SDK's buildConfig
-   * 
-   * @param config - Build configuration with minimal required parameters
-   * @param userAddress - User address for vesting and salt generation
-   * @returns Complete parameters ready for createDynamicAuction
-   */
-  public buildDynamicAuctionConfig(
-    config: DynamicAuctionBuildConfig,
-    userAddress: Address
-  ): CreateDynamicAuctionParams {
-    // Apply defaults
-    const duration = config.duration ?? DEFAULT_AUCTION_DURATION
-    const epochLength = config.epochLength ?? DEFAULT_EPOCH_LENGTH
-    const numeraire = config.numeraire ?? ZERO_ADDRESS
-    const numPdSlugs = config.numPdSlugs ?? DEFAULT_PD_SLUGS
-    const yearlyMintRate = config.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE
-    const useGovernance = config.useGovernance ?? true
-    const integrator = config.integrator ?? ZERO_ADDRESS
-
-    // Validate that either priceRange or tickRange is provided
-    if (!config.priceRange && !config.tickRange) {
-      throw new Error('Either priceRange or tickRange must be provided')
-    }
-
-    // Calculate ticks from price range if needed
-    let startTick: number
-    let endTick: number
-    
-    if (config.priceRange) {
-      const ticks = this.computeTicks(config.priceRange, config.tickSpacing)
-      startTick = ticks.startTick
-      endTick = ticks.endTick
-    } else if (config.tickRange) {
-      startTick = config.tickRange.startTick
-      endTick = config.tickRange.endTick
-    } else {
-      throw new Error('Failed to determine tick range')
-    }
-
-    // Calculate gamma if not provided
-    const gamma = config.gamma ?? this.computeOptimalGamma(
-      startTick,
-      endTick,
-      duration,
-      epochLength,
-      config.tickSpacing
-    )
-
-    // Prepare vesting configuration
-    const hasVesting = config.recipients.length > 0 && config.amounts.length > 0
-    const vestingConfig = hasVesting ? {
-      duration: Number(config.vestingDuration),
-      cliffDuration: 0 // V4 SDK doesn't use cliff duration
-    } : undefined
-
-    // Prepare governance configuration
-    const governanceConfig = useGovernance ? {
-      initialVotingDelay: DEFAULT_V4_INITIAL_VOTING_DELAY,
-      initialVotingPeriod: DEFAULT_V4_INITIAL_VOTING_PERIOD,
-      initialProposalThreshold: DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
-    } : undefined
-
-    // Build the complete configuration
-    return {
-      token: {
-        name: config.name,
-        symbol: config.symbol,
-        tokenURI: config.tokenURI,
-        yearlyMintRate: yearlyMintRate
-      },
-      sale: {
-        initialSupply: config.totalSupply,
-        numTokensToSell: config.numTokensToSell,
-        numeraire: numeraire
-      },
-      auction: {
-        duration: duration,
-        epochLength: epochLength,
-        startTick: startTick,
-        endTick: endTick,
-        gamma: gamma,
-        minProceeds: config.minProceeds,
-        maxProceeds: config.maxProceeds,
-        numPdSlugs: numPdSlugs
-      },
-      pool: {
-        fee: config.fee,
-        tickSpacing: config.tickSpacing
-      },
-      vesting: vestingConfig,
-      governance: governanceConfig,
-      migration: config.migration,
-      integrator: integrator,
-      userAddress: userAddress,
-      startTimeOffset: config.startTimeOffset,
-      blockTimestamp: config.blockTimestamp
-    }
-  }
-
-  /**
-   * Build configuration for creating a new static auction (V3-style)
-   * This method provides sensible defaults similar to V3 SDK
-   * 
-   * @param config - Build configuration with minimal required parameters
-   * @param userAddress - User address for vesting and salt generation
-   * @returns Complete parameters ready for createStaticAuction
-   */
-  public buildStaticAuctionConfig(
-    config: StaticAuctionBuildConfig,
-    userAddress: Address
-  ): CreateStaticAuctionParams {
-    // Apply defaults
-    const totalSupply = config.totalSupply ?? DEFAULT_V3_INITIAL_SUPPLY
-    const numTokensToSell = config.numTokensToSell ?? DEFAULT_V3_NUM_TOKENS_TO_SELL
-    const fee = config.fee ?? DEFAULT_V3_FEE
-    const numPositions = config.numPositions ?? DEFAULT_V3_NUM_POSITIONS
-    const maxShareToBeSold = config.maxShareToBeSold ?? DEFAULT_V3_MAX_SHARE_TO_BE_SOLD
-    const yearlyMintRate = config.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
-    const vestingDuration = config.vestingDuration ?? DEFAULT_V3_VESTING_DURATION
-    const useGovernance = config.useGovernance ?? true
-    const integrator = config.integrator ?? ZERO_ADDRESS
-
-    // Handle vesting recipients and amounts
-    const recipients = config.recipients ?? [userAddress]
-    const amounts = config.amounts ?? [DEFAULT_V3_PRE_MINT]
-
-    // Validate that either priceRange or tickRange is provided
-    if (!config.priceRange && !config.tickRange) {
-      // Use default tick range if neither is provided
-      var startTick = DEFAULT_V3_START_TICK
-      var endTick = DEFAULT_V3_END_TICK
-    } else if (config.priceRange) {
-      // Calculate tick spacing based on fee
-      const tickSpacing = fee === 100 ? 1 : fee === 500 ? 10 : fee === 3000 ? 60 : 200
-      const ticks = this.computeTicks(config.priceRange, tickSpacing)
-      var startTick = ticks.startTick
-      var endTick = ticks.endTick
-    } else if (config.tickRange) {
-      var startTick = config.tickRange.startTick
-      var endTick = config.tickRange.endTick
-    } else {
-      throw new Error('Failed to determine tick range')
-    }
-
-    // Prepare vesting configuration
-    const hasVesting = recipients.length > 0 && amounts.length > 0
-    const vestingConfig = hasVesting ? {
-      duration: Number(vestingDuration),
-      cliffDuration: 0 // V3 SDK doesn't use cliff duration
-    } : undefined
-
-    // Prepare governance configuration
-    const governanceConfig = useGovernance ? {
-      initialVotingDelay: DEFAULT_V3_INITIAL_VOTING_DELAY,
-      initialVotingPeriod: DEFAULT_V3_INITIAL_VOTING_PERIOD,
-      initialProposalThreshold: DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
-    } : undefined
-
-    // Build the complete configuration
-    return {
-      token: {
-        name: config.name,
-        symbol: config.symbol,
-        tokenURI: config.tokenURI,
-        yearlyMintRate: yearlyMintRate
-      },
-      sale: {
-        initialSupply: totalSupply,
-        numTokensToSell: numTokensToSell,
-        numeraire: config.numeraire
-      },
-      pool: {
-        startTick: startTick,
-        endTick: endTick,
-        fee: fee,
-        numPositions: numPositions,
-        maxShareToBeSold: maxShareToBeSold
-      },
-      vesting: vestingConfig,
-      governance: governanceConfig,
-      migration: config.migration,
-      integrator: integrator,
-      userAddress: userAddress
-    }
-  }
+  // Note: The legacy buildDynamicAuctionConfig and buildStaticAuctionConfig helper methods
+  // have been removed in favor of dedicated builders that construct
+  // CreateDynamicAuctionParams and CreateStaticAuctionParams.
 
   /**
    * Create a new static auction (using Uniswap V3 for initial liquidity)
@@ -881,22 +693,7 @@ export class DopplerFactory {
     }
   }
 
-  /**
-   * Computes tick values from price range
-   * @param priceRange - The price range in human-readable format
-   * @param tickSpacing - The tick spacing for the pool
-   * @returns The tick range
-   */
-  private computeTicks(priceRange: PriceRange, tickSpacing: number): TickRange {
-    // Convert prices to ticks using the formula: tick = log(price) / log(1.0001) * tickSpacing
-    const startTick = Math.floor(Math.log(priceRange.startPrice) / Math.log(1.0001) / tickSpacing) * tickSpacing
-    const endTick = Math.ceil(Math.log(priceRange.endPrice) / Math.log(1.0001) / tickSpacing) * tickSpacing
-
-    return {
-      startTick,
-      endTick
-    }
-  }
+  // computeTicks moved to builders. No longer needed here.
 
   /**
    * Compute optimal gamma parameter based on price range and time parameters
