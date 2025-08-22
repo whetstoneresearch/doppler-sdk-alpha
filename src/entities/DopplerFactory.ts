@@ -48,7 +48,7 @@ import {
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
 } from '../constants'
-import { airlockAbi, uniswapV3InitializerAbi, uniswapV4InitializerAbi, v2MigratorAbi, v3MigratorAbi, v4MigratorAbi, DERC20Bytecode, DopplerBytecode } from '../abis'
+import { airlockAbi, uniswapV3InitializerAbi, uniswapV4InitializerAbi, v2MigratorAbi, v3MigratorAbi, v4MigratorAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
 
 export class DopplerFactory {
   private publicClient: PublicClient
@@ -107,30 +107,51 @@ export class DopplerFactory {
     // 2. Encode migration data based on MigrationConfig
     const liquidityMigratorData = this.encodeMigrationData(params.migration)
     
-    // 3. Encode token parameters
-    const vestingDuration = params.vesting?.duration ?? BigInt(0)
-    const yearlyMintRate = params.token.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
-    
-    const tokenFactoryData = encodeAbiParameters(
-      [
-        { type: 'string' },
-        { type: 'string' },
-        { type: 'uint256' },
-        { type: 'uint256' },
-        { type: 'address[]' },
-        { type: 'uint256[]' },
-        { type: 'string' },
-      ],
-      [
-        params.token.name,
-        params.token.symbol,
-        yearlyMintRate,
-        BigInt(vestingDuration),
-        params.vesting ? [params.userAddress] : [],
-        params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
-        params.token.tokenURI
-      ]
-    )
+    // 3. Encode token parameters (standard vs Doppler404)
+    const isDoppler404 = (params.token as any).type === 'doppler404'
+    let tokenFactoryData: Hex
+    if (isDoppler404) {
+      // Doppler404 expects only: name, symbol, baseURI
+      const baseURI = (params.token as any).baseURI as string
+      if (!addresses.doppler404Factory || addresses.doppler404Factory === ZERO_ADDRESS) {
+        throw new Error('Doppler404 factory address not configured for this chain')
+      }
+      tokenFactoryData = encodeAbiParameters(
+        [
+          { type: 'string' },
+          { type: 'string' },
+          { type: 'string' },
+        ],
+        [
+          params.token.name,
+          params.token.symbol,
+          baseURI,
+        ]
+      )
+    } else {
+      const vestingDuration = params.vesting?.duration ?? BigInt(0)
+      const yearlyMintRate = (params.token as any).yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
+      tokenFactoryData = encodeAbiParameters(
+        [
+          { type: 'string' },
+          { type: 'string' },
+          { type: 'uint256' },
+          { type: 'uint256' },
+          { type: 'address[]' },
+          { type: 'uint256[]' },
+          { type: 'string' },
+        ],
+        [
+          params.token.name,
+          params.token.symbol,
+          yearlyMintRate,
+          BigInt(vestingDuration),
+          params.vesting ? [params.userAddress] : [],
+          params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
+          (params.token as any).tokenURI,
+        ]
+      )
+    }
     
     // 4. Encode governance factory data
     const governanceFactoryData = encodeAbiParameters(
@@ -156,7 +177,7 @@ export class DopplerFactory {
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
-      tokenFactory: addresses.tokenFactory,
+      tokenFactory: isDoppler404 ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
       tokenFactoryData: tokenFactoryData,
       governanceFactory: addresses.governanceFactory,
       governanceFactoryData: governanceFactoryData,
@@ -330,21 +351,32 @@ export class DopplerFactory {
       tickSpacing: params.pool.tickSpacing
     }
     
-    // 4. Prepare token parameters
-    const vestingDuration = params.vesting?.duration ?? BigInt(0)
-    const yearlyMintRate = params.token.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE
-    
-    const tokenFactoryData = {
-      name: params.token.name,
-      symbol: params.token.symbol,
-      initialSupply: params.sale.initialSupply,
-      airlock: addresses.airlock,
-      yearlyMintRate: yearlyMintRate,
-      vestingDuration: BigInt(vestingDuration),
-      recipients: params.vesting ? [params.userAddress] : [],
-      amounts: params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
-      tokenURI: params.token.tokenURI
+    // 4. Prepare token parameters (standard vs Doppler404)
+    const isDoppler404 = (params.token as any).type === 'doppler404'
+    if (isDoppler404) {
+      if (!addresses.doppler404Factory || addresses.doppler404Factory === ZERO_ADDRESS) {
+        throw new Error('Doppler404 factory address not configured for this chain')
+      }
     }
+
+    const vestingDuration = params.vesting?.duration ?? BigInt(0)
+    const tokenFactoryData = isDoppler404
+      ? {
+          name: params.token.name,
+          symbol: params.token.symbol,
+          baseURI: (params.token as any).baseURI as string,
+        }
+      : {
+          name: params.token.name,
+          symbol: params.token.symbol,
+          initialSupply: params.sale.initialSupply,
+          airlock: addresses.airlock,
+          yearlyMintRate: (params.token as any).yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE,
+          vestingDuration: BigInt(vestingDuration),
+          recipients: params.vesting ? [params.userAddress] : [],
+          amounts: params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
+          tokenURI: (params.token as any).tokenURI,
+        }
     
     // 5. Mine hook address with appropriate flags
     const [salt, hookAddress, tokenAddress, poolInitializerData, encodedTokenFactoryData] = this.mineHookAddress({
@@ -354,10 +386,11 @@ export class DopplerFactory {
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
-      tokenFactory: addresses.tokenFactory,
+      tokenFactory: isDoppler404 ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
       tokenFactoryData: tokenFactoryData,
       poolInitializer: addresses.v4Initializer,
-      poolInitializerData: dopplerData
+      poolInitializerData: dopplerData,
+      tokenVariant: isDoppler404 ? 'doppler404' : 'standard'
     })
     
     // 6. Encode migration data
@@ -384,7 +417,7 @@ export class DopplerFactory {
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
-      tokenFactory: addresses.tokenFactory,
+      tokenFactory: isDoppler404 ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
       tokenFactoryData: encodedTokenFactoryData,
       governanceFactory: addresses.governanceFactory,
       governanceFactoryData: governanceFactoryData,
@@ -748,6 +781,7 @@ export class DopplerFactory {
     poolInitializer: Address
     poolInitializerData: any
     customDerc20Bytecode?: `0x${string}`
+    tokenVariant?: 'standard' | 'doppler404'
   }): [Hash, Address, Address, Hex, Hex] {
     const isToken0 = params.numeraire !== '0x0000000000000000000000000000000000000000'
 
@@ -840,70 +874,113 @@ export class DopplerFactory {
       )
     )
 
-    const {
-      name,
-      symbol,
-      yearlyMintRate,
-      vestingDuration,
-      recipients,
-      amounts,
-      tokenURI,
-    } = params.tokenFactoryData
-
-    // Encode token factory data using helper method
-    const tokenFactoryData = encodeAbiParameters(
-      [
-        { type: 'string' },
-        { type: 'string' },
-        { type: 'uint256' },
-        { type: 'uint256' },
-        { type: 'address[]' },
-        { type: 'uint256[]' },
-        { type: 'string' },
-      ],
-      [
-        name,
-        symbol,
-        yearlyMintRate,
-        vestingDuration,
-        recipients,
-        amounts,
-        tokenURI,
-      ]
-    )
+    const tokenFactoryData = (params.tokenVariant === 'doppler404')
+      ? encodeAbiParameters(
+          [
+            { type: 'string' },
+            { type: 'string' },
+            { type: 'string' },
+          ],
+          [
+            params.tokenFactoryData.name,
+            params.tokenFactoryData.symbol,
+            params.tokenFactoryData.baseURI,
+          ]
+        )
+      : (() => {
+          const {
+            name,
+            symbol,
+            yearlyMintRate,
+            vestingDuration,
+            recipients,
+            amounts,
+            tokenURI,
+          } = params.tokenFactoryData
+          return encodeAbiParameters(
+            [
+              { type: 'string' },
+              { type: 'string' },
+              { type: 'uint256' },
+              { type: 'uint256' },
+              { type: 'address[]' },
+              { type: 'uint256[]' },
+              { type: 'string' },
+            ],
+            [
+              name,
+              symbol,
+              yearlyMintRate,
+              vestingDuration,
+              recipients,
+              amounts,
+              tokenURI,
+            ]
+          )
+        })()
 
     const { airlock, initialSupply } = params
 
-    const initHashData = encodeAbiParameters(
-      [
-        { type: 'string' },
-        { type: 'string' },
-        { type: 'uint256' },
-        { type: 'address' },
-        { type: 'address' },
-        { type: 'uint256' },
-        { type: 'uint256' },
-        { type: 'address[]' },
-        { type: 'uint256[]' },
-        { type: 'string' },
-      ],
-      [
-        name,
-        symbol,
-        initialSupply,
-        airlock,
-        airlock,
-        yearlyMintRate,
-        vestingDuration,
-        recipients,
-        amounts,
-        tokenURI,
-      ]
-    )
-
-    const tokenInitHash = keccak256(
-      encodePacked(['bytes', 'bytes'], [params.customDerc20Bytecode as Hex ?? DERC20Bytecode as Hex, initHashData])
-    )
+    // Compute token init hash; use DN404 bytecode if tokenVariant is doppler404
+    let tokenInitHash: Hash | undefined
+    if (params.tokenVariant === 'doppler404') {
+      const { name, symbol, baseURI } = params.tokenFactoryData
+      const { airlock, initialSupply } = params
+      // DN404 constructor: (name, symbol, initialSupply, recipient, owner, baseURI)
+      const initHashData = encodeAbiParameters(
+        [
+          { type: 'string' },
+          { type: 'string' },
+          { type: 'uint256' },
+          { type: 'address' },
+          { type: 'address' },
+          { type: 'string' },
+        ],
+        [
+          name,
+          symbol,
+          initialSupply,
+          airlock,
+          airlock,
+          baseURI,
+        ]
+      )
+      tokenInitHash = keccak256(
+        encodePacked(['bytes', 'bytes'], [DopplerDN404Bytecode as Hex, initHashData])
+      )
+    } else {
+      const { name, symbol, yearlyMintRate, vestingDuration, recipients, amounts, tokenURI } = params.tokenFactoryData
+      const { airlock, initialSupply } = params
+      const initHashData = encodeAbiParameters(
+        [
+          { type: 'string' },
+          { type: 'string' },
+          { type: 'uint256' },
+          { type: 'address' },
+          { type: 'address' },
+          { type: 'uint256' },
+          { type: 'uint256' },
+          { type: 'address[]' },
+          { type: 'uint256[]' },
+          { type: 'string' },
+        ],
+        [
+          name,
+          symbol,
+          initialSupply,
+          airlock,
+          airlock,
+          yearlyMintRate,
+          vestingDuration,
+          recipients,
+          amounts,
+          tokenURI,
+        ]
+      )
+      tokenInitHash = keccak256(
+        encodePacked(['bytes', 'bytes'], [params.customDerc20Bytecode as Hex ?? DERC20Bytecode as Hex, initHashData])
+      )
+    }
 
     // Use the exact flags from V4 SDK
     const flags = BigInt(
@@ -922,22 +999,22 @@ export class DopplerFactory {
         hookInitHash,
         params.deployer
       )
-      const token = this.computeCreate2Address(
-        saltBytes,
-        tokenInitHash,
-        params.tokenFactory
-      )
-
       const hookBigInt = BigInt(hook)
-      const tokenBigInt = BigInt(token)
-      const numeraireBigInt = BigInt(params.numeraire)
-
-      if (
-        (hookBigInt & FLAG_MASK) === flags &&
-        ((isToken0 && tokenBigInt < numeraireBigInt) ||
-          (!isToken0 && tokenBigInt > numeraireBigInt))
-      ) {
-        return [saltBytes, hook, token, poolInitializerData, tokenFactoryData]
+      if (tokenInitHash) {
+        const token = this.computeCreate2Address(
+          saltBytes,
+          tokenInitHash,
+          params.tokenFactory
+        )
+        const tokenBigInt = BigInt(token)
+        const numeraireBigInt = BigInt(params.numeraire)
+        if (
+          (hookBigInt & FLAG_MASK) === flags &&
+          ((isToken0 && tokenBigInt < numeraireBigInt) ||
+            (!isToken0 && tokenBigInt > numeraireBigInt))
+        ) {
+          return [saltBytes, hook, token, poolInitializerData, tokenFactoryData]
+        }
       }
     }
 

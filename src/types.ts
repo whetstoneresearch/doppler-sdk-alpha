@@ -1,12 +1,23 @@
 import type { Address, PublicClient, WalletClient } from 'viem'
 
 // Core configuration types
-export interface TokenConfig {
+// Token configuration (discriminated union)
+export interface StandardTokenConfig {
+  type?: 'standard' // default behavior (backwards compatible)
   name: string
   symbol: string
   tokenURI: string
   yearlyMintRate?: bigint // Optional yearly mint rate (in WAD, default: 2% = 0.02e18)
 }
+
+export interface Doppler404TokenConfig {
+  type: 'doppler404'
+  name: string
+  symbol: string
+  baseURI: string
+}
+
+export type TokenConfig = StandardTokenConfig | Doppler404TokenConfig
 
 export interface SaleConfig {
   initialSupply: bigint

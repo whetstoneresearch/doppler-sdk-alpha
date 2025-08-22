@@ -69,17 +69,27 @@ export class StaticAuctionBuilder {
   private integrator?: Address
   private userAddress?: Address
 
-  tokenConfig(params: {
-    name: string
-    symbol: string
-    tokenURI: string
-    yearlyMintRate?: bigint
-  }): this {
-    this.token = {
-      name: params.name,
-      symbol: params.symbol,
-      tokenURI: params.tokenURI,
-      yearlyMintRate: params.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE,
+  tokenConfig(
+    params:
+      | { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
+      | { type: 'doppler404'; name: string; symbol: string; baseURI: string }
+  ): this {
+    if ((params as any).type === 'doppler404') {
+      const p = params as { type: 'doppler404'; name: string; symbol: string; baseURI: string }
+      this.token = {
+        type: 'doppler404',
+        name: p.name,
+        symbol: p.symbol,
+        baseURI: p.baseURI,
+      } as any
+    } else {
+      const p = params as { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
+      this.token = {
+        name: p.name,
+        symbol: p.symbol,
+        tokenURI: p.tokenURI,
+        yearlyMintRate: p.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE,
+      } as any
     }
     return this
   }
@@ -217,17 +227,27 @@ export class DynamicAuctionBuilder {
   private startTimeOffset?: number
   private blockTimestamp?: number
 
-  tokenConfig(params: {
-    name: string
-    symbol: string
-    tokenURI: string
-    yearlyMintRate?: bigint
-  }): this {
-    this.token = {
-      name: params.name,
-      symbol: params.symbol,
-      tokenURI: params.tokenURI,
-      yearlyMintRate: params.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE,
+  tokenConfig(
+    params:
+      | { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
+      | { type: 'doppler404'; name: string; symbol: string; baseURI: string }
+  ): this {
+    if ((params as any).type === 'doppler404') {
+      const p = params as { type: 'doppler404'; name: string; symbol: string; baseURI: string }
+      this.token = {
+        type: 'doppler404',
+        name: p.name,
+        symbol: p.symbol,
+        baseURI: p.baseURI,
+      } as any
+    } else {
+      const p = params as { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
+      this.token = {
+        name: p.name,
+        symbol: p.symbol,
+        tokenURI: p.tokenURI,
+        yearlyMintRate: p.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE,
+      } as any
     }
     return this
   }

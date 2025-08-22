@@ -17,7 +17,7 @@ export interface ChainAddresses {
   // Core contracts
   airlock: Address
   tokenFactory: Address
-  
+
   // Static auction contracts (V3)
   v3Initializer: Address
   v3Quoter: Address
@@ -30,6 +30,9 @@ export interface ChainAddresses {
   dopplerDeployer: Address
   poolManager: Address
   stateView: Address
+
+  // Doppler404 contracts
+  doppler404Factory?: Address
   
   // Migration contracts
   v2Migrator: Address
@@ -109,6 +112,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
   [CHAIN_IDS.BASE_SEPOLIA]: {
     airlock: '0x3411306ce66c9469bff1535ba955503c4bde1c6e' as Address,
     tokenFactory: '0xc69ba223c617f7d936b3cf2012aa644815dbe9ff' as Address,
+    doppler404Factory: '0x9C18A677902d2068be71e1A6bb11051fb69C74d5' as Address,
     v3Initializer: '0x4c3062b9ccfdbcb10353f57c1b59a29d4c5cfa47' as Address,
     v3Quoter: '0xC5290058841028F1614F3A6F0F5816cAd0df5E27' as Address,
     lockableV3Initializer: '0x16ada5be50c3c2d94af5feae6b539c40a78ad53c' as Address,

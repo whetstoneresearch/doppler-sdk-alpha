@@ -1260,4 +1260,4 @@ export const dopplerLensAbi = [
 ] as const
 
 // Export bytecodes for CREATE2 address calculation
-export { DERC20Bytecode, DopplerBytecode } from './bytecodes'
+export { DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from './bytecodes'
