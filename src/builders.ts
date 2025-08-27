@@ -25,6 +25,7 @@ import type {
   CreateDynamicAuctionParams,
   CreateStaticAuctionParams,
   GovernanceConfig,
+  GovernanceOption,
   MigrationConfig,
   PriceRange,
   TickRange,
@@ -64,7 +65,7 @@ export class StaticAuctionBuilder {
   private sale?: CreateStaticAuctionParams['sale']
   private pool?: CreateStaticAuctionParams['pool']
   private vesting?: VestingConfig
-  private governance?: GovernanceConfig
+  private governance?: GovernanceOption
   private migration?: MigrationConfig
   private integrator?: Address
   private userAddress?: Address
@@ -160,10 +161,14 @@ export class StaticAuctionBuilder {
     return this
   }
 
-  withGovernance(params?: GovernanceConfig | { useDefaults?: boolean }): this {
+  withGovernance(params?: GovernanceConfig | { useDefaults?: boolean } | { noOp: true }): this {
     if (!params) {
-      // If omitted, downstream create call will use defaults; leave undefined
-      this.governance = undefined
+      // No args → apply standard governance defaults (explicit selection)
+      this.governance = {
+        initialVotingDelay: DEFAULT_V3_INITIAL_VOTING_DELAY,
+        initialVotingPeriod: DEFAULT_V3_INITIAL_VOTING_PERIOD,
+        initialProposalThreshold: DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD,
+      }
       return this
     }
     if ('useDefaults' in params) {
@@ -172,6 +177,10 @@ export class StaticAuctionBuilder {
         initialVotingPeriod: DEFAULT_V3_INITIAL_VOTING_PERIOD,
         initialProposalThreshold: DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD,
       }
+      return this
+    }
+    if ('noOp' in params) {
+      this.governance = { noOp: true }
       return this
     }
     this.governance = params as GovernanceConfig
@@ -199,6 +208,7 @@ export class StaticAuctionBuilder {
     if (!this.pool) throw new Error('pool configuration is required')
     if (!this.migration) throw new Error('migration configuration is required')
     if (!this.userAddress) throw new Error('userAddress is required')
+    if (!this.governance) throw new Error('governance configuration is required; call withGovernance()')
 
     return {
       token: this.token,
@@ -220,7 +230,7 @@ export class DynamicAuctionBuilder {
   private auction?: CreateDynamicAuctionParams['auction']
   private pool?: CreateDynamicAuctionParams['pool']
   private vesting?: VestingConfig
-  private governance?: GovernanceConfig
+  private governance?: GovernanceOption
   private migration?: MigrationConfig
   private integrator?: Address
   private userAddress?: Address
@@ -338,9 +348,14 @@ export class DynamicAuctionBuilder {
     return this
   }
 
-  withGovernance(params?: GovernanceConfig | { useDefaults?: boolean }): this {
+  withGovernance(params?: GovernanceConfig | { useDefaults?: boolean } | { noOp: true }): this {
     if (!params) {
-      this.governance = undefined
+      // No args → apply standard governance defaults (explicit selection)
+      this.governance = {
+        initialVotingDelay: DEFAULT_V4_INITIAL_VOTING_DELAY,
+        initialVotingPeriod: DEFAULT_V4_INITIAL_VOTING_PERIOD,
+        initialProposalThreshold: DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
+      }
       return this
     }
     if ('useDefaults' in params) {
@@ -349,6 +364,10 @@ export class DynamicAuctionBuilder {
         initialVotingPeriod: DEFAULT_V4_INITIAL_VOTING_PERIOD,
         initialProposalThreshold: DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
       }
+      return this
+    }
+    if ('noOp' in params) {
+      this.governance = { noOp: true }
       return this
     }
     this.governance = params as GovernanceConfig
@@ -388,6 +407,7 @@ export class DynamicAuctionBuilder {
     if (!this.auction) throw new Error('auction configuration is required')
     if (!this.migration) throw new Error('migration configuration is required')
     if (!this.userAddress) throw new Error('userAddress is required')
+    if (!this.governance) throw new Error('governance configuration is required; call withGovernance()')
 
     // Ensure gamma is set and valid
     let { gamma } = this.auction

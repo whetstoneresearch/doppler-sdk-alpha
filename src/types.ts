@@ -61,6 +61,13 @@ export interface GovernanceConfig {
   initialProposalThreshold?: bigint // in tokens (default: 0)
 }
 
+// Explicit selector to use no-op governance. Must be set explicitly.
+export interface NoOpGovernance {
+  noOp: true
+}
+
+export type GovernanceOption = GovernanceConfig | NoOpGovernance
+
 // Beneficiary data for streamable fees
 export interface BeneficiaryData {
   address: Address
@@ -109,8 +116,6 @@ export type MigrationConfig =
         lockDuration: number // in seconds
         beneficiaries: BeneficiaryData[]
       }
-      // For no-op governance where 100% of liquidity is permanently locked
-      noOpGovernance?: boolean
     }
 
 // Create Static Auction parameters
@@ -127,8 +132,10 @@ export interface CreateStaticAuctionParams {
   // Vesting configuration (optional)
   vesting?: VestingConfig
 
-  // Governance configuration (optional)
-  governance?: GovernanceConfig
+  // Governance configuration (required). Use `{ noOp: true }` for no‑op,
+  // `{ useDefaults: true }` via builders for standard defaults, or pass
+  // a full GovernanceConfig to customize.
+  governance: GovernanceOption
 
   // Explicit Migration Configuration
   migration: MigrationConfig
@@ -158,8 +165,10 @@ export interface CreateDynamicAuctionParams {
   // Vesting configuration (optional)
   vesting?: VestingConfig
 
-  // Governance configuration (optional)
-  governance?: GovernanceConfig
+  // Governance configuration (required). Use `{ noOp: true }` for no‑op,
+  // `{ useDefaults: true }` via builders for standard defaults, or pass
+  // a full GovernanceConfig to customize.
+  governance: GovernanceOption
 
   // Explicit Migration Configuration
   migration: MigrationConfig

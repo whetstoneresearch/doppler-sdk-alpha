@@ -14,7 +14,6 @@ export type MigrationConfig =
         lockDuration: number // seconds
         beneficiaries: { address: Address; percentage: number }[] // in basis points
       }
-      noOpGovernance?: boolean // reserved for future use
     }
 ```
 
@@ -82,22 +81,21 @@ Internally, the factory resolves the on‑chain migrator address for your chain 
 - Chain support:
   - Ensure `streamableFeesLocker` and `v4Migrator` are deployed on your target chain (see `src/addresses.ts`)
 
-## Notes on `noOpGovernance`
+## Governance Selection
 
-- TODO: Test no-op governance
-- The `noOpGovernance?: boolean` flag exists in types for a governance‑free path (e.g., permanently locking 100% of liquidity)
-- Current SDK factory paths do not branch on this flag when selecting governance factories; treat as reserved for future versions
+- Required: You must call `withGovernance(...)` in the builders.
+- Standard governance: Call `withGovernance()` with no arguments to use standard defaults, or pass `{ initialVotingDelay?, initialVotingPeriod?, initialProposalThreshold? }` or `{ useDefaults: true }`.
+- No‑op governance: Call `withGovernance({ noOp: true })`. The SDK throws if `noOpGovernanceFactory` is not deployed on the chain.
 
 ## Address Resolution
 
 Migrator contracts are selected per chain via `getAddresses(chainId)` (see `src/addresses.ts`).
 
 - `v2Migrator`, `v3Migrator`, `v4Migrator` must be present for the chosen type
-- Some optional contracts (`noOpGovernanceFactory`, `streamableFeesLocker`) may be `0x0` on certain chains — avoid V4 migration with fee streaming where not supported
+- Some optional contracts (`noOpGovernanceFactory`, `streamableFeesLocker`) may be `0x0` on certain chains — avoid V4 migration with fee streaming where not supported. Using no‑op governance requires `noOpGovernanceFactory`.
 
 ## Quick Decision Guide
 
 - Want simplest path and immediate trading? Use V2
 - Want a concentrated liquidity range in the resulting pool? Use V3
 - Want programmable fee streaming to beneficiaries and are on a V4‑ready chain? Use V4
-

@@ -154,6 +154,14 @@ export class DopplerFactory {
     }
     
     // 4. Encode governance factory data
+    const gV3 = ((params.governance as any)?.noOp === true)
+      ? undefined
+      : (params.governance as { initialVotingDelay?: number; initialVotingPeriod?: number; initialProposalThreshold?: bigint })
+
+    const gV4 = ((params.governance as any)?.noOp === true)
+      ? undefined
+      : (params.governance as { initialVotingDelay?: number; initialVotingPeriod?: number; initialProposalThreshold?: bigint })
+
     const governanceFactoryData = encodeAbiParameters(
       [
         { type: 'string' },
@@ -163,12 +171,31 @@ export class DopplerFactory {
       ],
       [
         params.token.name,
-        params.governance?.initialVotingDelay ?? DEFAULT_V3_INITIAL_VOTING_DELAY,
-        params.governance?.initialVotingPeriod ?? DEFAULT_V3_INITIAL_VOTING_PERIOD,
-        params.governance?.initialProposalThreshold ?? DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
+        gV3?.initialVotingDelay ?? DEFAULT_V3_INITIAL_VOTING_DELAY,
+        gV3?.initialVotingPeriod ?? DEFAULT_V3_INITIAL_VOTING_PERIOD,
+        gV3?.initialProposalThreshold ?? DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
       ]
     )
     
+    // 4.1 Choose governance factory (no-op by default if available)
+    const useNoOpGovernance =
+      typeof (params.governance as any)?.noOp === 'boolean' && (params.governance as any).noOp === true
+
+    const governanceFactoryAddress: Address = (() => {
+      if (useNoOpGovernance) {
+        const noOp = (addresses.noOpGovernanceFactory ?? ZERO_ADDRESS)
+        if (!noOp || noOp === ZERO_ADDRESS) {
+          throw new Error('No-op governance requested, but noOpGovernanceFactory is not deployed on this chain. Provide standard governance via withGovernance() or use a supported chain.')
+        }
+        return noOp
+      }
+      const gov = addresses.governanceFactory
+      if (!gov || gov === ZERO_ADDRESS) {
+        throw new Error('Standard governance requested but governanceFactory is not deployed on this chain.')
+      }
+      return gov
+    })()
+
     // 5. Generate a unique salt
     const salt = this.generateRandomSalt(params.userAddress)
     
@@ -179,7 +206,7 @@ export class DopplerFactory {
       numeraire: params.sale.numeraire,
       tokenFactory: isDoppler404 ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
       tokenFactoryData: tokenFactoryData,
-      governanceFactory: addresses.governanceFactory,
+      governanceFactory: governanceFactoryAddress,
       governanceFactoryData: governanceFactoryData,
       poolInitializer: addresses.v3Initializer,
       poolInitializerData: poolInitializerData,
@@ -406,12 +433,31 @@ export class DopplerFactory {
       ],
       [
         params.token.name,
-        params.governance?.initialVotingDelay ?? DEFAULT_V4_INITIAL_VOTING_DELAY,
-        params.governance?.initialVotingPeriod ?? DEFAULT_V4_INITIAL_VOTING_PERIOD,
-        params.governance?.initialProposalThreshold ?? DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
+        gV4?.initialVotingDelay ?? DEFAULT_V4_INITIAL_VOTING_DELAY,
+        gV4?.initialVotingPeriod ?? DEFAULT_V4_INITIAL_VOTING_PERIOD,
+        gV4?.initialProposalThreshold ?? DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
       ]
     )
     
+    // 7.1 Choose governance factory (no-op by default if available)
+    const useNoOpGovernance =
+      typeof (params.governance as any)?.noOp === 'boolean' && (params.governance as any).noOp === true
+
+    const governanceFactoryAddress: Address = (() => {
+      if (useNoOpGovernance) {
+        const noOp = (addresses.noOpGovernanceFactory ?? ZERO_ADDRESS)
+        if (!noOp || noOp === ZERO_ADDRESS) {
+          throw new Error('No-op governance requested, but noOpGovernanceFactory is not deployed on this chain. Provide standard governance via withGovernance() or use a supported chain.')
+        }
+        return noOp
+      }
+      const gov = addresses.governanceFactory
+      if (!gov || gov === ZERO_ADDRESS) {
+        throw new Error('Standard governance requested but governanceFactory is not deployed on this chain.')
+      }
+      return gov
+    })()
+
     // 8. Build the complete CreateParams for the V4-style ABI
     const createParams = {
       initialSupply: params.sale.initialSupply,
@@ -419,7 +465,7 @@ export class DopplerFactory {
       numeraire: params.sale.numeraire,
       tokenFactory: isDoppler404 ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
       tokenFactoryData: encodedTokenFactoryData,
-      governanceFactory: addresses.governanceFactory,
+      governanceFactory: governanceFactoryAddress,
       governanceFactoryData: governanceFactoryData,
       poolInitializer: addresses.v4Initializer,
       poolInitializerData: poolInitializerData,

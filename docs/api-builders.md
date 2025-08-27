@@ -11,9 +11,11 @@ All types referenced are exported from `src/types.ts`.
 
 - Token specification:
   - `standard` (default): DERC20 with optional vesting and yearly mint rate
-- Governance specification:
-  - `useDefaults: true`: Uses standard defaults
-  - Alternatively, specify `initialVotingDelay`, `initialVotingPeriod`, and `initialProposalThreshold`
+- Governance is required:
+  - Call `withGovernance(...)` in all cases.
+  - `withGovernance()` with no arguments applies standard governance defaults.
+  - `withGovernance({ noOp: true })` explicitly selects no‑op governance (requires chain support).
+  - Or provide `initialVotingDelay`, `initialVotingPeriod`, and `initialProposalThreshold`, or `withGovernance({ useDefaults: true })`.
 - Fee tiers and tick spacing: 100→1, 500→10, 3000→60, 10000→200
 
 Price → Ticks conversion used by builders:
@@ -41,7 +43,7 @@ Methods (chainable):
     - Computes ticks from `priceRange` using inferred `tickSpacing` from `fee`
 - withVesting({ duration?, cliffDuration? } | undefined)
   - Omit to disable vesting. Default duration if provided but undefined is `DEFAULT_V3_VESTING_DURATION`.
-- withGovernance(GovernanceConfig | { useDefaults: true } | undefined)
+- withGovernance(GovernanceConfig | { useDefaults: true } | { noOp: true } | undefined)
 - withMigration(MigrationConfig)
 - withUserAddress(address)
 - withIntegrator(address?)
@@ -63,7 +65,7 @@ const params = new StaticAuctionBuilder()
   .saleConfig({ initialSupply: parseEther('1_000_000_000'), numTokensToSell: parseEther('900_000_000'), numeraire: weth })
   .poolByPriceRange({ priceRange: { startPrice: 0.0001, endPrice: 0.001 }, fee: 3000 })
   .withVesting({ duration: BigInt(365*24*60*60) })
-  .withGovernance({ useDefaults: true })
+  .withGovernance() // required; no args → standard governance defaults
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress(user)
   .build()
@@ -91,8 +93,8 @@ Methods (chainable):
     - Uses `pool.tickSpacing` unless `tickSpacing` is provided here
 - withVesting({ duration?, cliffDuration? } | undefined)
   - Omit to disable vesting. Default duration if provided but undefined is `0` for dynamic auctions.
-- withGovernance(GovernanceConfig | { useDefaults: true } | undefined)
-  - Omit for protocol defaults; `{ useDefaults: true }` applies SDK’s V4 defaults
+- withGovernance(GovernanceConfig | { useDefaults: true } | { noOp: true } | undefined)
+  - Call is required; `withGovernance()` applies standard defaults; `{ useDefaults: true }` also applies defaults; `{ noOp: true }` explicitly selects no‑op.
 - withMigration(MigrationConfig)
 - withUserAddress(address)
 - withIntegrator(address?)
@@ -126,8 +128,8 @@ const params = new DynamicAuctionBuilder()
 
 ## Build Results
 
-- Static: `CreateStaticAuctionParams` with fields: `token`, `sale`, `pool`, optional `vesting`, optional `governance`, `migration`, `integrator`, `userAddress`
-- Dynamic: `CreateDynamicAuctionParams` with fields: `token`, `sale`, `auction`, `pool`, optional `vesting`, optional `governance`, `migration`, `integrator`, `userAddress`, optional `startTimeOffset`, optional `blockTimestamp`
+- Static: `CreateStaticAuctionParams` with fields: `token`, `sale`, `pool`, optional `vesting`, `governance`, `migration`, `integrator`, `userAddress`
+- Dynamic: `CreateDynamicAuctionParams` with fields: `token`, `sale`, `auction`, `pool`, optional `vesting`, `governance`, `migration`, `integrator`, `userAddress`, optional `startTimeOffset`, optional `blockTimestamp`
 
 Pass the built object directly to the factory:
 ```ts
@@ -139,4 +141,3 @@ Notes:
 - For doppler404 tokens, ensure `doppler404Factory` is configured on your target chain (see `src/addresses.ts`).
 - `integrator` defaults to zero address when omitted.
 - `withTime` is only relevant to dynamic auctions.
-
