@@ -1,6 +1,6 @@
 # Migration Guide
 
-This guide helps you migrate from `doppler-v3-sdk` or `doppler-v4-sdk` to the unified `@doppler/sdk`.
+This guide helps you migrate from `doppler-v3-sdk` or `doppler-v4-sdk` to the unified `@whetstone-research/doppler-sdk` using the builder pattern.
 
 ## Overview of Changes
 
@@ -21,7 +21,7 @@ Remove the old packages and install the new unified SDK:
 npm uninstall @doppler/v3-sdk @doppler/v4-sdk ethers
 
 # Install new packages
-npm install @doppler/sdk viem
+npm install @whetstone-research/doppler-sdk viem
 ```
 
 ## Initialization Changes
@@ -50,9 +50,10 @@ const factory = new ReadWriteFactory(signer, chainId);
 
 ### After (Unified SDK)
 ```typescript
-import { DopplerSDK } from '@doppler/sdk';
+import { DopplerSDK } from '@whetstone-research/doppler-sdk';
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { base } from 'viem/chains';
+import { privateKeyToAccount } from 'viem/accounts';
 
 const publicClient = createPublicClient({
   chain: base,
@@ -62,7 +63,7 @@ const publicClient = createPublicClient({
 const walletClient = createWalletClient({
   chain: base,
   transport: http(rpcUrl),
-  account: privateKeyAccount(privateKey),
+  account: privateKeyToAccount(privateKey),
 });
 
 const sdk = new DopplerSDK({
@@ -112,7 +113,7 @@ const { poolAddress, tokenAddress } = await factory.create({
 });
 ```
 
-#### After
+#### After (Builder pattern)
 ```typescript
 import { StaticAuctionBuilder } from '@whetstone-research/doppler-sdk'
 
@@ -173,7 +174,7 @@ const { hookAddress, tokenAddress } = await factory.create({
 });
 ```
 
-#### After
+#### After (Builder pattern)
 ```typescript
 import { DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk'
 
@@ -227,15 +228,15 @@ const currentEpoch = await dynamicAuction.getCurrentEpoch();
 
 ### Before
 ```typescript
-import { Derc20 } from '@doppler/v3-sdk';
+import { Derc20 } from 'doppler-v3-sdk';
 
 const token = new Derc20(tokenAddress, signer);
 const balance = await token.balanceOf(address);
 ```
 
-### After
+### After (Unified SDK)
 ```typescript
-import { Derc20 } from '@doppler/sdk';
+import { Derc20 } from '@whetstone-research/doppler-sdk';
 
 const token = new Derc20(publicClient, walletClient, tokenAddress);
 const balance = await token.getBalanceOf(address);
@@ -246,7 +247,7 @@ const vestingData = await token.getVestingData(address);
 
 ### Before
 ```typescript
-import { Quoter } from '@doppler/v3-sdk';
+import { Quoter } from 'doppler-v3-sdk';
 
 const quoter = new Quoter(signer, chainId);
 const quote = await quoter.quoteExactInputSingle({
@@ -270,108 +271,3 @@ const quote = await quoter.quoteV3ExactInputSingle({
 });
 ```
 
-## Key Differences
-
-1. **Terminology**: V3/V4 → Static/Dynamic auctions
-2. **Configuration**: Explicit, type-safe configuration objects
-3. **Migration Config**: No more manual encoding of migration data
-4. **Chain Management**: Chain ID passed once during SDK initialization
-5. **Contract Addresses**: Automatically resolved based on chain
-6. **Error Handling**: Better error messages with validation
-7. **BigInt Usage**: All numeric values use native BigInt
-8. **Event Parsing**: Automatic parsing of transaction receipts
-
-## Common Gotchas
-
-1. **viem vs ethers**: The new SDK uses viem. Key differences:
-   - `parseEther` is imported from viem, not ethers
-   - Addresses must be checksummed (`0x...` format)
-   - BigInt is used instead of BigNumber
-
-2. **Async Methods**: All SDK methods are async, even getters:
-   ```typescript
-   // Wrong
-   const name = token.name();
-   
-   // Correct
-   const name = await token.getName();
-   ```
-
-3. **Beneficiaries Required**: V4 migrations now require at least one beneficiary:
-   ```typescript
-   migration: {
-     type: 'uniswapV4',
-     streamableFees: {
-       beneficiaries: [
-         { address: '0x...', percentage: 10000 } // 100%
-       ]
-     }
-   }
-   ```
-
-4. **Hook Address Mining**: Currently handled automatically, manual mining coming soon
-
-## Getting Help
-
-- [GitHub Issues](https://github.com/doppler-protocol/sdk/issues)
-- [Discord Community](https://discord.gg/doppler)
-- [Documentation](https://docs.doppler.finance)
-
-## Example Migration
-
-Here's a complete example migrating a V3 pool creation:
-
-```typescript
-// Old V3 SDK
-import { ReadWriteFactory } from '@doppler/v3-sdk';
-import { ethers } from 'ethers';
-
-async function createV3Pool() {
-  const provider = new ethers.providers.JsonRpcProvider();
-  const signer = new ethers.Wallet(privateKey, provider);
-  const factory = new ReadWriteFactory(signer, 1);
-  
-  const result = await factory.create({
-    // ... 20+ parameters
-  });
-  
-  return result;
-}
-
-// New Unified SDK
-import { DopplerSDK, StaticAuctionBuilder } from '@whetstone-research/doppler-sdk';
-import { createPublicClient, createWalletClient, http } from 'viem';
-import { mainnet } from 'viem/chains';
-import { privateKeyToAccount } from 'viem/accounts';
-
-async function createStaticAuction() {
-  const publicClient = createPublicClient({
-    chain: mainnet,
-    transport: http(),
-  });
-  
-  const walletClient = createWalletClient({
-    chain: mainnet,
-    transport: http(),
-    account: privateKeyToAccount(privateKey),
-  });
-  
-  const sdk = new DopplerSDK({
-    publicClient,
-    walletClient,
-    chainId: mainnet.id,
-  });
-  
-  const params = new StaticAuctionBuilder()
-    .tokenConfig({ name: 'Token', symbol: 'TKN', tokenURI: '...' })
-    .saleConfig({ initialSupply: 1000000n, numTokensToSell: 500000n, numeraire: '0x...' })
-    .poolByTicks({ startTick: -92103, endTick: -69080, fee: 3000 })
-    .withMigration({ type: 'uniswapV2' })
-    .withUserAddress('0x...')
-    .build()
-
-  const result = await sdk.factory.createStaticAuction(params);
-  
-  return result;
-}
-```
