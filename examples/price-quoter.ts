@@ -7,16 +7,19 @@
  * - Handling different swap types (exact input/output)
  */
 
-import { DopplerSDK } from 'doppler-sdk'
+import { DopplerSDK } from '@whetstone-research/doppler-sdk';
+
 import { createPublicClient, http, parseEther, formatEther, type Address } from 'viem'
 import { base } from 'viem/chains'
 
-const RPC_URL = process.env.RPC_URL || 'https://mainnet.base.org'
+const TOKEN = process.env.TOKEN as `0x${string}`;
+const RPC_URL = process.env.RPC_URL || 'https://mainnet.base.org' as string;
+
+if (!TOKEN) throw new Error('TOKEN is not set');
 
 // Example token addresses (replace with actual addresses)
 const WETH = '0x4200000000000000000000000000000000000006' as Address // WETH on Base
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address // USDC on Base
-const TOKEN = '0x1234567890123456789012345678901234567890' as Address // Your token
 
 async function main() {
   // Initialize SDK

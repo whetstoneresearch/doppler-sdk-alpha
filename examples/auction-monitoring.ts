@@ -7,15 +7,17 @@
  * - Tracking key metrics and progress
  */
 
-import { DopplerSDK } from 'doppler-sdk'
+import { DopplerSDK } from '@whetstone-research/doppler-sdk';
 import { createPublicClient, http, formatEther, type Address } from 'viem'
 import { base } from 'viem/chains'
 
 // Example addresses - replace with your actual auction addresses
-const STATIC_POOL_ADDRESS = '0x1234567890123456789012345678901234567890' as Address
-const DYNAMIC_HOOK_ADDRESS = '0x0987654321098765432109876543210987654321' as Address
+const STATIC_POOL_ADDRESS = process.env.STATIC_POOL_ADDRESS as `0x${string}`;
+const DYNAMIC_HOOK_ADDRESS = process.env.DYNAMIC_HOOK_ADDRESS as `0x${string}`;
+const RPC_URL = process.env.RPC_URL || 'https://mainnet.base.org' as string;
 
-const RPC_URL = process.env.RPC_URL || 'https://mainnet.base.org'
+if (!STATIC_POOL_ADDRESS) throw new Error('STATIC_POOL_ADDRESS is not set');
+if (!DYNAMIC_HOOK_ADDRESS) throw new Error('DYNAMIC_HOOK_ADDRESS is not set');
 
 async function monitorStaticAuction(sdk: DopplerSDK, poolAddress: Address) {
   console.log('\n📊 Monitoring Static Auction...')
