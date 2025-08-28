@@ -10,7 +10,7 @@
 // UNCOMMENT IF RUNNING LOCALLY
 // import { DopplerSDK, DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk';
 
-import { DopplerSDK, DynamicAuctionBuilder } from '../src';
+import { DopplerSDK } from '../src';
 
 import {
   createPublicClient,
@@ -23,23 +23,23 @@ import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 
 // Load environment variables
-const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
-const RPC_URL = process.env.RPC_URL || 'https://mainnet.base.org' as string;
+const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
+const rpcUrl = process.env.RPC_URL || 'https://mainnet.base.org' as string;
 
-if (!PRIVATE_KEY) throw new Error('PRIVATE_KEY is not set');
+if (!privateKey) throw new Error('PRIVATE_KEY is not set');
 
 async function main() {
   // 1. Set up clients
-  const account = privateKeyToAccount(PRIVATE_KEY);
+  const account = privateKeyToAccount(privateKey);
 
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(rpcUrl),
   });
 
   const walletClient = createWalletClient({
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(rpcUrl),
     account,
   });
 
@@ -51,7 +51,7 @@ async function main() {
   });
 
   // 3. Define dynamic auction parameters via builder
-  const params = new DynamicAuctionBuilder()
+  const params = sdk.buildDynamicAuction()
     .tokenConfig({
       name: 'TEST DYNAMIC',
       symbol: 'TEST',
@@ -79,13 +79,14 @@ async function main() {
         lockDuration: 365 * 24 * 60 * 60,
         beneficiaries: [
           { address: account.address, percentage: 10000 }, // 100%
-          // Add more beneficiaries as needed
+          // Modify beneficiaries as needed
+          // { address: '0xBeneficiary1...', percentage: 5000 }, // 50%
           // { address: '0xBeneficiary2...', percentage: 3000 }, // 30%
           // { address: '0xBeneficiary3...', percentage: 2000 }, // 20%
         ],
       },
     })
-    .withGovernance({ useDefaults: true })
+    .withGovernance({ type: 'noOp' })
     .withUserAddress(account.address)
     .build();
 

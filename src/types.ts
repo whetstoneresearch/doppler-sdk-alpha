@@ -1,4 +1,5 @@
 import { base, baseSepolia, ink, unichain } from 'viem/chains';
+import { CHAIN_IDS, type SupportedChainId } from './addresses';
 import type {
   Address,
   PublicClient,
@@ -70,19 +71,23 @@ export interface VestingConfig {
   cliffDuration: number; // in seconds
 }
 
-// Governance configuration
-export interface GovernanceConfig {
-  initialVotingDelay?: number; // in seconds (default: depends on version)
-  initialVotingPeriod?: number; // in seconds (default: depends on version)
-  initialProposalThreshold?: bigint; // in tokens (default: 0)
-}
+// Chains where no-op governance is enabled
+export type NoOpEnabledChainId = typeof CHAIN_IDS.BASE | typeof CHAIN_IDS.BASE_SEPOLIA;
 
-// Explicit selector to use no-op governance. Must be set explicitly.
-export interface NoOpGovernance {
-  noOp: true;
+// Governance configuration (discriminated union)
+export type GovernanceDefault = { type: 'default' };
+export interface GovernanceCustom {
+  type: 'custom';
+  initialVotingDelay: number;
+  initialVotingPeriod: number;
+  initialProposalThreshold: bigint;
 }
+export type GovernanceNoOp = { type: 'noOp' };
 
-export type GovernanceOption = GovernanceConfig | NoOpGovernance;
+export type GovernanceOption<C extends SupportedChainId> =
+  | GovernanceDefault
+  | GovernanceCustom
+  | (C extends NoOpEnabledChainId ? GovernanceNoOp : never);
 
 // Beneficiary data for streamable fees
 export interface BeneficiaryData {
@@ -135,7 +140,7 @@ export type MigrationConfig =
     };
 
 // Create Static Auction parameters
-export interface CreateStaticAuctionParams {
+export interface CreateStaticAuctionParams<C extends SupportedChainId = SupportedChainId> {
   // Token configuration
   token: TokenConfig;
 
@@ -148,10 +153,9 @@ export interface CreateStaticAuctionParams {
   // Vesting configuration (optional)
   vesting?: VestingConfig;
 
-  // Governance configuration (required). Use `{ noOp: true }` for no‑op,
-  // `{ useDefaults: true }` via builders for standard defaults, or pass
-  // a full GovernanceConfig to customize.
-  governance: GovernanceOption;
+  // Governance configuration (required). Use `{ type: 'noOp' }` where enabled,
+  // `{ type: 'default' }` for standard defaults, or `{ type: 'custom', ... }` to customize.
+  governance: GovernanceOption<C>;
 
   // Explicit Migration Configuration
   migration: MigrationConfig;
@@ -162,7 +166,7 @@ export interface CreateStaticAuctionParams {
 }
 
 // Create Dynamic Auction parameters
-export interface CreateDynamicAuctionParams {
+export interface CreateDynamicAuctionParams<C extends SupportedChainId = SupportedChainId> {
   // Token configuration
   token: TokenConfig;
 
@@ -181,10 +185,9 @@ export interface CreateDynamicAuctionParams {
   // Vesting configuration (optional)
   vesting?: VestingConfig;
 
-  // Governance configuration (required). Use `{ noOp: true }` for no‑op,
-  // `{ useDefaults: true }` via builders for standard defaults, or pass
-  // a full GovernanceConfig to customize.
-  governance: GovernanceOption;
+  // Governance configuration (required). Use `{ type: 'noOp' }` where enabled,
+  // `{ type: 'default' }` for standard defaults, or `{ type: 'custom', ... }` to customize.
+  governance: GovernanceOption<C>;
 
   // Explicit Migration Configuration
   migration: MigrationConfig;
@@ -289,10 +292,10 @@ export interface DynamicAuctionBuildConfig {
 }
 
 // SDK initialization configuration
-export interface DopplerSDKConfig {
+export interface DopplerSDKConfig<C extends SupportedChainId = SupportedChainId> {
   publicClient: SupportedPublicClient;
   walletClient?: WalletClient;
-  chainId: number;
+  chainId: C;
 }
 
 // Pool information types

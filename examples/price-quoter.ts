@@ -14,20 +14,20 @@ import { DopplerSDK } from '../src';
 import { createPublicClient, http, parseEther, formatEther, type Address } from 'viem'
 import { base } from 'viem/chains'
 
-const TOKEN = process.env.TOKEN as `0x${string}`;
-const RPC_URL = process.env.RPC_URL || 'https://mainnet.base.org' as string;
+const token = process.env.TOKEN as `0x${string}`;
+const rpcUrl = process.env.RPC_URL || 'https://mainnet.base.org' as string;
 
-if (!TOKEN) throw new Error('TOKEN is not set');
+if (!token) throw new Error('TOKEN is not set');
 
 // Example token addresses (replace with actual addresses)
-const WETH = '0x4200000000000000000000000000000000000006' as Address // WETH on Base
-const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address // USDC on Base
+const weth = '0x4200000000000000000000000000000000000006' as Address // WETH on Base
+const usdc = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address // USDC on Base
 
 async function main() {
   // Initialize SDK
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(RPC_URL)
+    transport: http(rpcUrl)
   })
 
   const sdk = new DopplerSDK({
@@ -44,8 +44,8 @@ async function main() {
   console.log('\n📊 Example 1: Swap 1 ETH for USDC on V3')
   try {
     const v3Quote = await quoter.quoteExactInputV3({
-      tokenIn: WETH,
-      tokenOut: USDC,
+      tokenIn: weth,
+      tokenOut: usdc,
       amountIn: parseEther('1'),
       fee: 3000 // 0.3% fee tier
     })
@@ -62,8 +62,8 @@ async function main() {
   console.log('\n📊 Example 2: Get exactly 2000 USDC, pay in ETH on V3')
   try {
     const v3QuoteOut = await quoter.quoteExactOutputV3({
-      tokenIn: WETH,
-      tokenOut: USDC,
+      tokenIn: weth,
+      tokenOut: usdc,
       amountOut: parseEther('2000'), // Want exactly 2000 USDC
       fee: 3000
     })
@@ -80,7 +80,7 @@ async function main() {
   try {
     const v2Quote = await quoter.quoteExactInputV2({
       amountIn: parseEther('1'),
-      path: [WETH, USDC]
+      path: [weth, usdc]
     })
     
     console.log('- Amount out:', formatEther(v2Quote[1]), 'USDC')
@@ -94,7 +94,7 @@ async function main() {
   try {
     const multiHopQuote = await quoter.quoteExactInputV2({
       amountIn: parseEther('1'),
-      path: [WETH, USDC, TOKEN] // ETH -> USDC -> TOKEN
+      path: [weth, usdc, token] // ETH -> USDC -> TOKEN
     })
     
     console.log('Hop results:')
@@ -109,8 +109,8 @@ async function main() {
   console.log('\n📊 Example 5: Swap on V4 pool')
   try {
     const v4PoolKey = {
-      currency0: WETH,
-      currency1: TOKEN,
+      currency0: weth,
+      currency1: token,
       fee: 3000,
       tickSpacing: 60,
       hooks: '0x0000000000000000000000000000000000000000' as Address // No hook for graduated pool
@@ -136,7 +136,7 @@ async function main() {
   try {
     const v2 = await quoter.quoteExactInputV2({
       amountIn: parseEther('1'),
-      path: [WETH, USDC]
+      path: [weth, usdc]
     })
     results.push({ 
       version: 'V2', 
@@ -148,8 +148,8 @@ async function main() {
   // Try V3
   try {
     const v3 = await quoter.quoteExactInputV3({
-      tokenIn: WETH,
-      tokenOut: USDC,
+      tokenIn: weth,
+      tokenOut: usdc,
       amountIn: parseEther('1'),
       fee: 3000
     })

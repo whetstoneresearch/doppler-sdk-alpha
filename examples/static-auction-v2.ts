@@ -10,7 +10,7 @@
 // UNCOMMENT IF RUNNING LOCALLY
 // import { DopplerSDK, StaticAuctionBuilder } from '@whetstone-research/doppler-sdk';
 
-import { DopplerSDK, StaticAuctionBuilder } from '../src';
+import { DopplerSDK } from '../src';
 import {
   createPublicClient,
   createWalletClient,
@@ -22,21 +22,21 @@ import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
 // Load environment variables
-const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
-const RPC_URL = process.env.RPC_URL || "https://mainnet.base.org";
+const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
+const rpcUrl = process.env.RPC_URL || "https://mainnet.base.org";
 
 async function main() {
   // 1. Set up clients
-  const account = privateKeyToAccount(PRIVATE_KEY);
+  const account = privateKeyToAccount(privateKey);
 
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(rpcUrl),
   });
 
   const walletClient = createWalletClient({
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(rpcUrl),
     account,
   });
 
@@ -48,7 +48,7 @@ async function main() {
   });
 
   // 3. Define auction parameters via builder
-  const params = new StaticAuctionBuilder()
+  const params = sdk.buildStaticAuction()
     .tokenConfig({
       name: "TEST",
       symbol: "TEST",
@@ -62,7 +62,7 @@ async function main() {
     .poolByTicks({ startTick: 175000, endTick: 225000, fee: 10000 })
     .withMigration({ type: "uniswapV2" })
     .withUserAddress(account.address)
-    .withGovernance({ useDefaults: true })
+    .withGovernance({ type: 'default' })
     .build();
 
   console.log("Creating static auction...");

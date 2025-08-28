@@ -20,9 +20,9 @@ import {
 import { base } from 'viem/chains';
 
 // Example addresses - replace with your actual auction addresses
-const STATIC_POOL_ADDRESS = process.env.STATIC_POOL_ADDRESS as `0x${string}`;
-const DYNAMIC_HOOK_ADDRESS = process.env.DYNAMIC_HOOK_ADDRESS as `0x${string}`;
-const RPC_URL = process.env.RPC_URL || ('https://mainnet.base.org' as string);
+const staticPoolAddress = process.env.STATIC_POOL_ADDRESS as `0x${string}`;
+const dynamicHookAddress = process.env.DYNAMIC_HOOK_ADDRESS as `0x${string}`;
+const rpcUrl = process.env.RPC_URL || ('https://mainnet.base.org' as string);
 
 async function monitorStaticAuction(sdk: DopplerSDK, poolAddress: Address) {
   console.log('\n📊 Monitoring Static Auction...');
@@ -135,7 +135,7 @@ async function main() {
   // Initialize SDK in read-only mode
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(rpcUrl),
   });
 
   const sdk = new DopplerSDK({
@@ -147,15 +147,15 @@ async function main() {
   console.log('=======================');
 
   // Monitor static auction if address provided
-  if (STATIC_POOL_ADDRESS) {
-    await monitorStaticAuction(sdk, STATIC_POOL_ADDRESS);
+  if (staticPoolAddress) {
+    await monitorStaticAuction(sdk, staticPoolAddress);
   } else {
     console.log('\n⚠️  No static auction address provided');
   }
 
   // Monitor dynamic auction if address provided
-  if (DYNAMIC_HOOK_ADDRESS) {
-    await monitorDynamicAuction(sdk, DYNAMIC_HOOK_ADDRESS);
+  if (dynamicHookAddress) {
+    await monitorDynamicAuction(sdk, dynamicHookAddress);
   } else {
     console.log('\n⚠️  No dynamic auction address provided');
   }

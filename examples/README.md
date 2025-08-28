@@ -7,19 +7,16 @@ This directory contains practical examples demonstrating how to use the Doppler 
 ### 1. [Static Auction with V2 Migration](./static-auction-v2.ts)
 Create a simple token launch using a static price range on Uniswap V3, then migrate to Uniswap V2.
 
-### 2. [Static Auction with V4 Migration](./static-auction-v4.ts)
-Launch a token with a fixed price range and migrate to Uniswap V4 with fee streaming.
-
-### 3. [Dynamic Auction with V4 Migration](./dynamic-auction-v4.ts)
+### 2. [Dynamic Auction with V4 Migration](./dynamic-auction-v4.ts)
 Create a gradual Dutch auction that adjusts price over time based on demand.
 
-### 4. [Auction Monitoring](./auction-monitoring.ts)
+### 3. [Auction Monitoring](./auction-monitoring.ts)
 Monitor an existing auction for graduation status and key metrics.
 
-### 5. [Token Interaction](./token-interaction.ts)
+### 4. [Token Interaction](./token-interaction.ts)
 Interact with launched tokens - check balances, approve spending, and release vested tokens.
 
-### 6. [Price Quoter](./price-quoter.ts)
+### 5. [Price Quoter](./price-quoter.ts)
 Get price quotes across different Uniswap versions for optimal trading.
 
 ## Prerequisites

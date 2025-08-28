@@ -23,35 +23,35 @@ import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 
 // Configuration
-const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
-const RPC_URL = process.env.RPC_URL || 'https://mainnet.base.org' as string;
-const TOKEN_ADDRESS = process.env.TOKEN_ADDRESS as `0x${string}`;
+const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
+const rpcUrl = process.env.RPC_URL || 'https://mainnet.base.org' as string;
+const tokenAddress = process.env.TOKEN_ADDRESS as `0x${string}`;
 
-if (!PRIVATE_KEY) throw new Error('PRIVATE_KEY is not set');
-if (!TOKEN_ADDRESS) throw new Error('TOKEN_ADDRESS is not set');
+if (!privateKey) throw new Error('PRIVATE_KEY is not set');
+if (!tokenAddress) throw new Error('TOKEN_ADDRESS is not set');
 
 async function main() {
   // 1. Set up clients
-  const account = privateKeyToAccount(PRIVATE_KEY);
+  const account = privateKeyToAccount(privateKey);
 
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(rpcUrl),
   });
 
   const walletClient = createWalletClient({
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(rpcUrl),
     account,
   });
 
   console.log('💰 Token Interaction Example');
   console.log('===========================');
   console.log('Account:', account.address);
-  console.log('Token:', TOKEN_ADDRESS);
+  console.log('Token:', tokenAddress);
 
   // 2. Create token instance
-  const token = new Derc20(publicClient, walletClient, TOKEN_ADDRESS);
+  const token = new Derc20(publicClient, walletClient, tokenAddress);
 
   try {
     // 3. Get token information
