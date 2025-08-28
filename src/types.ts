@@ -15,6 +15,8 @@ export interface Doppler404TokenConfig {
   name: string
   symbol: string
   baseURI: string
+  // Optional unit for DN404 factory (uint256). Defaults to 1000 when omitted.
+  unit?: bigint
 }
 
 export type TokenConfig = StandardTokenConfig | Doppler404TokenConfig

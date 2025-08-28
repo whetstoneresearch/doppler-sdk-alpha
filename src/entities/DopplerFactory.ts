@@ -111,8 +111,9 @@ export class DopplerFactory {
     const isDoppler404 = (params.token as any).type === 'doppler404'
     let tokenFactoryData: Hex
     if (isDoppler404) {
-      // Doppler404 expects only: name, symbol, baseURI
+      // Doppler404 expects: name, symbol, baseURI, unit
       const baseURI = (params.token as any).baseURI as string
+      const unit = (params.token as any).unit !== undefined ? BigInt((params.token as any).unit) : 1000n
       if (!addresses.doppler404Factory || addresses.doppler404Factory === ZERO_ADDRESS) {
         throw new Error('Doppler404 factory address not configured for this chain')
       }
@@ -121,11 +122,13 @@ export class DopplerFactory {
           { type: 'string' },
           { type: 'string' },
           { type: 'string' },
+          { type: 'uint256' },
         ],
         [
           params.token.name,
           params.token.symbol,
           baseURI,
+          unit,
         ]
       )
     } else {
@@ -228,7 +231,7 @@ export class DopplerFactory {
     const hash = await this.walletClient.writeContract(request)
     
     // Wait for transaction and get the receipt
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash, confirmations: 2 })
     
     // The create function returns [asset, pool, governance, timelock, migrationPool]
     // We can get these from the simulation result or parse from logs
@@ -388,6 +391,7 @@ export class DopplerFactory {
           name: params.token.name,
           symbol: params.token.symbol,
           baseURI: (params.token as any).baseURI as string,
+          unit: (params.token as any).unit !== undefined ? BigInt((params.token as any).unit) : 1000n,
         }
       : {
           name: params.token.name,
@@ -926,11 +930,13 @@ export class DopplerFactory {
             { type: 'string' },
             { type: 'string' },
             { type: 'string' },
+            { type: 'uint256' },
           ],
           [
             params.tokenFactoryData.name,
             params.tokenFactoryData.symbol,
             params.tokenFactoryData.baseURI,
+            params.tokenFactoryData.unit ?? 1000n,
           ]
         )
       : (() => {

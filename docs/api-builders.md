@@ -139,5 +139,6 @@ const { hookAddress, tokenAddress: token2, poolId } = await sdk.factory.createDy
 
 Notes:
 - For doppler404 tokens, ensure `doppler404Factory` is configured on your target chain (see `src/addresses.ts`).
+- Doppler404 tokenConfig supports optional `unit?: bigint` which defaults to `1000` when omitted.
 - `integrator` defaults to zero address when omitted.
 - `withTime` is only relevant to dynamic auctions.

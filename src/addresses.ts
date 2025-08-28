@@ -112,7 +112,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
   [CHAIN_IDS.BASE_SEPOLIA]: {
     airlock: '0x3411306ce66c9469bff1535ba955503c4bde1c6e' as Address,
     tokenFactory: '0xc69ba223c617f7d936b3cf2012aa644815dbe9ff' as Address,
-    doppler404Factory: '0xbefCf947516D161CAE5F7175021c3cfCAA139E1C' as Address,
+    doppler404Factory: '0x80A27Feee1A22b9c68185ea64E7c2652286980B5' as Address,
     v3Initializer: '0x4c3062b9ccfdbcb10353f57c1b59a29d4c5cfa47' as Address,
     v3Quoter: '0xC5290058841028F1614F3A6F0F5816cAd0df5E27' as Address,
     lockableV3Initializer: '0x16ada5be50c3c2d94af5feae6b539c40a78ad53c' as Address,

@@ -73,15 +73,16 @@ export class StaticAuctionBuilder {
   tokenConfig(
     params:
       | { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
-      | { type: 'doppler404'; name: string; symbol: string; baseURI: string }
+      | { type: 'doppler404'; name: string; symbol: string; baseURI: string; unit?: bigint }
   ): this {
     if ((params as any).type === 'doppler404') {
-      const p = params as { type: 'doppler404'; name: string; symbol: string; baseURI: string }
+      const p = params as { type: 'doppler404'; name: string; symbol: string; baseURI: string; unit?: bigint }
       this.token = {
         type: 'doppler404',
         name: p.name,
         symbol: p.symbol,
         baseURI: p.baseURI,
+        unit: p.unit,
       } as any
     } else {
       const p = params as { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
@@ -240,15 +241,16 @@ export class DynamicAuctionBuilder {
   tokenConfig(
     params:
       | { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
-      | { type: 'doppler404'; name: string; symbol: string; baseURI: string }
+      | { type: 'doppler404'; name: string; symbol: string; baseURI: string; unit?: bigint }
   ): this {
     if ((params as any).type === 'doppler404') {
-      const p = params as { type: 'doppler404'; name: string; symbol: string; baseURI: string }
+      const p = params as { type: 'doppler404'; name: string; symbol: string; baseURI: string; unit?: bigint }
       this.token = {
         type: 'doppler404',
         name: p.name,
         symbol: p.symbol,
         baseURI: p.baseURI,
+        unit: p.unit,
       } as any
     } else {
       const p = params as { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
