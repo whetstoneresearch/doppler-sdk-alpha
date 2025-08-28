@@ -1,11 +1,11 @@
 import type { Address, PublicClient, WalletClient } from 'viem'
-import type { DopplerSDKConfig, HookInfo, PoolInfo } from './types'
+import type { DopplerSDKConfig, HookInfo, PoolInfo, SupportedPublicClient } from './types'
 import { DopplerFactory } from './entities/DopplerFactory'
 import { StaticAuction, DynamicAuction } from './entities/auction'
 import { Quoter } from './entities/quoter'
 
 export class DopplerSDK {
-  private publicClient: PublicClient
+  private publicClient: SupportedPublicClient
   private walletClient?: WalletClient
   private chainId: number
   private _factory?: DopplerFactory
@@ -81,7 +81,7 @@ export class DopplerSDK {
   /**
    * Get the underlying clients
    */
-  getClients(): { publicClient: PublicClient; walletClient?: WalletClient } {
+  getClients(): { publicClient: SupportedPublicClient; walletClient?: WalletClient } {
     return {
       publicClient: this.publicClient,
       walletClient: this.walletClient

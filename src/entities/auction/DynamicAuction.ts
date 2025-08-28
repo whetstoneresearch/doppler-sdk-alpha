@@ -1,5 +1,5 @@
 import { type Address, type PublicClient, encodePacked, keccak256, encodeAbiParameters } from 'viem'
-import type { HookInfo } from '../../types'
+import type { HookInfo, SupportedPublicClient } from '../../types'
 import { dopplerHookAbi, airlockAbi } from '../../abis'
 import { getAddresses } from '../../addresses'
 
@@ -10,10 +10,10 @@ import { getAddresses } from '../../addresses'
  * where the price moves dynamically over time according to set parameters.
  */
 export class DynamicAuction {
-  private client: PublicClient
+  private client: SupportedPublicClient
   private hookAddress: Address
   
-  constructor(client: PublicClient, hookAddress: Address) {
+  constructor(client: SupportedPublicClient, hookAddress: Address) {
     this.client = client
     this.hookAddress = hookAddress
   }

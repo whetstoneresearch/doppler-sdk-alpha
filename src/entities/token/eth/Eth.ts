@@ -1,4 +1,5 @@
-import { type Address, type PublicClient } from 'viem'
+import { type Address } from 'viem'
+import { SupportedPublicClient } from '@/types'
 
 /**
  * A class providing read-only access to Ethereum (ETH) token information and balances.
@@ -11,12 +12,12 @@ import { type Address, type PublicClient } from 'viem'
  * - Querying native ETH balances through viem
  */
 export class Eth {
-  private publicClient: PublicClient
+  private publicClient: SupportedPublicClient
   
   /** Static ETH address identifier (zero address) */
   static readonly address = '0x0000000000000000000000000000000000000000' as Address
   
-  constructor(publicClient: PublicClient) {
+  constructor(publicClient: SupportedPublicClient) {
     this.publicClient = publicClient
   }
   

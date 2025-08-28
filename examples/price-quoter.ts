@@ -7,7 +7,9 @@
  * - Handling different swap types (exact input/output)
  */
 
-import { DopplerSDK } from '@whetstone-research/doppler-sdk';
+// UNCOMMENT IF RUNNING LOCALLY
+// import { DopplerSDK } from '@whetstone-research/doppler-sdk';
+import { DopplerSDK } from '../src';
 
 import { createPublicClient, http, parseEther, formatEther, type Address } from 'viem'
 import { base } from 'viem/chains'

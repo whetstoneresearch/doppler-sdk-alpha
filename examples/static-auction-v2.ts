@@ -7,7 +7,10 @@
  * - Monitoring auction progress
  */
 
-import { DopplerSDK, StaticAuctionBuilder } from '@whetstone-research/doppler-sdk';
+// UNCOMMENT IF RUNNING LOCALLY
+// import { DopplerSDK, StaticAuctionBuilder } from '@whetstone-research/doppler-sdk';
+
+import { DopplerSDK, StaticAuctionBuilder } from '../src';
 import {
   createPublicClient,
   createWalletClient,

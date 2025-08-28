@@ -7,7 +7,11 @@
  * - Setting up V4 migration with fee streaming
  */
 
-import { DopplerSDK, DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk';
+// UNCOMMENT IF RUNNING LOCALLY
+// import { DopplerSDK, DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk';
+
+import { DopplerSDK, DynamicAuctionBuilder } from '../src';
+
 import {
   createPublicClient,
   createWalletClient,

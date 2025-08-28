@@ -5,8 +5,6 @@ import {
   type PublicClient, 
   type WalletClient,
   encodeAbiParameters, 
-  parseEther, 
-  toHex,
   encodePacked,
   keccak256,
   getAddress,
@@ -15,30 +13,18 @@ import {
 import type { 
   CreateStaticAuctionParams, 
   CreateDynamicAuctionParams,
-  MigrationConfig
+  MigrationConfig,
+  SupportedPublicClient
 } from '../types'
 import { getAddresses } from '../addresses'
 import { 
-  WAD, 
-  DEAD_ADDRESS,
   ZERO_ADDRESS,
-  DEFAULT_EPOCH_LENGTH,
-  DEFAULT_AUCTION_DURATION,
-  DEFAULT_LOCK_DURATION, 
   BASIS_POINTS,
   DEFAULT_PD_SLUGS,
   DAY_SECONDS,
   FLAG_MASK,
-  DOPPLER_FLAGS,
-  DEFAULT_V3_START_TICK,
-  DEFAULT_V3_END_TICK,
   DEFAULT_V3_NUM_POSITIONS,
-  DEFAULT_V3_FEE,
-  DEFAULT_V3_VESTING_DURATION,
-  DEFAULT_V3_INITIAL_SUPPLY,
-  DEFAULT_V3_NUM_TOKENS_TO_SELL,
   DEFAULT_V3_YEARLY_MINT_RATE,
-  DEFAULT_V3_PRE_MINT,
   DEFAULT_V3_MAX_SHARE_TO_BE_SOLD,
   DEFAULT_V4_YEARLY_MINT_RATE,
   DEFAULT_V3_INITIAL_VOTING_DELAY,
@@ -48,14 +34,14 @@ import {
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
 } from '../constants'
-import { airlockAbi, uniswapV3InitializerAbi, uniswapV4InitializerAbi, v2MigratorAbi, v3MigratorAbi, v4MigratorAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
+import { airlockAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
 
 export class DopplerFactory {
-  private publicClient: PublicClient
+  private publicClient: SupportedPublicClient
   private walletClient?: WalletClient
   private chainId: number
   
-  constructor(publicClient: PublicClient, walletClient: WalletClient | undefined, chainId: number) {
+  constructor(publicClient: SupportedPublicClient, walletClient: WalletClient | undefined, chainId: number) {
     this.publicClient = publicClient
     this.walletClient = walletClient
     this.chainId = chainId

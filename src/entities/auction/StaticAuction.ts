@@ -1,5 +1,5 @@
-import { type Address, type PublicClient, getAddress } from 'viem'
-import type { PoolInfo } from '../../types'
+import { type Address, getAddress } from 'viem'
+import type { PoolInfo, SupportedPublicClient } from '../../types'
 import { uniswapV3PoolAbi, airlockAbi } from '../../abis'
 import { getAddresses } from '../../addresses'
 
@@ -10,10 +10,10 @@ import { getAddresses } from '../../addresses'
  * This is ideal for simple, predictable price discovery events.
  */
 export class StaticAuction {
-  private client: PublicClient
+  private client: SupportedPublicClient
   private poolAddress: Address
   
-  constructor(client: PublicClient, poolAddress: Address) {
+  constructor(client: SupportedPublicClient, poolAddress: Address) {
     this.client = client
     this.poolAddress = poolAddress
   }

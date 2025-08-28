@@ -7,7 +7,10 @@
  * - Approving spending and releasing vested tokens
  */
 
-import { Derc20, Eth } from '@whetstone-research/doppler-sdk';
+// UNCOMMENT IF RUNNING LOCALLY
+// import { Derc20, Eth } from '@whetstone-research/doppler-sdk';
+
+import { Derc20, Eth } from '../src';
 import {
   createPublicClient,
   createWalletClient,

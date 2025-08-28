@@ -45,6 +45,7 @@
     "glob": "^10.4.5",
     "size-limit": "^11.2.0",
     "tslib": "^2.8.1",
+    "tsup": "^8.4.0",
     "typescript": "^5.8.3",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^2.1.9"
@@ -54,8 +55,7 @@
     "@uniswap/sdk-core": "^5.9.0",
     "@uniswap/v3-sdk": "^3.19.0",
     "@uniswap/v4-sdk": "^1.21.4",
-    "tsup": "^8.4.0",
-    "viem": "^2.21.44"
+    "viem": "^2.33.3"
   },
   "engines": {
     "node": ">=18.0.0"

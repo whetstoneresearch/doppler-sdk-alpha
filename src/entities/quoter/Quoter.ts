@@ -1,6 +1,7 @@
-import { type Address, type PublicClient } from 'viem'
+import { type Address } from 'viem'
 import { quoterV2Abi, uniswapV2Router02Abi, v4QuoterAbi } from '../../abis'
 import { getAddresses } from '../../addresses'
+import type { SupportedPublicClient } from '../../types'
 
 /**
  * Unified Quoter for getting price quotes across Uniswap V2, V3, and V4
@@ -10,10 +11,10 @@ import { getAddresses } from '../../addresses'
  * V2 router, V3 quoter, and V4 quoter contracts.
  */
 export class Quoter {
-  private publicClient: PublicClient
+  private publicClient: SupportedPublicClient
   private chainId: number
   
-  constructor(publicClient: PublicClient, chainId: number) {
+  constructor(publicClient: SupportedPublicClient, chainId: number) {
     this.publicClient = publicClient
     this.chainId = chainId
   }
