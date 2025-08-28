@@ -43,6 +43,7 @@ describe('SDK Workflows Integration Tests', () => {
           endTick: 225000,
           fee: 3000,
         },
+        governance: { noOp: true },
         migration: {
           type: 'uniswapV2',
         },
@@ -177,6 +178,7 @@ describe('SDK Workflows Integration Tests', () => {
           fee: 3000,
           tickSpacing: 60,
         },
+        governance: { noOp: true },
         migration: {
           type: 'uniswapV4',
           fee: 3000,
@@ -349,6 +351,7 @@ describe('SDK Workflows Integration Tests', () => {
           numeraire: mockAddresses.weth,
         },
         pool: { startTick: 175000, endTick: 225000, fee: 3000 },
+        governance: { noOp: true },
         migration: { type: 'uniswapV2' },
         userAddress: '0x1234567890123456789012345678901234567890',
       }
@@ -375,6 +378,7 @@ describe('SDK Workflows Integration Tests', () => {
           endTick: 225000,
           fee: 3000,
         },
+        governance: { noOp: true },
         migration: {
           type: 'uniswapV2',
         },
@@ -418,6 +422,7 @@ describe('SDK Workflows Integration Tests', () => {
           numeraire: mockAddresses.weth,
         },
         pool: { startTick: 175000, endTick: 225000, fee: 3000 },
+        governance: { noOp: true },
         migration: { type: 'uniswapV2' },
         userAddress: '0x1234567890123456789012345678901234567890',
       }

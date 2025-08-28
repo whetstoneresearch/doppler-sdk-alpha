@@ -45,6 +45,7 @@ describe('V4 SDK Compatibility', () => {
         fee: 3000,
         tickSpacing: 60,
       },
+      governance: { noOp: true },
       migration: {
         type: 'uniswapV2' as const,
       },

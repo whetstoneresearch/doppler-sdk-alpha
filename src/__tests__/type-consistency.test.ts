@@ -27,6 +27,7 @@ describe('Type Consistency', () => {
         fee: 3000,
         tickSpacing: 60
       },
+      governance: { noOp: true },
       migration: {
         type: 'uniswapV2'
       },

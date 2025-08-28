@@ -138,7 +138,7 @@ describe('Quoter', () => {
       
       vi.mocked(publicClient.readContract).mockResolvedValueOnce(mockAmounts as any)
 
-      const path = [mockAddresses.weth, '0x1234567890123456789012345678901234567890']
+      const path: `0x${string}`[] = [mockAddresses.weth, '0x1234567890123456789012345678901234567890']
       const result = await quoter.quoteExactInputV2({
         amountIn: parseEther('1'),
         path,
@@ -163,7 +163,7 @@ describe('Quoter', () => {
       
       vi.mocked(publicClient.readContract).mockResolvedValueOnce(mockAmounts as any)
 
-      const path = [
+      const path: `0x${string}`[] = [
         mockAddresses.weth,
         '0x1234567890123456789012345678901234567890', // USDC
         '0x2345678901234567890123456789012345678901', // DAI
@@ -200,7 +200,7 @@ describe('Quoter', () => {
       
       vi.mocked(publicClient.readContract).mockResolvedValueOnce(mockAmounts as any)
 
-      const path = [mockAddresses.weth, '0x1234567890123456789012345678901234567890']
+      const path: `0x${string}`[] = [mockAddresses.weth, '0x1234567890123456789012345678901234567890']
       const result = await quoter.quoteExactOutputV2({
         amountOut: parseEther('1000'),
         path,
@@ -230,10 +230,10 @@ describe('Quoter', () => {
 
       const poolKey = {
         currency0: mockAddresses.weth,
-        currency1: '0x1234567890123456789012345678901234567890',
+        currency1: '0x1234567890123456789012345678901234567890' as `0x${string}`,
         fee: 3000,
         tickSpacing: 60,
-        hooks: '0x0000000000000000000000000000000000000000',
+        hooks: '0x0000000000000000000000000000000000000000' as `0x${string}`,
       }
 
       const result = await quoter.quoteExactInputV4({
@@ -273,10 +273,10 @@ describe('Quoter', () => {
       const result = await quoter.quoteExactInputV4({
         poolKey: {
           currency0: mockAddresses.weth,
-          currency1: '0x1234567890123456789012345678901234567890',
+          currency1: '0x1234567890123456789012345678901234567890' as `0x${string}`,
           fee: 3000,
           tickSpacing: 60,
-          hooks: '0x0000000000000000000000000000000000000000',
+          hooks: '0x0000000000000000000000000000000000000000' as `0x${string}`,
         },
         zeroForOne: true,
         exactAmount: parseEther('1'),
@@ -303,10 +303,10 @@ describe('Quoter', () => {
 
       const poolKey = {
         currency0: mockAddresses.weth,
-        currency1: '0x1234567890123456789012345678901234567890',
+        currency1: '0x1234567890123456789012345678901234567890' as `0x${string}`,
         fee: 3000,
         tickSpacing: 60,
-        hooks: '0x0000000000000000000000000000000000000000',
+        hooks: '0x0000000000000000000000000000000000000000' as `0x${string}`,
       }
 
       const result = await quoter.quoteExactOutputV4({
