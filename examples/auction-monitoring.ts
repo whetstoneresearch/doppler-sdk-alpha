@@ -163,5 +163,4 @@ async function main() {
   console.log('\n✨ Monitoring complete!');
 }
 
-// Run the example
-main().catch(console.error);
+main()

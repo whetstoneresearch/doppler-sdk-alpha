@@ -175,5 +175,4 @@ async function main() {
   console.log('\n✨ Example completed!')
 }
 
-// Run the example
-main().catch(console.error)
+main()
