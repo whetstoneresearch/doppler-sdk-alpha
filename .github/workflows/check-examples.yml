@@ -3,7 +3,7 @@ on: [workflow_dispatch, push]
 
 jobs:
   run-examples:
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     env:
       ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
       TOKEN: ${{ inputs.token || '0xe3a7766d0361f50a3dd038c967479673b75f8b34' }}
