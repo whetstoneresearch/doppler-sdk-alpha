@@ -69,6 +69,10 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
     this.chainId = chainId
   }
 
+  static forChain<C extends SupportedChainId>(chainId: C): StaticAuctionBuilder<C> {
+    return new StaticAuctionBuilder(chainId)
+  }
+
   tokenConfig(
     params:
       | { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
@@ -218,6 +222,10 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
 
   constructor(chainId: C) {
     this.chainId = chainId
+  }
+
+  static forChain<C extends SupportedChainId>(chainId: C): DynamicAuctionBuilder<C> {
+    return new DynamicAuctionBuilder(chainId)
   }
 
   tokenConfig(
