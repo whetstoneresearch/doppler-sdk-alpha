@@ -67,6 +67,7 @@ async function createStaticAuctionExample() {
       },
     })
     .withUserAddress(account.address)
+    .withGovernance({ type: "default" })
     .build();
 
   // Create the static auction
