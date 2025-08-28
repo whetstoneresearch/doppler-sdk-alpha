@@ -85,6 +85,7 @@ async function main() {
         ],
       },
     })
+    .withGovernance({ useDefaults: true })
     .withUserAddress(account.address)
     .build();
 

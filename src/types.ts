@@ -1,7 +1,6 @@
 import { base, baseSepolia, ink, unichain } from 'viem/chains';
 import type {
   Address,
-  Chain,
   PublicClient,
   Transport,
   WalletClient,
@@ -13,7 +12,7 @@ export type SupportedChain =
   | typeof ink
   | typeof unichain
   | typeof baseSepolia;
-export type SupportedPublicClient = PublicClient<Transport, Chain>;
+export type SupportedPublicClient = PublicClient<Transport, SupportedChain>;
 
 // Core configuration types
 // Token configuration (discriminated union)
