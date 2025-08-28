@@ -1,0 +1,31 @@
+name: Run Examples
+on: [workflow_dispatch, push]
+
+jobs:
+  run-examples:
+    runs-on: blacksmith-2vcpu-ubuntu-2204
+    env:
+      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+      TOKEN: ${{ inputs.token || '0xe3a7766d0361f50a3dd038c967479673b75f8b34' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run price-quoter
+        env:
+          RPC_URL: https://base-mainnet.g.alchemy.com/v2/${{ env.ALCHEMY_API_KEY }}
+        run:
+          pnpx tsx examples/price-quoter.ts
