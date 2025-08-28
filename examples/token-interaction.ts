@@ -17,18 +17,19 @@ import {
   http,
   parseEther,
   formatEther,
-  type Address,
 } from 'viem';
 import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 
 // Configuration
+const spender = process.env.SPENDER as `0x${string}`;
 const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
 const rpcUrl = process.env.RPC_URL || 'https://mainnet.base.org' as string;
 const tokenAddress = process.env.TOKEN_ADDRESS as `0x${string}`;
 
 if (!privateKey) throw new Error('PRIVATE_KEY is not set');
 if (!tokenAddress) throw new Error('TOKEN_ADDRESS is not set');
+if (!spender) throw new Error('SPENDER is not set');
 
 async function main() {
   // 1. Set up clients
@@ -137,7 +138,6 @@ async function main() {
 
     // 6. Token approvals
     console.log('\n🔓 Token Approvals:');
-    const spender = '0x0987654321098765432109876543210987654321' as Address; // Example spender
     const currentAllowance = await token.getAllowance(account.address, spender);
     console.log('- Current allowance:', formatEther(currentAllowance), symbol);
 
