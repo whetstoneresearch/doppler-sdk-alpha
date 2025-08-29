@@ -1,17 +1,19 @@
-import type { Address, PublicClient, WalletClient } from 'viem'
-import type { DopplerSDKConfig, HookInfo, PoolInfo } from './types'
+import type { Address, WalletClient } from 'viem'
+import type { DopplerSDKConfig, HookInfo, PoolInfo, SupportedPublicClient } from './types'
+import type { SupportedChainId } from './addresses'
 import { DopplerFactory } from './entities/DopplerFactory'
 import { StaticAuction, DynamicAuction } from './entities/auction'
 import { Quoter } from './entities/quoter'
+import { StaticAuctionBuilder, DynamicAuctionBuilder } from './builders'
 
-export class DopplerSDK {
-  private publicClient: PublicClient
+export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
+  private publicClient: SupportedPublicClient
   private walletClient?: WalletClient
-  private chainId: number
-  private _factory?: DopplerFactory
+  public chainId: C
+  private _factory?: DopplerFactory<C>
   private _quoter?: Quoter
 
-  constructor(config: DopplerSDKConfig) {
+  constructor(config: DopplerSDKConfig<C>) {
     this.publicClient = config.publicClient
     this.walletClient = config.walletClient
     this.chainId = config.chainId
@@ -20,7 +22,7 @@ export class DopplerSDK {
   /**
    * Get the factory instance for creating auctions
    */
-  get factory(): DopplerFactory {
+  get factory(): DopplerFactory<C> {
     if (!this._factory) {
       this._factory = new DopplerFactory(this.publicClient, this.walletClient, this.chainId)
     }
@@ -72,16 +74,30 @@ export class DopplerSDK {
   }
 
   /**
+   * Create a new static auction builder
+   */
+  buildStaticAuction(): StaticAuctionBuilder<C> {
+    return new StaticAuctionBuilder(this.chainId)
+  }
+
+  /**
+   * Create a new dynamic auction builder
+   */
+  buildDynamicAuction(): DynamicAuctionBuilder<C> {
+    return new DynamicAuctionBuilder(this.chainId)
+  }
+
+  /**
    * Get the current chain ID
    */
-  getChainId(): number {
+  getChainId(): C {
     return this.chainId
   }
 
   /**
    * Get the underlying clients
    */
-  getClients(): { publicClient: PublicClient; walletClient?: WalletClient } {
+  getClients(): { publicClient: SupportedPublicClient; walletClient?: WalletClient } {
     return {
       publicClient: this.publicClient,
       walletClient: this.walletClient

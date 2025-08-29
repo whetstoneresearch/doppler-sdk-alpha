@@ -1,5 +1,6 @@
-import { type Address, type PublicClient, type WalletClient } from 'viem'
+import { type Address, type WalletClient } from 'viem'
 import { derc20Abi } from '../../../abis'
+import { SupportedPublicClient } from '@/types'
 
 /**
  * A class providing read and write access to a DERC20 token contract.
@@ -7,11 +8,11 @@ import { derc20Abi } from '../../../abis'
  * and minting-related state information.
  */
 export class Derc20 {
-  private publicClient: PublicClient
+  private publicClient: SupportedPublicClient
   private walletClient?: WalletClient
   private address: Address
   
-  constructor(publicClient: PublicClient, walletClient: WalletClient | undefined, address: Address) {
+  constructor(publicClient: SupportedPublicClient, walletClient: WalletClient | undefined, address: Address) {
     this.publicClient = publicClient
     this.walletClient = walletClient
     this.address = address

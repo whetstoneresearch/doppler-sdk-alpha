@@ -5,8 +5,6 @@ import {
   type PublicClient, 
   type WalletClient,
   encodeAbiParameters, 
-  parseEther, 
-  toHex,
   encodePacked,
   keccak256,
   getAddress,
@@ -15,30 +13,22 @@ import {
 import type { 
   CreateStaticAuctionParams, 
   CreateDynamicAuctionParams,
-  MigrationConfig
+  MigrationConfig,
+  SupportedPublicClient,
+  TokenConfig,
+  Doppler404TokenConfig,
+  StandardTokenConfig,
+  SupportedChainId
 } from '../types'
 import { getAddresses } from '../addresses'
 import { 
-  WAD, 
-  DEAD_ADDRESS,
   ZERO_ADDRESS,
-  DEFAULT_EPOCH_LENGTH,
-  DEFAULT_AUCTION_DURATION,
-  DEFAULT_LOCK_DURATION, 
   BASIS_POINTS,
   DEFAULT_PD_SLUGS,
   DAY_SECONDS,
   FLAG_MASK,
-  DOPPLER_FLAGS,
-  DEFAULT_V3_START_TICK,
-  DEFAULT_V3_END_TICK,
   DEFAULT_V3_NUM_POSITIONS,
-  DEFAULT_V3_FEE,
-  DEFAULT_V3_VESTING_DURATION,
-  DEFAULT_V3_INITIAL_SUPPLY,
-  DEFAULT_V3_NUM_TOKENS_TO_SELL,
   DEFAULT_V3_YEARLY_MINT_RATE,
-  DEFAULT_V3_PRE_MINT,
   DEFAULT_V3_MAX_SHARE_TO_BE_SOLD,
   DEFAULT_V4_YEARLY_MINT_RATE,
   DEFAULT_V3_INITIAL_VOTING_DELAY,
@@ -48,14 +38,14 @@ import {
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
 } from '../constants'
-import { airlockAbi, uniswapV3InitializerAbi, uniswapV4InitializerAbi, v2MigratorAbi, v3MigratorAbi, v4MigratorAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
+import { airlockAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
 
-export class DopplerFactory {
-  private publicClient: PublicClient
+export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
+  private publicClient: SupportedPublicClient
   private walletClient?: WalletClient
-  private chainId: number
+  private chainId: C
   
-  constructor(publicClient: PublicClient, walletClient: WalletClient | undefined, chainId: number) {
+  constructor(publicClient: SupportedPublicClient, walletClient: WalletClient | undefined, chainId: C) {
     this.publicClient = publicClient
     this.walletClient = walletClient
     this.chainId = chainId
@@ -70,7 +60,7 @@ export class DopplerFactory {
    * @param params Configuration for the static auction
    * @returns The address of the created pool and token
    */
-  async createStaticAuction(params: CreateStaticAuctionParams): Promise<{
+  async createStaticAuction(params: CreateStaticAuctionParams<C>): Promise<{
     poolAddress: Address
     tokenAddress: Address
     transactionHash: string
@@ -108,12 +98,12 @@ export class DopplerFactory {
     const liquidityMigratorData = this.encodeMigrationData(params.migration)
     
     // 3. Encode token parameters (standard vs Doppler404)
-    const isDoppler404 = (params.token as any).type === 'doppler404'
     let tokenFactoryData: Hex
-    if (isDoppler404) {
+    if (this.isDoppler404Token(params.token)) {
+      const token404 = params.token
       // Doppler404 expects: name, symbol, baseURI, unit
-      const baseURI = (params.token as any).baseURI as string
-      const unit = (params.token as any).unit !== undefined ? BigInt((params.token as any).unit) : 1000n
+      const baseURI = token404.baseURI
+      const unit = token404.unit !== undefined ? BigInt(token404.unit) : 1000n
       if (!addresses.doppler404Factory || addresses.doppler404Factory === ZERO_ADDRESS) {
         throw new Error('Doppler404 factory address not configured for this chain')
       }
@@ -132,8 +122,9 @@ export class DopplerFactory {
         ]
       )
     } else {
+      const tokenStd = params.token as StandardTokenConfig
       const vestingDuration = params.vesting?.duration ?? BigInt(0)
-      const yearlyMintRate = (params.token as any).yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
+      const yearlyMintRate = tokenStd.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
       tokenFactoryData = encodeAbiParameters(
         [
           { type: 'string' },
@@ -145,22 +136,18 @@ export class DopplerFactory {
           { type: 'string' },
         ],
         [
-          params.token.name,
-          params.token.symbol,
+          tokenStd.name,
+          tokenStd.symbol,
           yearlyMintRate,
           BigInt(vestingDuration),
           params.vesting ? [params.userAddress] : [],
           params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
-          (params.token as any).tokenURI,
+          tokenStd.tokenURI,
         ]
       )
     }
     
     // 4. Encode governance factory data
-    const standardGovernanceParams = ((params.governance as any)?.noOp === true)
-      ? undefined
-      : (params.governance as { initialVotingDelay?: number; initialVotingPeriod?: number; initialProposalThreshold?: bigint })
-
     const governanceFactoryData = encodeAbiParameters(
       [
         { type: 'string' },
@@ -170,15 +157,14 @@ export class DopplerFactory {
       ],
       [
         params.token.name,
-        standardGovernanceParams?.initialVotingDelay ?? DEFAULT_V3_INITIAL_VOTING_DELAY,
-        standardGovernanceParams?.initialVotingPeriod ?? DEFAULT_V3_INITIAL_VOTING_PERIOD,
-        standardGovernanceParams?.initialProposalThreshold ?? DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
+        params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V3_INITIAL_VOTING_DELAY,
+        params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V3_INITIAL_VOTING_PERIOD,
+        params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
       ]
     )
     
-    // 4.1 Choose governance factory (no-op by default if available)
-    const useNoOpGovernance =
-      typeof (params.governance as any)?.noOp === 'boolean' && (params.governance as any).noOp === true
+    // 4.1 Choose governance factory
+    const useNoOpGovernance = params.governance.type === 'noOp'
 
     const governanceFactoryAddress: Address = (() => {
       if (useNoOpGovernance) {
@@ -203,7 +189,7 @@ export class DopplerFactory {
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
-      tokenFactory: isDoppler404 ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
+      tokenFactory: this.isDoppler404Token(params.token) ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
       tokenFactoryData: tokenFactoryData,
       governanceFactory: governanceFactoryAddress,
       governanceFactoryData: governanceFactoryData,
@@ -326,7 +312,7 @@ export class DopplerFactory {
    * @param params Configuration for the dynamic auction
    * @returns The address of the created hook and token
    */
-  async createDynamicAuction(params: CreateDynamicAuctionParams): Promise<{
+  async createDynamicAuction(params: CreateDynamicAuctionParams<C>): Promise<{
     hookAddress: Address
     tokenAddress: Address
     poolId: string
@@ -378,32 +364,37 @@ export class DopplerFactory {
     }
     
     // 4. Prepare token parameters (standard vs Doppler404)
-    const isDoppler404 = (params.token as any).type === 'doppler404'
-    if (isDoppler404) {
+    if (this.isDoppler404Token(params.token)) {
       if (!addresses.doppler404Factory || addresses.doppler404Factory === ZERO_ADDRESS) {
         throw new Error('Doppler404 factory address not configured for this chain')
       }
     }
 
     const vestingDuration = params.vesting?.duration ?? BigInt(0)
-    const tokenFactoryData = isDoppler404
-      ? {
-          name: params.token.name,
-          symbol: params.token.symbol,
-          baseURI: (params.token as any).baseURI as string,
-          unit: (params.token as any).unit !== undefined ? BigInt((params.token as any).unit) : 1000n,
-        }
-      : {
-          name: params.token.name,
-          symbol: params.token.symbol,
-          initialSupply: params.sale.initialSupply,
-          airlock: addresses.airlock,
-          yearlyMintRate: (params.token as any).yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE,
-          vestingDuration: BigInt(vestingDuration),
-          recipients: params.vesting ? [params.userAddress] : [],
-          amounts: params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
-          tokenURI: (params.token as any).tokenURI,
-        }
+    const tokenFactoryData = this.isDoppler404Token(params.token)
+      ? (() => {
+          const t = params.token as Doppler404TokenConfig
+          return {
+            name: t.name,
+            symbol: t.symbol,
+            baseURI: t.baseURI,
+            unit: t.unit !== undefined ? BigInt(t.unit) : 1000n,
+          }
+        })()
+      : (() => {
+          const t = params.token as StandardTokenConfig
+          return {
+            name: t.name,
+            symbol: t.symbol,
+            initialSupply: params.sale.initialSupply,
+            airlock: addresses.airlock,
+            yearlyMintRate: t.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE,
+            vestingDuration: BigInt(vestingDuration),
+            recipients: params.vesting ? [params.userAddress] : [],
+            amounts: params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
+            tokenURI: t.tokenURI,
+          }
+        })()
     
     // 5. Mine hook address with appropriate flags
     const [salt, hookAddress, tokenAddress, poolInitializerData, encodedTokenFactoryData] = this.mineHookAddress({
@@ -413,21 +404,17 @@ export class DopplerFactory {
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
-      tokenFactory: isDoppler404 ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
+      tokenFactory: this.isDoppler404Token(params.token) ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
       tokenFactoryData: tokenFactoryData,
       poolInitializer: addresses.v4Initializer,
       poolInitializerData: dopplerData,
-      tokenVariant: isDoppler404 ? 'doppler404' : 'standard'
+      tokenVariant: this.isDoppler404Token(params.token) ? 'doppler404' : 'standard'
     })
     
     // 6. Encode migration data
     const liquidityMigratorData = this.encodeMigrationData(params.migration)
     
     // 7. Encode governance factory data
-    const standardGovernanceParams = ((params.governance as any)?.noOp === true)
-      ? undefined
-      : (params.governance as { initialVotingDelay?: number; initialVotingPeriod?: number; initialProposalThreshold?: bigint })
-
     const governanceFactoryData = encodeAbiParameters(
       [
         { type: 'string' },
@@ -437,15 +424,14 @@ export class DopplerFactory {
       ],
       [
         params.token.name,
-        standardGovernanceParams?.initialVotingDelay ?? DEFAULT_V4_INITIAL_VOTING_DELAY,
-        standardGovernanceParams?.initialVotingPeriod ?? DEFAULT_V4_INITIAL_VOTING_PERIOD,
-        standardGovernanceParams?.initialProposalThreshold ?? DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
+        params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V4_INITIAL_VOTING_DELAY,
+        params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V4_INITIAL_VOTING_PERIOD,
+        params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
       ]
     )
     
-    // 7.1 Choose governance factory (no-op by default if available)
-    const useNoOpGovernance =
-      typeof (params.governance as any)?.noOp === 'boolean' && (params.governance as any).noOp === true
+    // 7.1 Choose governance factory
+    const useNoOpGovernance = params.governance.type === 'noOp'
 
     const governanceFactoryAddress: Address = (() => {
       if (useNoOpGovernance) {
@@ -467,7 +453,7 @@ export class DopplerFactory {
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
-      tokenFactory: isDoppler404 ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
+      tokenFactory: this.isDoppler404Token(params.token) ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
       tokenFactoryData: encodedTokenFactoryData,
       governanceFactory: governanceFactoryAddress,
       governanceFactoryData: governanceFactoryData,
@@ -549,6 +535,10 @@ export class DopplerFactory {
       poolId,
       transactionHash: hash
     }
+  }
+
+  private isDoppler404Token(token: TokenConfig): token is Doppler404TokenConfig {
+    return (token as Doppler404TokenConfig).type === 'doppler404'
   }
 
   /**

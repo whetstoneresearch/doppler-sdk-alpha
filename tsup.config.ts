@@ -22,11 +22,6 @@ export default defineConfig({
     }
   },
   external: [
-    '@uniswap/sdk-core',
-    '@uniswap/v3-sdk',
-    '@uniswap/v4-sdk',
-    '@delvtech/drift',
-    '@delvtech/drift-viem',
     'viem'
   ]
 })

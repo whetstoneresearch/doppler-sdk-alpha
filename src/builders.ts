@@ -1,21 +1,14 @@
 import type { Address } from 'viem'
 import {
-  BASIS_POINTS,
   DEFAULT_AUCTION_DURATION,
   DEFAULT_EPOCH_LENGTH,
   DEFAULT_V3_END_TICK,
   DEFAULT_V3_FEE,
-  DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD,
-  DEFAULT_V3_INITIAL_VOTING_DELAY,
-  DEFAULT_V3_INITIAL_VOTING_PERIOD,
   DEFAULT_V3_MAX_SHARE_TO_BE_SOLD,
   DEFAULT_V3_NUM_POSITIONS,
   DEFAULT_V3_START_TICK,
   DEFAULT_V3_VESTING_DURATION,
   DEFAULT_V3_YEARLY_MINT_RATE,
-  DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
-  DEFAULT_V4_INITIAL_VOTING_DELAY,
-  DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_YEARLY_MINT_RATE,
   DAY_SECONDS,
   TICK_SPACINGS,
@@ -24,13 +17,14 @@ import {
 import type {
   CreateDynamicAuctionParams,
   CreateStaticAuctionParams,
-  GovernanceConfig,
   GovernanceOption,
   MigrationConfig,
   PriceRange,
   TickRange,
   VestingConfig,
+  TokenConfig,
 } from './types'
+import { type SupportedChainId } from './addresses'
 
 function computeTicks(priceRange: PriceRange, tickSpacing: number): TickRange {
   const startTick =
@@ -60,38 +54,46 @@ function computeOptimalGamma(
 }
 
 // Static Auction Builder (V3-style)
-export class StaticAuctionBuilder {
-  private token?: CreateStaticAuctionParams['token']
-  private sale?: CreateStaticAuctionParams['sale']
-  private pool?: CreateStaticAuctionParams['pool']
+export class StaticAuctionBuilder<C extends SupportedChainId> {
+  private token?: TokenConfig
+  private sale?: CreateStaticAuctionParams<C>['sale']
+  private pool?: CreateStaticAuctionParams<C>['pool']
   private vesting?: VestingConfig
-  private governance?: GovernanceOption
+  private governance?: GovernanceOption<C>
   private migration?: MigrationConfig
   private integrator?: Address
   private userAddress?: Address
+  public chainId: C
+
+  constructor(chainId: C) {
+    this.chainId = chainId
+  }
+
+  static forChain<C extends SupportedChainId>(chainId: C): StaticAuctionBuilder<C> {
+    return new StaticAuctionBuilder(chainId)
+  }
 
   tokenConfig(
     params:
       | { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
       | { type: 'doppler404'; name: string; symbol: string; baseURI: string; unit?: bigint }
   ): this {
-    if ((params as any).type === 'doppler404') {
-      const p = params as { type: 'doppler404'; name: string; symbol: string; baseURI: string; unit?: bigint }
+    if (params && 'type' in params && params.type === 'doppler404') {
       this.token = {
         type: 'doppler404',
-        name: p.name,
-        symbol: p.symbol,
-        baseURI: p.baseURI,
-        unit: p.unit,
-      } as any
+        name: params.name,
+        symbol: params.symbol,
+        baseURI: params.baseURI,
+        unit: params.unit,
+      }
     } else {
-      const p = params as { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
       this.token = {
-        name: p.name,
-        symbol: p.symbol,
-        tokenURI: p.tokenURI,
-        yearlyMintRate: p.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE,
-      } as any
+        type: 'standard',
+        name: params.name,
+        symbol: params.symbol,
+        tokenURI: params.tokenURI,
+        yearlyMintRate: params.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE,
+      }
     }
     return this
   }
@@ -162,29 +164,8 @@ export class StaticAuctionBuilder {
     return this
   }
 
-  withGovernance(params?: GovernanceConfig | { useDefaults?: boolean } | { noOp: true }): this {
-    if (!params) {
-      // No args → apply standard governance defaults (explicit selection)
-      this.governance = {
-        initialVotingDelay: DEFAULT_V3_INITIAL_VOTING_DELAY,
-        initialVotingPeriod: DEFAULT_V3_INITIAL_VOTING_PERIOD,
-        initialProposalThreshold: DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD,
-      }
-      return this
-    }
-    if ('useDefaults' in params) {
-      this.governance = {
-        initialVotingDelay: DEFAULT_V3_INITIAL_VOTING_DELAY,
-        initialVotingPeriod: DEFAULT_V3_INITIAL_VOTING_PERIOD,
-        initialProposalThreshold: DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD,
-      }
-      return this
-    }
-    if ('noOp' in params) {
-      this.governance = { noOp: true }
-      return this
-    }
-    this.governance = params as GovernanceConfig
+  withGovernance(params: GovernanceOption<C>): this {
+    this.governance = params
     return this
   }
 
@@ -203,13 +184,13 @@ export class StaticAuctionBuilder {
     return this
   }
 
-  build(): CreateStaticAuctionParams {
+  build(): CreateStaticAuctionParams<C> {
     if (!this.token) throw new Error('tokenConfig is required')
     if (!this.sale) throw new Error('saleConfig is required')
     if (!this.pool) throw new Error('pool configuration is required')
     if (!this.migration) throw new Error('migration configuration is required')
     if (!this.userAddress) throw new Error('userAddress is required')
-    if (!this.governance) throw new Error('governance configuration is required; call withGovernance()')
+    if (!this.governance) throw new Error("governance configuration is required; call withGovernance({ type: 'default' | 'custom' | 'noOp' })")
 
     return {
       token: this.token,
@@ -225,41 +206,49 @@ export class StaticAuctionBuilder {
 }
 
 // Dynamic Auction Builder (V4-style)
-export class DynamicAuctionBuilder {
-  private token?: CreateDynamicAuctionParams['token']
-  private sale?: CreateDynamicAuctionParams['sale']
-  private auction?: CreateDynamicAuctionParams['auction']
-  private pool?: CreateDynamicAuctionParams['pool']
+export class DynamicAuctionBuilder<C extends SupportedChainId> {
+  private token?: TokenConfig
+  private sale?: CreateDynamicAuctionParams<C>['sale']
+  private auction?: CreateDynamicAuctionParams<C>['auction']
+  private pool?: CreateDynamicAuctionParams<C>['pool']
   private vesting?: VestingConfig
-  private governance?: GovernanceOption
+  private governance?: GovernanceOption<C>
   private migration?: MigrationConfig
   private integrator?: Address
   private userAddress?: Address
   private startTimeOffset?: number
   private blockTimestamp?: number
+  public chainId: C
+
+  constructor(chainId: C) {
+    this.chainId = chainId
+  }
+
+  static forChain<C extends SupportedChainId>(chainId: C): DynamicAuctionBuilder<C> {
+    return new DynamicAuctionBuilder(chainId)
+  }
 
   tokenConfig(
     params:
       | { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
       | { type: 'doppler404'; name: string; symbol: string; baseURI: string; unit?: bigint }
   ): this {
-    if ((params as any).type === 'doppler404') {
-      const p = params as { type: 'doppler404'; name: string; symbol: string; baseURI: string; unit?: bigint }
+    if (params && 'type' in params && params.type === 'doppler404') {
       this.token = {
         type: 'doppler404',
-        name: p.name,
-        symbol: p.symbol,
-        baseURI: p.baseURI,
-        unit: p.unit,
-      } as any
+        name: params.name,
+        symbol: params.symbol,
+        baseURI: params.baseURI,
+        unit: params.unit,
+      }
     } else {
-      const p = params as { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
       this.token = {
-        name: p.name,
-        symbol: p.symbol,
-        tokenURI: p.tokenURI,
-        yearlyMintRate: p.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE,
-      } as any
+        type: 'standard',
+        name: params.name,
+        symbol: params.symbol,
+        tokenURI: params.tokenURI,
+        yearlyMintRate: params.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE,
+      }
     }
     return this
   }
@@ -350,29 +339,8 @@ export class DynamicAuctionBuilder {
     return this
   }
 
-  withGovernance(params?: GovernanceConfig | { useDefaults?: boolean } | { noOp: true }): this {
-    if (!params) {
-      // No args → apply standard governance defaults (explicit selection)
-      this.governance = {
-        initialVotingDelay: DEFAULT_V4_INITIAL_VOTING_DELAY,
-        initialVotingPeriod: DEFAULT_V4_INITIAL_VOTING_PERIOD,
-        initialProposalThreshold: DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
-      }
-      return this
-    }
-    if ('useDefaults' in params) {
-      this.governance = {
-        initialVotingDelay: DEFAULT_V4_INITIAL_VOTING_DELAY,
-        initialVotingPeriod: DEFAULT_V4_INITIAL_VOTING_PERIOD,
-        initialProposalThreshold: DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
-      }
-      return this
-    }
-    if ('noOp' in params) {
-      this.governance = { noOp: true }
-      return this
-    }
-    this.governance = params as GovernanceConfig
+  withGovernance(params: GovernanceOption<C>): this {
+    this.governance = params
     return this
   }
 
@@ -402,14 +370,14 @@ export class DynamicAuctionBuilder {
     return this
   }
 
-  build(): CreateDynamicAuctionParams {
+  build(): CreateDynamicAuctionParams<C> {
     if (!this.token) throw new Error('tokenConfig is required')
     if (!this.sale) throw new Error('saleConfig is required')
     if (!this.pool) throw new Error('poolConfig is required')
     if (!this.auction) throw new Error('auction configuration is required')
     if (!this.migration) throw new Error('migration configuration is required')
     if (!this.userAddress) throw new Error('userAddress is required')
-    if (!this.governance) throw new Error('governance configuration is required; call withGovernance()')
+    if (!this.governance) throw new Error("governance configuration is required; call withGovernance({ type: 'default' | 'custom' | 'noOp' })")
 
     // Ensure gamma is set and valid
     let { gamma } = this.auction

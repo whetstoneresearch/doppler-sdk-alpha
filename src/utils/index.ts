@@ -32,3 +32,5 @@ export {
 
 // Re-export the existing address miner
 // export { getHookAddress } from './getHookAddress' // File doesn't exist yet
+
+export { getAirlockOwner } from './airlock';
