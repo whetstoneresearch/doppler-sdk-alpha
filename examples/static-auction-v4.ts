@@ -1,17 +1,12 @@
-import { DopplerSDK } from '../src';
+import { DopplerSDK, getAirlockOwner } from '../src';
 import { parseEther, createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base } from 'viem/chains';
-// Using the builder pattern to construct params
 
 const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
-const beneficiary1 = process.env.BENEFICIARY_1 as `0x${string}`;
-const beneficiary2 = process.env.BENEFICIARY_2 as `0x${string}`;
 const rpcUrl = process.env.RPC_URL ?? "https://mainnet.base.org";
 const account = privateKeyToAccount(privateKey);
 
-if (!beneficiary1 || !beneficiary2)
-  throw new Error('BENEFICIARY_1 and BENEFICIARY_2 must be set');
 if (!privateKey) throw new Error('PRIVATE_KEY must be set');
 
 // Example: Creating a static auction that migrates to Uniswap V4
@@ -39,6 +34,8 @@ async function createStaticAuctionExample() {
     chainId: 8453, // Base mainnet
   });
 
+  const airlockOwner = await getAirlockOwner(publicClient);
+
   // Configure the static auction with the builder
   const params = sdk
     .buildStaticAuction()
@@ -61,8 +58,8 @@ async function createStaticAuctionExample() {
       streamableFees: {
         lockDuration: 365 * 24 * 60 * 60, // 1 year
         beneficiaries: [
-          { address: beneficiary1, percentage: 7000 }, // 70%
-          { address: beneficiary2, percentage: 3000 }, // 30%
+          { address: account.address, percentage: 9500 }, // 95%
+          { address: airlockOwner, percentage: 500 }, // 5%
         ],
       },
     })
