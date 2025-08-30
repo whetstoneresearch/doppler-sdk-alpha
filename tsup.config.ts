@@ -2,9 +2,9 @@ import { defineConfig } from 'tsup'
 import { resolve } from 'path'
 import { glob } from 'glob'
 
-// Get all TypeScript files except tests
+// Get all TypeScript files except tests and test utilities
 const entryPoints = glob.sync('src/**/!(*.test|*.spec).ts', {
-  ignore: ['src/test/**', '**/test/**']
+  ignore: ['src/test/**', '**/test/**', 'src/__tests__/**', '**/__tests__/**']
 })
 
 export default defineConfig({

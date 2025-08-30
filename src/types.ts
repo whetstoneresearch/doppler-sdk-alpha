@@ -1,5 +1,7 @@
 import { base, baseSepolia, ink, unichain } from 'viem/chains';
 import { CHAIN_IDS, type SupportedChainId } from './addresses';
+// Re-export SupportedChainId so consumers can import from this module
+export { type SupportedChainId } from './addresses';
 import type {
   Address,
   PublicClient,
