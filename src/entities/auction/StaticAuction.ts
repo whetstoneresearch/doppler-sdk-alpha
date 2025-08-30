@@ -1,4 +1,4 @@
-import { type Address, getAddress } from 'viem'
+import { type Address, getAddress, zeroAddress } from 'viem'
 import type { PoolInfo, SupportedPublicClient } from '../../types'
 import { uniswapV3PoolAbi, airlockAbi } from '../../abis'
 import { getAddresses } from '../../addresses'
@@ -72,7 +72,7 @@ export class StaticAuction {
     
     // The getAssetData returns: [numeraire, timelock, governance, liquidityMigrator, poolInitializer, pool, migrationPool, numTokensToSell, totalSupply, integrator]
     // If token0 has asset data in Airlock (pool is not zero), it's the auction token
-    const isToken0AuctionToken = assetData[5] !== getAddress('0x0000000000000000000000000000000000000000')
+    const isToken0AuctionToken = assetData[5] !== zeroAddress
     
     return {
       address: this.poolAddress,
@@ -109,7 +109,7 @@ export class StaticAuction {
     
     // The getAssetData returns: [numeraire, timelock, governance, liquidityMigrator, poolInitializer, pool, migrationPool, numTokensToSell, totalSupply, integrator]
     // Check if the asset is graduated (liquidityMigrator is set to address(0))
-    return assetData[3] === getAddress('0x0000000000000000000000000000000000000000')
+    return assetData[3] === zeroAddress
   }
   
   /**

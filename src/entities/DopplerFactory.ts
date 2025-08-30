@@ -21,6 +21,7 @@ import type {
   SupportedChainId
 } from '../types'
 import { getAddresses } from '../addresses'
+import { zeroAddress } from 'viem'
 import { 
   ZERO_ADDRESS,
   BASIS_POINTS,
@@ -823,7 +824,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     customDerc20Bytecode?: `0x${string}`
     tokenVariant?: 'standard' | 'doppler404'
   }): [Hash, Address, Address, Hex, Hex] {
-    const isToken0 = params.numeraire !== '0x0000000000000000000000000000000000000000'
+    const isToken0 = params.numeraire !== zeroAddress
 
     const {
       minimumProceeds,

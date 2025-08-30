@@ -1,4 +1,4 @@
-import { type Address, type PublicClient, encodePacked, keccak256, encodeAbiParameters } from 'viem'
+import { type Address, type PublicClient, encodePacked, keccak256, encodeAbiParameters, zeroAddress } from 'viem'
 import type { HookInfo, SupportedPublicClient } from '../../types'
 import { dopplerHookAbi, airlockAbi } from '../../abis'
 import { getAddresses } from '../../addresses'
@@ -100,7 +100,7 @@ export class DynamicAuction {
     const currentEpoch = epochLength > 0n ? Number(elapsedTime / epochLength) : 0
     
     // Determine token addresses from poolKey
-    const isToken0 = poolKey.currency0 !== '0x0000000000000000000000000000000000000000'
+    const isToken0 = poolKey.currency0 !== zeroAddress
     const tokenAddress = isToken0 ? poolKey.currency0 : poolKey.currency1
     const numeraireAddress = isToken0 ? poolKey.currency1 : poolKey.currency0
     
@@ -174,7 +174,7 @@ export class DynamicAuction {
     
     // The getAssetData returns: [numeraire, timelock, governance, liquidityMigrator, poolInitializer, pool, migrationPool, numTokensToSell, totalSupply, integrator]
     // Check if the asset is graduated (liquidityMigrator is set to address(0))
-    return assetData[3] === '0x0000000000000000000000000000000000000000'
+    return assetData[3] === zeroAddress
   }
   
   /**

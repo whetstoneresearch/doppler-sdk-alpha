@@ -1,4 +1,4 @@
-import { type Address } from 'viem'
+import { type Address, zeroAddress } from 'viem'
 import { SupportedPublicClient } from '@/types'
 
 /**
@@ -15,7 +15,7 @@ export class Eth {
   private publicClient: SupportedPublicClient
   
   /** Static ETH address identifier (zero address) */
-  static readonly address = '0x0000000000000000000000000000000000000000' as Address
+  static readonly address = zeroAddress
   
   constructor(publicClient: SupportedPublicClient) {
     this.publicClient = publicClient
