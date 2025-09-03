@@ -231,7 +231,7 @@ export class Quoter {
     if (!quoterAddress) {
       throw new Error('No V4 quoter available on this chain')
     }
-    
+
     const { result } = await this.publicClient.simulateContract({
       address: quoterAddress,
       abi: v4QuoterAbi,
@@ -244,6 +244,94 @@ export class Quoter {
       }],
     })
     
+    return {
+      amountIn: result[0],
+      gasEstimate: result[1],
+    }
+  }
+
+  /**
+   * Quote a single exact-input trade using the Uniswap V4 Quoter (not Lens)
+   * @param params Parameters for the quote
+   */
+  async quoteExactInputV4Quoter(params: {
+    poolKey: {
+      currency0: Address
+      currency1: Address
+      fee: number
+      tickSpacing: number
+      hooks: Address
+    }
+    zeroForOne: boolean
+    exactAmount: bigint
+    hookData?: string
+  }): Promise<{
+    amountOut: bigint
+    gasEstimate: bigint
+  }> {
+    const addresses = getAddresses(this.chainId)
+    const quoterAddress = (addresses as any).uniswapV4Quoter as Address | undefined
+
+    if (!quoterAddress) {
+      throw new Error('Uniswap V4 Quoter address not available on this chain')
+    }
+
+    const { result } = await this.publicClient.simulateContract({
+      address: quoterAddress,
+      abi: v4QuoterAbi,
+      functionName: 'quoteExactInputSingle',
+      args: [{
+        poolKey: params.poolKey,
+        zeroForOne: params.zeroForOne,
+        exactAmount: params.exactAmount,
+        hookData: (params.hookData ?? '0x') as `0x${string}`,
+      }],
+    })
+
+    return {
+      amountOut: result[0],
+      gasEstimate: result[1],
+    }
+  }
+
+  /**
+   * Quote a single exact-output trade using the Uniswap V4 Quoter (not Lens)
+   * @param params Parameters for the quote
+   */
+  async quoteExactOutputV4Quoter(params: {
+    poolKey: {
+      currency0: Address
+      currency1: Address
+      fee: number
+      tickSpacing: number
+      hooks: Address
+    }
+    zeroForOne: boolean
+    exactAmount: bigint
+    hookData?: string
+  }): Promise<{
+    amountIn: bigint
+    gasEstimate: bigint
+  }> {
+    const addresses = getAddresses(this.chainId)
+    const quoterAddress = (addresses as any).uniswapV4Quoter as Address | undefined
+
+    if (!quoterAddress) {
+      throw new Error('Uniswap V4 Quoter address not available on this chain')
+    }
+
+    const { result } = await this.publicClient.simulateContract({
+      address: quoterAddress,
+      abi: v4QuoterAbi,
+      functionName: 'quoteExactOutputSingle',
+      args: [{
+        poolKey: params.poolKey,
+        zeroForOne: params.zeroForOne,
+        exactAmount: params.exactAmount,
+        hookData: (params.hookData ?? '0x') as `0x${string}`,
+      }],
+    })
+
     return {
       amountIn: result[0],
       gasEstimate: result[1],
