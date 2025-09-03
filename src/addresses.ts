@@ -57,6 +57,7 @@ export interface ChainAddresses {
   weth: Address
   uniswapV2Factory?: Address
   uniswapV3Factory?: Address
+  uniswapV4Quoter: Address
 }
 
 // Not yet deployed placeholder
@@ -84,6 +85,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     weth: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' as Address,
     uniswapV2Factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f' as Address,
     uniswapV3Factory: '0x1F98431c8aD98523631AE4a59f267346ea31F984' as Address,
+    uniswapV4Quoter: '0x52f0e24d1c21c8a0cb1e5a5dd6198556bd9e1203' as Address,
   },
   [CHAIN_IDS.BASE]: {
     airlock: '0x660eAaEdEBc968f8f3694354FA8EC0b4c5Ba8D12' as Address,
@@ -108,6 +110,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address,
     bundler: '0x136191B46478cAB023cbC01a36160C4Aad81677a' as Address,
     weth: '0x4200000000000000000000000000000000000006' as Address,
+    uniswapV4Quoter: '0x0d5e0f971ed27fbff6c2837bf31316121532048d' as Address,
   },
   [CHAIN_IDS.BASE_SEPOLIA]: {
     airlock: '0x3411306ce66c9469bff1535ba955503c4bde1c6e' as Address,
@@ -134,6 +137,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address,
     bundler: '0xab7bacb0d5c2c10152f92d34e07f530eb3cb0fb1' as Address,
     weth: '0x4200000000000000000000000000000000000006' as Address,
+    uniswapV4Quoter: '0x4A6513c898fe1B2d0E78d3b0e0A4a151589B1cBa' as Address,
   },
   [CHAIN_IDS.INK]: {
     airlock: '0x014E1c0bd34f3B10546E554CB33B3293fECDD056' as Address,
@@ -157,6 +161,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address,
     bundler: '0x136191B46478cAB023cbC01a36160C4Aad81677a' as Address,
     weth: ZERO_ADDRESS, // TODO: Get INK WETH address
+    uniswapV4Quoter: '0x3972c00f7ed4885e145823eb7c655375d275a1c5' as Address,
   },
   [CHAIN_IDS.UNICHAIN]: {
     airlock: '0x77EbfBAE15AD200758E9E2E61597c0B07d731254' as Address,
@@ -180,6 +185,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address,
     bundler: '0x91231cDdD8d6C86Df602070a3081478e074b97b7' as Address,
     weth: ZERO_ADDRESS, // TODO: Get Unichain WETH address
+    uniswapV4Quoter: '0x333e3c607b141b18ff6de9f258db6e77fe7491e0' as Address,
   },
   [CHAIN_IDS.UNICHAIN_SEPOLIA]: {
     airlock: '0x651ab94B4777e2e4cdf96082d90C65bd947b73A4' as Address,
@@ -203,6 +209,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address,
     bundler: '0x63f8C8F9beFaab2FaCD7Ece0b0242f78B920Ee90' as Address,
     weth: ZERO_ADDRESS, // TODO: Get Unichain Sepolia WETH address
+    uniswapV4Quoter: '0x56dcd40a3f2d466f48e7f48bdbe5cc9b92ae4472' as Address,
   },
 }
 
