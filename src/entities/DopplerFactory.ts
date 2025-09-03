@@ -215,7 +215,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       account: this.walletClient.account,
     })
     
-    const hash = await this.walletClient.writeContract(request)
+    const gasOverride = params.gas ?? 13_500_000n
+    const hash = await this.walletClient.writeContract({ ...request, gas: gasOverride })
     
     // Wait for transaction and get the receipt
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash, confirmations: 2 })
@@ -479,7 +480,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       account: this.walletClient.account,
     })
     
-    const hash = await this.walletClient.writeContract(request)
+    const gasOverride = params.gas ?? 13_500_000n
+    const hash = await this.walletClient.writeContract({ ...request, gas: gasOverride })
     
     // Wait for transaction and get the receipt
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash })

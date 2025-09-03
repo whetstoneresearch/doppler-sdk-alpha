@@ -202,7 +202,7 @@ export class Derc20 {
    * @param value - Amount of tokens to approve
    * @returns Transaction hash
    */
-  async approve(spender: Address, value: bigint): Promise<`0x${string}`> {
+  async approve(spender: Address, value: bigint, options?: { gas?: bigint }): Promise<`0x${string}`> {
     if (!this.walletClient) {
       throw new Error('Wallet client required for write operations')
     }
@@ -215,7 +215,7 @@ export class Derc20 {
       account: this.walletClient.account,
     })
     
-    return await this.walletClient.writeContract(request)
+    return await this.walletClient.writeContract(options?.gas ? { ...request, gas: options.gas } : request)
   }
   
   /**
@@ -223,7 +223,7 @@ export class Derc20 {
    * @param amount - Amount of vested tokens to release
    * @returns Transaction hash
    */
-  async release(amount: bigint): Promise<`0x${string}`> {
+  async release(amount: bigint, options?: { gas?: bigint }): Promise<`0x${string}`> {
     if (!this.walletClient) {
       throw new Error('Wallet client required for write operations')
     }
@@ -236,6 +236,6 @@ export class Derc20 {
       account: this.walletClient.account,
     })
     
-    return await this.walletClient.writeContract(request)
+    return await this.walletClient.writeContract(options?.gas ? { ...request, gas: options.gas } : request)
   }
 }

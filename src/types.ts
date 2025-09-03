@@ -165,6 +165,10 @@ export interface CreateStaticAuctionParams<C extends SupportedChainId = Supporte
   // Integrator details
   integrator?: Address;
   userAddress: Address;
+
+  // Optional transaction gas limit override for the create() transaction
+  // If omitted, SDK will default to 13,500,000 gas for create()
+  gas?: bigint;
 }
 
 // Create Dynamic Auction parameters
@@ -201,6 +205,10 @@ export interface CreateDynamicAuctionParams<C extends SupportedChainId = Support
   // Time configuration (internal use)
   startTimeOffset?: number;
   blockTimestamp?: number; // Optional: use this block timestamp instead of fetching latest
+
+  // Optional transaction gas limit override for the create() transaction
+  // If omitted, SDK will default to 13,500,000 gas for create()
+  gas?: bigint;
 }
 
 // Price range configuration for automatic tick calculation

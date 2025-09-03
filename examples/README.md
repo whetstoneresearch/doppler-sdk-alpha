@@ -88,8 +88,12 @@ try {
 }
 ```
 
-### Gas Estimation
-The SDK automatically simulates transactions before executing. You can also manually estimate gas:
+### Gas & Overrides
+The SDK automatically simulates transactions before executing.
+- For factory `create()` transactions, the SDK uses a default gas limit of 13,500,000. You can override via the `gas` field on `CreateStaticAuctionParams`/`CreateDynamicAuctionParams`.
+- For other writes (e.g., token `approve`/`release`), you can pass an optional `{ gas }` to the method.
+
+You can also manually estimate gas:
 
 ```typescript
 const gasEstimate = await publicClient.estimateGas({

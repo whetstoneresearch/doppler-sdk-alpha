@@ -116,6 +116,12 @@ console.log('Hook address:', result.hookAddress)
 console.log('Token address:', result.tokenAddress)
 ```
 
+#### Transaction gas override
+- You can pass a gas limit to factory create calls via the `gas` field on `CreateStaticAuctionParams`/`CreateDynamicAuctionParams`.
+- If omitted, the SDK uses a default gas limit of 13,500,000 for the `create()` transaction.
+
+
+
 ### Builder Pattern (Recommended)
 
 Prefer using the builders to construct `CreateStaticAuctionParams` and `CreateDynamicAuctionParams` fluently and safely. Builders apply sensible defaults and can compute ticks and gamma for you.
