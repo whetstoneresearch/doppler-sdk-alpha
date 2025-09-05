@@ -85,14 +85,14 @@ Internally, the factory resolves the on‑chain migrator address for your chain 
 
 - Required: You must call `withGovernance(...)` in the builders.
 - Standard governance: Call `withGovernance()` with no arguments to use standard defaults, or pass `{ initialVotingDelay?, initialVotingPeriod?, initialProposalThreshold? }` or `{ useDefaults: true }`.
-- No‑op governance: Call `withGovernance({ noOp: true })`. The SDK throws if `noOpGovernanceFactory` is not deployed on the chain.
+- No‑op governance: Call `withGovernance({ noOp: true })`. The SDK throws if the chain’s `noOpGovernanceFactory` is not deployed and you didn’t override the governance factory address.
 
 ## Address Resolution
 
 Migrator contracts are selected per chain via `getAddresses(chainId)` (see `src/addresses.ts`).
 
 - `v2Migrator`, `v3Migrator`, `v4Migrator` must be present for the chosen type
-- Some optional contracts (`noOpGovernanceFactory`, `streamableFeesLocker`) may be `0x0` on certain chains — avoid V4 migration with fee streaming where not supported. Using no‑op governance requires `noOpGovernanceFactory`.
+- Some optional contracts (`streamableFeesLocker`) may be `0x0` on certain chains — avoid V4 migration with fee streaming where not supported. Using no‑op governance requires the chain’s `noOpGovernanceFactory` or providing a governance factory override.
 
 ## Quick Decision Guide
 

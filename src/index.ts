@@ -45,6 +45,9 @@ export type {
   QuoteResult
 } from './types'
 
+// Also export module override type for advanced usage
+export type { ModuleAddressOverrides } from './types'
+
 // Export enums
 export { LockablePoolStatus } from './types'
 

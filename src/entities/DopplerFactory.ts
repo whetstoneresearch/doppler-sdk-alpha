@@ -18,8 +18,11 @@ import type {
   TokenConfig,
   Doppler404TokenConfig,
   StandardTokenConfig,
-  SupportedChainId
+  SupportedChainId,
+  DynamicAuctionConfig,
+  CreateParams
 } from '../types'
+import type { ModuleAddressOverrides } from '../types'
 import { getAddresses } from '../addresses'
 import { zeroAddress } from 'viem'
 import { 
@@ -52,30 +55,17 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     this.chainId = chainId
   }
 
-  // Note: The legacy buildDynamicAuctionConfig and buildStaticAuctionConfig helper methods
-  // have been removed in favor of dedicated builders that construct
-  // CreateDynamicAuctionParams and CreateStaticAuctionParams.
-
-  /**
-   * Create a new static auction (using Uniswap V3 for initial liquidity)
-   * @param params Configuration for the static auction
-   * @returns The address of the created pool and token
-   */
-  async createStaticAuction(params: CreateStaticAuctionParams<C>): Promise<{
-    poolAddress: Address
-    tokenAddress: Address
-    transactionHash: string
-  }> {
+  encodeCreateStaticAuctionParams(params: CreateStaticAuctionParams<C>): CreateParams {
     // Validate parameters
     this.validateStaticAuctionParams(params)
-    
+
     const addresses = getAddresses(this.chainId)
-    
+
     // 1. Encode pool initializer data
     // V3 initializer expects InitData struct with specific field order
     const poolInitializerData = encodeAbiParameters(
       [
-        { 
+        {
           type: 'tuple',
           components: [
             { type: 'uint24', name: 'fee' },
@@ -94,10 +84,10 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         maxShareToBeSold: params.pool.maxShareToBeSold ?? DEFAULT_V3_MAX_SHARE_TO_BE_SOLD
       }]
     )
-    
+
     // 2. Encode migration data based on MigrationConfig
     const liquidityMigratorData = this.encodeMigrationData(params.migration)
-    
+
     // 3. Encode token parameters (standard vs Doppler404)
     let tokenFactoryData: Hex
     if (this.isDoppler404Token(params.token)) {
@@ -105,9 +95,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       // Doppler404 expects: name, symbol, baseURI, unit
       const baseURI = token404.baseURI
       const unit = token404.unit !== undefined ? BigInt(token404.unit) : 1000n
-      if (!addresses.doppler404Factory || addresses.doppler404Factory === ZERO_ADDRESS) {
-        throw new Error('Doppler404 factory address not configured for this chain')
-      }
       tokenFactoryData = encodeAbiParameters(
         [
           { type: 'string' },
@@ -147,7 +134,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         ]
       )
     }
-    
+
     // 4. Encode governance factory data
     const governanceFactoryData = encodeAbiParameters(
       [
@@ -163,52 +150,82 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
       ]
     )
-    
+
     // 4.1 Choose governance factory
     const useNoOpGovernance = params.governance.type === 'noOp'
 
     const governanceFactoryAddress: Address = (() => {
       if (useNoOpGovernance) {
-        const noOpGovernanceFactoryAddress = (addresses.noOpGovernanceFactory ?? ZERO_ADDRESS)
-        if (!noOpGovernanceFactoryAddress || noOpGovernanceFactoryAddress === ZERO_ADDRESS) {
-          throw new Error('No-op governance requested, but noOpGovernanceFactory is not deployed on this chain. Provide standard governance via withGovernance() or use a supported chain.')
+        // Prefer unified override; otherwise require chain's no-op governance factory
+        const resolved = params.modules?.governanceFactory ?? (addresses.noOpGovernanceFactory ?? ZERO_ADDRESS)
+        if (!resolved || resolved === ZERO_ADDRESS) {
+          throw new Error('No-op governance requested, but no-op governanceFactory is not configured on this chain. Provide a governanceFactory override or use a supported chain.')
         }
-        return noOpGovernanceFactoryAddress
+        return resolved
       }
-      const standardGovernanceFactoryAddress = addresses.governanceFactory
-      if (!standardGovernanceFactoryAddress || standardGovernanceFactoryAddress === ZERO_ADDRESS) {
+      const resolved = params.modules?.governanceFactory ?? addresses.governanceFactory
+      if (!resolved || resolved === ZERO_ADDRESS) {
         throw new Error('Standard governance requested but governanceFactory is not deployed on this chain.')
       }
-      return standardGovernanceFactoryAddress
+      return resolved
     })()
 
     // 5. Generate a unique salt
     const salt = this.generateRandomSalt(params.userAddress)
-    
-    // Build the complete CreateParams for the V4-style ABI
+
+    // Resolve token factory with override priority
+    const resolvedTokenFactory: Address | undefined =
+      params.modules?.tokenFactory ?? (
+        this.isDoppler404Token(params.token)
+          ? (addresses.doppler404Factory as Address | undefined)
+          : addresses.tokenFactory
+      )
+
+    if (!resolvedTokenFactory || resolvedTokenFactory === ZERO_ADDRESS) {
+      throw new Error('Token factory address not configured. Provide an explicit address via builder.withTokenFactory(...) or ensure chain config includes a valid factory.')
+    }
+
+    // Build the complete CreateParams for the V3-style ABI
     const createParams = {
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
-      tokenFactory: this.isDoppler404Token(params.token) ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
+      tokenFactory: resolvedTokenFactory,
       tokenFactoryData: tokenFactoryData,
       governanceFactory: governanceFactoryAddress,
       governanceFactoryData: governanceFactoryData,
-      poolInitializer: addresses.v3Initializer,
+      poolInitializer: params.modules?.v3Initializer ?? addresses.v3Initializer,
       poolInitializerData: poolInitializerData,
-      liquidityMigrator: this.getMigratorAddress(params.migration),
+      liquidityMigrator: this.getMigratorAddress(params.migration, params.modules),
       liquidityMigratorData: liquidityMigratorData,
       integrator: params.integrator ?? ZERO_ADDRESS,
       salt: salt,
     }
-    
+
+    return createParams;
+  }
+
+  /**
+   * Create a new static auction (using Uniswap V3 for initial liquidity)
+   * @param params Configuration for the static auction
+   * @returns The address of the created pool and token
+   */
+  async createStaticAuction(params: CreateStaticAuctionParams<C>): Promise<{
+    poolAddress: Address
+    tokenAddress: Address
+    transactionHash: string
+  }> {
+    const createParams = this.encodeCreateStaticAuctionParams(params);
+
+    const addresses = getAddresses(this.chainId)
+
     // Call the airlock contract to create the pool
     if (!this.walletClient) {
       throw new Error('Wallet client required for write operations')
     }
     
     const { request, result } = await this.publicClient.simulateContract({
-      address: addresses.airlock,
+      address: params.modules?.airlock ?? addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
       args: [{...createParams}],
@@ -309,22 +326,16 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       .join('')}` as Hex
   }
 
-  /**
-   * Create a new dynamic auction (using Uniswap V4 hook for gradual Dutch auction)
-   * @param params Configuration for the dynamic auction
-   * @returns The address of the created hook and token
-   */
-  async createDynamicAuction(params: CreateDynamicAuctionParams<C>): Promise<{
-    hookAddress: Address
+  async encodeCreateDynamicAuctionParams(params: CreateDynamicAuctionParams<C>): Promise<{
+    createParams: CreateParams,
+    hookAddress: Address,
     tokenAddress: Address
-    poolId: string
-    transactionHash: string
   }> {
-    // Validate parameters
+     // Validate parameters
     this.validateDynamicAuctionParams(params)
-    
+
     const addresses = getAddresses(this.chainId)
-    
+
     // 1. Calculate gamma if not provided
     const gamma = params.auction.gamma ?? this.computeOptimalGamma(
       params.auction.startTick,
@@ -333,7 +344,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       params.auction.epochLength,
       params.pool.tickSpacing
     )
-    
+
     // 2. Prepare time parameters
     // Use provided block timestamp or fetch the latest
     let blockTimestamp: number
@@ -343,12 +354,12 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       const latestBlock = await this.publicClient.getBlock({ blockTag: 'latest' })
       blockTimestamp = Number(latestBlock.timestamp)
     }
-    
+
     // Use startTimeOffset if provided, otherwise default to 30 seconds
     const startTimeOffset = params.startTimeOffset ?? 30
     const startTime = blockTimestamp + startTimeOffset
     const endTime = blockTimestamp + params.auction.duration * DAY_SECONDS + startTimeOffset
-    
+
     // 3. Prepare hook initialization data
     const dopplerData = {
       minimumProceeds: params.auction.minProceeds,
@@ -364,7 +375,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       fee: params.pool.fee,
       tickSpacing: params.pool.tickSpacing
     }
-    
+
     // 4. Prepare token parameters (standard vs Doppler404)
     if (this.isDoppler404Token(params.token)) {
       if (!addresses.doppler404Factory || addresses.doppler404Factory === ZERO_ADDRESS) {
@@ -397,25 +408,37 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
             tokenURI: t.tokenURI,
           }
         })()
-    
+
     // 5. Mine hook address with appropriate flags
+    // Resolve token factory with override priority (works for both standard and doppler404 variants)
+    const resolvedTokenFactoryDyn: Address | undefined =
+      params.modules?.tokenFactory ?? (
+        this.isDoppler404Token(params.token)
+          ? (addresses.doppler404Factory as Address | undefined)
+          : addresses.tokenFactory
+      )
+
+    if (!resolvedTokenFactoryDyn || resolvedTokenFactoryDyn === ZERO_ADDRESS) {
+      throw new Error('Token factory address not configured. Provide an explicit address via builder.withTokenFactory(...) or ensure chain config includes a valid factory.')
+    }
+
     const [salt, hookAddress, tokenAddress, poolInitializerData, encodedTokenFactoryData] = this.mineHookAddress({
-      airlock: addresses.airlock,
-      poolManager: addresses.poolManager,
-      deployer: addresses.dopplerDeployer,
+      airlock: params.modules?.airlock ?? addresses.airlock,
+      poolManager: params.modules?.poolManager ?? addresses.poolManager,
+      deployer: params.modules?.dopplerDeployer ?? addresses.dopplerDeployer,
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
-      tokenFactory: this.isDoppler404Token(params.token) ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
+      tokenFactory: resolvedTokenFactoryDyn,
       tokenFactoryData: tokenFactoryData,
-      poolInitializer: addresses.v4Initializer,
+      poolInitializer: params.modules?.v4Initializer ?? addresses.v4Initializer,
       poolInitializerData: dopplerData,
       tokenVariant: this.isDoppler404Token(params.token) ? 'doppler404' : 'standard'
     })
-    
+
     // 6. Encode migration data
     const liquidityMigratorData = this.encodeMigrationData(params.migration)
-    
+
     // 7. Encode governance factory data
     const governanceFactoryData = encodeAbiParameters(
       [
@@ -431,23 +454,24 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
       ]
     )
-    
+
     // 7.1 Choose governance factory
     const useNoOpGovernance = params.governance.type === 'noOp'
 
     const governanceFactoryAddress: Address = (() => {
       if (useNoOpGovernance) {
-        const noOpGovernanceFactoryAddress = (addresses.noOpGovernanceFactory ?? ZERO_ADDRESS)
-        if (!noOpGovernanceFactoryAddress || noOpGovernanceFactoryAddress === ZERO_ADDRESS) {
-          throw new Error('No-op governance requested, but noOpGovernanceFactory is not deployed on this chain. Provide standard governance via withGovernance() or use a supported chain.')
+        // Prefer unified override; otherwise require chain's no-op governance factory
+        const resolved = params.modules?.governanceFactory ?? (addresses.noOpGovernanceFactory ?? ZERO_ADDRESS)
+        if (!resolved || resolved === ZERO_ADDRESS) {
+          throw new Error('No-op governance requested, but no-op governanceFactory is not configured on this chain. Provide a governanceFactory override or use a supported chain.')
         }
-        return noOpGovernanceFactoryAddress
+        return resolved
       }
-      const standardGovernanceFactoryAddress = addresses.governanceFactory
-      if (!standardGovernanceFactoryAddress || standardGovernanceFactoryAddress === ZERO_ADDRESS) {
+      const resolved = params.modules?.governanceFactory ?? addresses.governanceFactory
+      if (!resolved || resolved === ZERO_ADDRESS) {
         throw new Error('Standard governance requested but governanceFactory is not deployed on this chain.')
       }
-      return standardGovernanceFactoryAddress
+      return resolved
     })()
 
     // 8. Build the complete CreateParams for the V4-style ABI
@@ -455,25 +479,44 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
-      tokenFactory: this.isDoppler404Token(params.token) ? (addresses.doppler404Factory as Address) : addresses.tokenFactory,
+      tokenFactory: resolvedTokenFactoryDyn,
       tokenFactoryData: encodedTokenFactoryData,
       governanceFactory: governanceFactoryAddress,
       governanceFactoryData: governanceFactoryData,
-      poolInitializer: addresses.v4Initializer,
+      poolInitializer: params.modules?.v4Initializer ?? addresses.v4Initializer,
       poolInitializerData: poolInitializerData,
-      liquidityMigrator: this.getMigratorAddress(params.migration),
+      liquidityMigrator: this.getMigratorAddress(params.migration, params.modules),
       liquidityMigratorData: liquidityMigratorData,
       integrator: params.integrator ?? ZERO_ADDRESS,
       salt: salt,
     }
-    
+
+    return { createParams, hookAddress, tokenAddress }
+  }
+
+  /**
+   * Create a new dynamic auction (using Uniswap V4 hook for gradual Dutch auction)
+   * @param params Configuration for the dynamic auction
+   * @returns The address of the created hook and token
+   */
+  async createDynamicAuction(params: CreateDynamicAuctionParams<C>): Promise<{
+    hookAddress: Address
+    tokenAddress: Address
+    poolId: string
+    transactionHash: string
+  }> {
+
+    const { createParams, hookAddress, tokenAddress } = await this.encodeCreateDynamicAuctionParams(params);
+
+    const addresses = getAddresses(this.chainId)
+
     // Call the airlock contract to create the pool
     if (!this.walletClient) {
       throw new Error('Wallet client required for write operations')
     }
     
     const { request, result } = await this.publicClient.simulateContract({
-      address: addresses.airlock,
+      address: params.modules?.airlock ?? addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
       args: [{...createParams}],
@@ -753,17 +796,18 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
 
   /**
    * Get the appropriate migrator address based on migration config
+   * Allows override via ModuleAddressOverrides when provided in params.
    */
-  private getMigratorAddress(config: MigrationConfig): Address {
+  private getMigratorAddress(config: MigrationConfig, overrides?: ModuleAddressOverrides): Address {
     const addresses = getAddresses(this.chainId)
     
     switch (config.type) {
       case 'uniswapV2':
-        return addresses.v2Migrator
+        return overrides?.v2Migrator ?? addresses.v2Migrator
       case 'uniswapV3':
-        return addresses.v3Migrator
+        return overrides?.v3Migrator ?? addresses.v3Migrator
       case 'uniswapV4':
-        return addresses.v4Migrator
+        return overrides?.v4Migrator ?? addresses.v4Migrator
       default:
         throw new Error(`Unknown migration type: ${(config as any).type}`)
     }

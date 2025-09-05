@@ -108,6 +108,16 @@ const params = new DynamicAuctionBuilder()
       ],
     },
   })
+  // Optional: override module addresses instead of chain defaults
+  .withAirlock('0xAirlock...')
+  .withPoolManager('0xPoolMgr...')
+  .withDopplerDeployer('0xDeployer...')
+  .withTokenFactory('0xFactory...')
+  .withV4Initializer('0xInitializer...')
+  .withGovernanceFactory('0xGovFactory...') // used for both standard and no‑op governance
+  // .withV2Migrator('0xV2Migrator...')
+  // .withV3Migrator('0xV3Migrator...')
+  // .withV4Migrator('0xV4Migrator...')
   .withUserAddress('0x...')
   .build()
 

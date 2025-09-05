@@ -48,7 +48,15 @@ Methods (chainable):
 - withUserAddress(address)
 - withIntegrator(address?)
   - Defaults to zero address if omitted
-- build(): CreateStaticAuctionParams
+- Address overrides (optional):
+  - withAirlock(address)
+  - withTokenFactory(address)
+  - withV3Initializer(address)
+  - withGovernanceFactory(address) — used for both standard and no‑op governance
+  - withV2Migrator(address)
+  - withV3Migrator(address)
+  - withV4Migrator(address)
+  - build(): CreateStaticAuctionParams
   - Throws if required sections are missing
 
 Validation highlights:
@@ -100,6 +108,16 @@ Methods (chainable):
 - withIntegrator(address?)
 - withTime({ startTimeOffset?, blockTimestamp? } | undefined)
   - Controls auction time reference; if omitted, factory fetches latest block timestamp and uses 30s offset
+- Address overrides (optional):
+  - withAirlock(address)
+  - withTokenFactory(address)
+  - withV4Initializer(address)
+  - withPoolManager(address)
+  - withDopplerDeployer(address)
+  - withGovernanceFactory(address) — used for both standard and no‑op governance
+  - withV2Migrator(address)
+  - withV3Migrator(address)
+  - withV4Migrator(address)
 - build(): CreateDynamicAuctionParams
   - Ensures `gamma` finalized, fills defaults, and throws if required sections are missing
 

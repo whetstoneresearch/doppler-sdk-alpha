@@ -24,6 +24,7 @@ import type {
   VestingConfig,
   TokenConfig,
 } from './types'
+import type { ModuleAddressOverrides } from './types'
 import { type SupportedChainId } from './addresses'
 
 function computeTicks(priceRange: PriceRange, tickSpacing: number): TickRange {
@@ -63,6 +64,7 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
   private migration?: MigrationConfig
   private integrator?: Address
   private userAddress?: Address
+  private moduleAddresses?: ModuleAddressOverrides
   public chainId: C
 
   constructor(chainId: C) {
@@ -184,6 +186,43 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
     return this
   }
 
+  // Address override helpers
+  private overrideModule<K extends keyof ModuleAddressOverrides>(key: K, address: NonNullable<ModuleAddressOverrides[K]>): this {
+    this.moduleAddresses = {
+      ...(this.moduleAddresses ?? {}),
+      [key]: address,
+    } as ModuleAddressOverrides
+    return this
+  }
+
+  withTokenFactory(address: Address): this {
+    return this.overrideModule('tokenFactory', address)
+  }
+
+  withAirlock(address: Address): this {
+    return this.overrideModule('airlock', address)
+  }
+
+  withV3Initializer(address: Address): this {
+    return this.overrideModule('v3Initializer', address)
+  }
+
+  withGovernanceFactory(address: Address): this {
+    return this.overrideModule('governanceFactory', address)
+  }
+
+  withV2Migrator(address: Address): this {
+    return this.overrideModule('v2Migrator', address)
+  }
+
+  withV3Migrator(address: Address): this {
+    return this.overrideModule('v3Migrator', address)
+  }
+
+  withV4Migrator(address: Address): this {
+    return this.overrideModule('v4Migrator', address)
+  }
+
   build(): CreateStaticAuctionParams<C> {
     if (!this.token) throw new Error('tokenConfig is required')
     if (!this.sale) throw new Error('saleConfig is required')
@@ -201,6 +240,7 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
       migration: this.migration,
       integrator: this.integrator ?? ZERO_ADDRESS,
       userAddress: this.userAddress,
+      modules: this.moduleAddresses,
     }
   }
 }
@@ -218,6 +258,7 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
   private userAddress?: Address
   private startTimeOffset?: number
   private blockTimestamp?: number
+  private moduleAddresses?: ModuleAddressOverrides
   public chainId: C
 
   constructor(chainId: C) {
@@ -370,6 +411,51 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     return this
   }
 
+  // Address override helpers
+  private overrideModule<K extends keyof ModuleAddressOverrides>(key: K, address: NonNullable<ModuleAddressOverrides[K]>): this {
+    this.moduleAddresses = {
+      ...(this.moduleAddresses ?? {}),
+      [key]: address,
+    } as ModuleAddressOverrides
+    return this
+  }
+
+  withTokenFactory(address: Address): this {
+    return this.overrideModule('tokenFactory', address)
+  }
+
+  withAirlock(address: Address): this {
+    return this.overrideModule('airlock', address)
+  }
+
+  withV4Initializer(address: Address): this {
+    return this.overrideModule('v4Initializer', address)
+  }
+
+  withPoolManager(address: Address): this {
+    return this.overrideModule('poolManager', address)
+  }
+
+  withDopplerDeployer(address: Address): this {
+    return this.overrideModule('dopplerDeployer', address)
+  }
+
+  withGovernanceFactory(address: Address): this {
+    return this.overrideModule('governanceFactory', address)
+  }
+
+  withV2Migrator(address: Address): this {
+    return this.overrideModule('v2Migrator', address)
+  }
+
+  withV3Migrator(address: Address): this {
+    return this.overrideModule('v3Migrator', address)
+  }
+
+  withV4Migrator(address: Address): this {
+    return this.overrideModule('v4Migrator', address)
+  }
+
   build(): CreateDynamicAuctionParams<C> {
     if (!this.token) throw new Error('tokenConfig is required')
     if (!this.sale) throw new Error('saleConfig is required')
@@ -405,6 +491,7 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
       userAddress: this.userAddress,
       startTimeOffset: this.startTimeOffset,
       blockTimestamp: this.blockTimestamp,
+      modules: this.moduleAddresses,
     }
   }
 }

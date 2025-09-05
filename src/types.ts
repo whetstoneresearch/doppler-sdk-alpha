@@ -166,6 +166,9 @@ export interface CreateStaticAuctionParams<C extends SupportedChainId = Supporte
   integrator?: Address;
   userAddress: Address;
 
+  // Optional address overrides for on-chain modules used during encoding/creation
+  modules?: ModuleAddressOverrides;
+
   // Optional transaction gas limit override for the create() transaction
   // If omitted, SDK will default to 13,500,000 gas for create()
   gas?: bigint;
@@ -209,6 +212,9 @@ export interface CreateDynamicAuctionParams<C extends SupportedChainId = Support
   // Optional transaction gas limit override for the create() transaction
   // If omitted, SDK will default to 13,500,000 gas for create()
   gas?: bigint;
+
+  // Optional address overrides for on-chain modules used during encoding/creation
+  modules?: ModuleAddressOverrides;
 }
 
 // Price range configuration for automatic tick calculation
@@ -351,4 +357,45 @@ export interface LockableV3InitializerParams {
   numPositions: number;
   maxShareToBeSold: bigint;
   beneficiaries: LockableBeneficiaryData[];
+}
+
+// Final Params object that gets passed as arg to create
+export interface CreateParams {
+    initialSupply: bigint,
+    numTokensToSell: bigint,
+    numeraire: Address,
+    tokenFactory: Address,
+    tokenFactoryData: `0x${string}`,
+    governanceFactory: Address,
+    governanceFactoryData: `0x${string}`,
+    poolInitializer: Address,
+    poolInitializerData: `0x${string}`,
+    liquidityMigrator: Address,
+    liquidityMigratorData: `0x${string}`,
+    integrator: Address,
+    salt: `0x${string}`,
+}
+
+// Optional per-call module address overrides. When provided, these take precedence
+// over chain defaults resolved via getAddresses(chainId).
+export interface ModuleAddressOverrides {
+  // Core deployment & routing
+  airlock?: Address;
+  tokenFactory?: Address;
+
+  // Initializers
+  v3Initializer?: Address;
+  v4Initializer?: Address;
+
+  // Governance
+  governanceFactory?: Address;
+
+  // Dynamic auction infra
+  poolManager?: Address;
+  dopplerDeployer?: Address;
+
+  // Migrators
+  v2Migrator?: Address;
+  v3Migrator?: Address;
+  v4Migrator?: Address;
 }
