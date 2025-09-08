@@ -294,6 +294,18 @@ console.log('Expected output:', quote.amountOut);
 console.log('Price after swap:', quote.sqrtPriceX96After);
 ```
 
+## Atomic Create + Pre‑Buy (Bundle)
+
+For static auctions, you can create the pool and execute a pre‑buy in a single transaction via the Bundler.
+
+High‑level flow:
+- Simulate create to get `CreateParams` and the predicted token address
+- Decide `amountOut` to buy, simulate `amountIn` with `simulateBundleExactOutput(...)`
+- Build Universal Router commands (e.g., via `doppler-router`)
+- Call `factory.bundle(createParams, commands, inputs, { value })`
+
+See docs/quotes-and-swaps.md for a full example.
+
 ## Migration Configuration
 
 The SDK supports flexible migration paths after auction completion:

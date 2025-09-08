@@ -42,7 +42,7 @@ import {
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
 } from '../constants'
-import { airlockAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
+import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
 
 export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   private publicClient: SupportedPublicClient
@@ -203,6 +203,37 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
 
     return createParams;
+  }
+
+  /**
+   * Simulate a static auction creation and return predicted addresses.
+   * Useful for pre-buy flows (bundle) to know the token/pool before sending.
+   */
+  async simulateCreateStaticAuction(params: CreateStaticAuctionParams<C>): Promise<{
+    createParams: CreateParams
+    asset: Address
+    pool: Address
+  }> {
+    const createParams = this.encodeCreateStaticAuctionParams(params)
+    const addresses = getAddresses(this.chainId)
+
+    const { result } = await this.publicClient.simulateContract({
+      address: params.modules?.airlock ?? addresses.airlock,
+      abi: airlockAbi,
+      functionName: 'create',
+      args: [{ ...createParams }],
+      account: this.walletClient?.account,
+    })
+
+    if (!result || !Array.isArray(result) || result.length < 2) {
+      throw new Error('Failed to simulate static auction create')
+    }
+
+    return {
+      createParams,
+      asset: result[0] as Address,
+      pool: result[1] as Address,
+    }
   }
 
   /**
@@ -795,6 +826,19 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   }
 
   /**
+   * Get the Bundler contract address for the current chain
+   * Used to perform atomic create + swap ("bundle") flows for static auctions
+   */
+  private getBundlerAddress(): Address {
+    const addresses = getAddresses(this.chainId)
+    const addr = addresses.bundler
+    if (!addr || addr === zeroAddress) {
+      throw new Error('Bundler address not configured for this chain')
+    }
+    return addr
+  }
+
+  /**
    * Get the appropriate migrator address based on migration config
    * Allows override via ModuleAddressOverrides when provided in params.
    */
@@ -841,6 +885,98 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
 
     return gamma
+  }
+
+  // -----------------------------
+  // Bundler helpers (Static/V3)
+  // -----------------------------
+
+  /**
+   * Simulate a bundle with exact input on Uniswap V3 as part of create
+   * Returns the expected output amount for the provided exact input.
+   */
+  async simulateBundleExactInput(createParams: CreateParams, params: {
+    tokenIn: Address
+    tokenOut: Address
+    amountIn: bigint
+    fee: number
+    sqrtPriceLimitX96: bigint
+  }): Promise<bigint> {
+    const bundler = this.getBundlerAddress()
+    const { result } = await this.publicClient.simulateContract({
+      address: bundler,
+      abi: bundlerAbi,
+      functionName: 'simulateBundleExactIn',
+      args: [
+        { ...createParams },
+        {
+          tokenIn: params.tokenIn,
+          tokenOut: params.tokenOut,
+          amountIn: params.amountIn,
+          fee: params.fee,
+          sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+        },
+      ],
+    })
+    return result as unknown as bigint
+  }
+
+  /**
+   * Simulate a bundle with exact output on Uniswap V3 as part of create
+   * Returns the required input amount for the provided exact output.
+   */
+  async simulateBundleExactOutput(createParams: CreateParams, params: {
+    tokenIn: Address
+    tokenOut: Address
+    amount: bigint
+    fee: number
+    sqrtPriceLimitX96: bigint
+  }): Promise<bigint> {
+    const bundler = this.getBundlerAddress()
+    const { result } = await this.publicClient.simulateContract({
+      address: bundler,
+      abi: bundlerAbi,
+      functionName: 'simulateBundleExactOut',
+      args: [
+        { ...createParams },
+        {
+          tokenIn: params.tokenIn,
+          tokenOut: params.tokenOut,
+          amount: params.amount,
+          fee: params.fee,
+          sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+        },
+      ],
+    })
+    return result as unknown as bigint
+  }
+
+  /**
+   * Execute an atomic create + swap bundle through the Bundler
+   * commands/inputs are Universal Router encoded values (e.g., from doppler-router)
+   */
+  async bundle(createParams: CreateParams, commands: Hex, inputs: Hex[], options?: { gas?: bigint; value?: bigint }): Promise<Hash> {
+    if (!this.walletClient) {
+      throw new Error('Wallet client required for write operations')
+    }
+
+    const bundler = this.getBundlerAddress()
+    const { request } = await this.publicClient.simulateContract({
+      address: bundler,
+      abi: bundlerAbi,
+      functionName: 'bundle',
+      args: [
+        { ...createParams },
+        commands,
+        inputs,
+      ],
+      account: this.walletClient.account,
+      value: options?.value ?? 0n,
+    })
+
+    const gas = options?.gas ?? undefined
+    const tx = await this.walletClient.writeContract(gas ? { ...request, gas } : request)
+    return tx
   }
 
   /**

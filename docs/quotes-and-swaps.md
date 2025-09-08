@@ -178,3 +178,63 @@ The `doppler-v4-miniapp` in this repo demonstrates:
 - Executing via Universal Router using `doppler-router` builders
 
 Look at `src/pages/PoolDetails.tsx` for a complete reference implementation.
+
+---
+
+## Create + Pre‑Buy (Bundle)
+
+For static (V3‑style) auctions you can atomically create the pool and execute a pre‑buy in the same transaction via the Bundler. This mirrors the older V3 SDK’s `bundle(...)` flow.
+
+Steps:
+- Simulate create to get the predicted token (asset) address and `CreateParams`.
+- Decide the amount of tokens to pre‑buy (`amountOut`).
+- Use `factory.simulateBundleExactOutput(...)` to learn the required ETH/WETH input (`amountIn`).
+- Build Universal Router commands for a V3 exact‑out swap (e.g., with `doppler-router`).
+- Call `factory.bundle(...)` with the `CreateParams`, commands, and inputs. Send `value = amountIn` if swapping from ETH.
+
+Example:
+
+```ts
+import { CommandBuilder, SwapRouter02Encoder } from 'doppler-router'
+import { parseEther } from 'viem'
+
+// 1) Build your static params (builder recommended)
+const staticParams = new StaticAuctionBuilder(base.id)
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'ipfs://...' })
+  .saleConfig({ initialSupply: parseEther('1_000_000_000'), numTokensToSell: parseEther('900_000_000'), numeraire: weth })
+  .poolByTicks({ fee: 10000 })
+  .withGovernance({ useDefaults: true })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress(user)
+  .build()
+
+// 2) Simulate create → get CreateParams and predicted token address
+const { createParams, asset } = await sdk.factory.simulateCreateStaticAuction(staticParams)
+
+// 3) Choose a pre‑buy target amountOut (e.g., 1% of tokens for sale)
+const amountOut = staticParams.sale.numTokensToSell / 100n
+
+// 4) Quote required input using the Bundler simulator
+const amountIn = await sdk.factory.simulateBundleExactOutput(createParams, {
+  tokenIn: weth,
+  tokenOut: asset,
+  amount: amountOut,
+  fee: 10_000,
+  sqrtPriceLimitX96: 0n,
+})
+
+// 5) Build Universal Router commands for a V3 exact‑out swap
+const path = [weth, asset]
+const encodedPath = new SwapRouter02Encoder().encodePathExactOutput(path)
+const builder = new CommandBuilder()
+builder.addWrapEth(addresses.universalRouter, amountIn)
+builder.addV3SwapExactOut(user, amountOut, amountIn, encodedPath, false)
+const [commands, inputs] = builder.build()
+
+// 6) Atomically create + pre‑buy
+const txHash = await sdk.factory.bundle(createParams, commands, inputs, { value: amountIn })
+```
+
+Notes:
+- Bundling is supported for static (V3‑style) auctions. Dynamic (V4) auctions use the Universal Router directly after creation.
+- If buying with ERC‑20 input instead of native ETH, approve/permit as needed and omit `value`.
