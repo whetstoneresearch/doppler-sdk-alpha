@@ -259,8 +259,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       address: params.modules?.airlock ?? addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
-      // Include create params at both positions 0 and 1 to satisfy differing test expectations
-      args: [{ ...createParams }, { ...createParams }],
+      args: [{ ...createParams }],
       account: this.walletClient.account,
     })
     
@@ -551,8 +550,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       address: params.modules?.airlock ?? addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
-      // Include create params at both positions 0 and 1 to satisfy differing test expectations
-      args: [{ ...createParams }, { ...createParams }],
+      args: [{ ...createParams }],
       account: this.walletClient.account,
     })
     

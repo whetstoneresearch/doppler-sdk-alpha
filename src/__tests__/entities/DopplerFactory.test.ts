@@ -128,8 +128,8 @@ describe('DopplerFactory', () => {
       await factory.createStaticAuction(params)
 
       const call = vi.mocked(publicClient.simulateContract).mock.calls[0][0]
-      expect((call as any).args[1].liquidityMigrator).toBe(mockAddresses.v2Migrator)
-      expect((call as any).args[1].liquidityMigratorData).toBe('0x')
+      expect((call as any).args[0].liquidityMigrator).toBe(mockAddresses.v2Migrator)
+      expect((call as any).args[0].liquidityMigratorData).toBe('0x')
     })
 
     it('should encode migration data correctly for V3', async () => {
@@ -156,10 +156,10 @@ describe('DopplerFactory', () => {
       await factory.createStaticAuction(params)
 
       const call = vi.mocked(publicClient.simulateContract).mock.calls[0][0]
-      expect((call as any).args[1].liquidityMigrator).toBe(mockAddresses.v3Migrator)
+      expect((call as any).args[0].liquidityMigrator).toBe(mockAddresses.v3Migrator)
       // Should contain encoded V3 migration data
-      expect((call as any).args[1].liquidityMigratorData).toMatch(/^0x[a-fA-F0-9]+$/)
-      expect((call as any).args[1].liquidityMigratorData).not.toBe('0x')
+      expect((call as any).args[0].liquidityMigratorData).toMatch(/^0x[a-fA-F0-9]+$/)
+      expect((call as any).args[0].liquidityMigratorData).not.toBe('0x')
     })
   })
 
@@ -236,7 +236,7 @@ describe('DopplerFactory', () => {
       await factory.createDynamicAuction(validParams)
 
       const call = vi.mocked(publicClient.simulateContract).mock.calls[0][0]
-      const poolInitializerData = (call as any).args[1].poolInitializerData
+      const poolInitializerData = (call as any).args[0].poolInitializerData
       
       // Should contain encoded data with calculated gamma
       expect(poolInitializerData).toMatch(/^0x[a-fA-F0-9]+$/)
