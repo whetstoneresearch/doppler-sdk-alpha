@@ -233,10 +233,7 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
     if (!this.pool) throw new Error('pool configuration is required')
     if (!this.migration) throw new Error('migration configuration is required')
     if (!this.userAddress) throw new Error('userAddress is required')
-    // Default governance to standard if not provided
-    if (!this.governance) {
-      this.governance = { type: 'default' } as any
-    }
+    if (!this.governance) throw new Error("governance configuration is required; call withGovernance({ type: 'default' | 'custom' | 'noOp' })")
 
     return {
       token: this.token,
@@ -470,10 +467,7 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     if (!this.auction) throw new Error('auction configuration is required')
     if (!this.migration) throw new Error('migration configuration is required')
     if (!this.userAddress) throw new Error('userAddress is required')
-    // Default governance to standard if not provided
-    if (!this.governance) {
-      this.governance = { type: 'default' } as any
-    }
+    if (!this.governance) throw new Error("governance configuration is required; call withGovernance({ type: 'default' | 'custom' | 'noOp' })")
 
     // Ensure gamma is set and valid
     let { gamma } = this.auction
