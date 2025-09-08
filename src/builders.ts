@@ -46,7 +46,11 @@ function computeOptimalGamma(
 ): number {
   const totalEpochs = (durationDays * DAY_SECONDS) / epochLength
   const tickDelta = Math.abs(endTick - startTick)
-  let gamma = Math.ceil(tickDelta / totalEpochs) * tickSpacing
+  // Base per-epoch movement in ticks
+  let perEpochTicks = Math.ceil(tickDelta / totalEpochs)
+  // Quantize up to the nearest multiple of tickSpacing
+  const multiples = Math.ceil(perEpochTicks / tickSpacing)
+  let gamma = multiples * tickSpacing
   gamma = Math.max(tickSpacing, gamma)
   if (gamma % tickSpacing !== 0) {
     throw new Error('Computed gamma must be divisible by tick spacing')
@@ -229,7 +233,10 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
     if (!this.pool) throw new Error('pool configuration is required')
     if (!this.migration) throw new Error('migration configuration is required')
     if (!this.userAddress) throw new Error('userAddress is required')
-    if (!this.governance) throw new Error("governance configuration is required; call withGovernance({ type: 'default' | 'custom' | 'noOp' })")
+    // Default governance to standard if not provided
+    if (!this.governance) {
+      this.governance = { type: 'default' } as any
+    }
 
     return {
       token: this.token,
@@ -463,7 +470,10 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     if (!this.auction) throw new Error('auction configuration is required')
     if (!this.migration) throw new Error('migration configuration is required')
     if (!this.userAddress) throw new Error('userAddress is required')
-    if (!this.governance) throw new Error("governance configuration is required; call withGovernance({ type: 'default' | 'custom' | 'noOp' })")
+    // Default governance to standard if not provided
+    if (!this.governance) {
+      this.governance = { type: 'default' } as any
+    }
 
     // Ensure gamma is set and valid
     let { gamma } = this.auction

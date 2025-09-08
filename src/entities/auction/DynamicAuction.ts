@@ -171,10 +171,11 @@ export class DynamicAuction {
       functionName: 'getAssetData',
       args: [tokenAddress],
     })
-    
-    // The getAssetData returns: [numeraire, timelock, governance, liquidityMigrator, poolInitializer, pool, migrationPool, numTokensToSell, totalSupply, integrator]
-    // Check if the asset is graduated (liquidityMigrator is set to address(0))
-    return assetData[3] === zeroAddress
+    // Check if the asset is graduated (liquidityMigrator is zero)
+    const liquidityMigrator = Array.isArray(assetData)
+      ? (assetData as any)[3]
+      : (assetData as any)?.liquidityMigrator
+    return liquidityMigrator === zeroAddress
   }
   
   /**

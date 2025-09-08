@@ -69,10 +69,17 @@ export class StaticAuction {
       functionName: 'getAssetData',
       args: [token0],
     })
-    
-    // The getAssetData returns: [numeraire, timelock, governance, liquidityMigrator, poolInitializer, pool, migrationPool, numTokensToSell, totalSupply, integrator]
-    // If token0 has asset data in Airlock (pool is not zero), it's the auction token
-    const isToken0AuctionToken = assetData[5] !== zeroAddress
+    // Determine whether token0 is the auction token.
+    // Handle both tuple and object return shapes from getAssetData.
+    // Tuple (legacy): [numeraire, timelock, governance, liquidityMigrator, poolInitializer, pool, ...]
+    // Object (unified): { poolOrHook, liquidityMigrator, numeraire, ... }
+    let poolOrHook0: any
+    if (Array.isArray(assetData)) {
+      poolOrHook0 = assetData[5]
+    } else if (assetData && typeof assetData === 'object') {
+      poolOrHook0 = (assetData as any).poolOrHook ?? (assetData as any).pool
+    }
+    const isToken0AuctionToken = poolOrHook0 && poolOrHook0 !== zeroAddress
     
     return {
       address: this.poolAddress,
@@ -106,10 +113,11 @@ export class StaticAuction {
       functionName: 'getAssetData',
       args: [tokenAddress],
     })
-    
-    // The getAssetData returns: [numeraire, timelock, governance, liquidityMigrator, poolInitializer, pool, migrationPool, numTokensToSell, totalSupply, integrator]
-    // Check if the asset is graduated (liquidityMigrator is set to address(0))
-    return assetData[3] === zeroAddress
+    // Check if the asset is graduated (liquidityMigrator is zero)
+    const liquidityMigrator = Array.isArray(assetData)
+      ? (assetData as any)[3]
+      : (assetData as any)?.liquidityMigrator
+    return liquidityMigrator === zeroAddress
   }
   
   /**
