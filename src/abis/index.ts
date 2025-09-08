@@ -843,8 +843,8 @@ export const quoterV2Abi = [
         components: [
           { internalType: "address", name: "tokenIn", type: "address" },
           { internalType: "address", name: "tokenOut", type: "address" },
+          { internalType: "uint256", name: "amount", type: "uint256" },
           { internalType: "uint24", name: "fee", type: "uint24" },
-          { internalType: "uint256", name: "amountOut", type: "uint256" },
           {
             internalType: "uint160",
             name: "sqrtPriceLimitX96",

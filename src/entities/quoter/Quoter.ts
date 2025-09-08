@@ -1,4 +1,4 @@
-import { type Address } from 'viem'
+import { type Address, encodeFunctionData, decodeAbiParameters, type Hex } from 'viem'
 import { quoterV2Abi, uniswapV2Router02Abi, v4QuoterAbi } from '../../abis'
 import { getAddresses } from '../../addresses'
 import type { SupportedPublicClient } from '../../types'
@@ -38,24 +38,45 @@ export class Quoter {
   }> {
     const addresses = getAddresses(this.chainId)
     
-    const { result } = await this.publicClient.simulateContract({
-      address: addresses.v3Quoter,
-      abi: quoterV2Abi,
-      functionName: 'quoteExactInputSingle',
-      args: [{
-        tokenIn: params.tokenIn,
-        tokenOut: params.tokenOut,
-        amountIn: params.amountIn,
-        fee: params.fee,
-        sqrtPriceLimitX96: params.sqrtPriceLimitX96 ?? BigInt(0),
-      }],
-    })
-    
-    return {
-      amountOut: result[0],
-      sqrtPriceX96After: result[1],
-      initializedTicksCrossed: result[2],
-      gasEstimate: result[3],
+    try {
+      const { result } = await this.publicClient.simulateContract({
+        address: addresses.v3Quoter,
+        abi: quoterV2Abi,
+        functionName: 'quoteExactInputSingle',
+        args: [{
+          tokenIn: params.tokenIn,
+          tokenOut: params.tokenOut,
+          amountIn: params.amountIn,
+          fee: params.fee,
+          sqrtPriceLimitX96: params.sqrtPriceLimitX96 ?? BigInt(0),
+        }],
+      })
+      return {
+        amountOut: result[0],
+        sqrtPriceX96After: result[1],
+        initializedTicksCrossed: result[2],
+        gasEstimate: result[3],
+      }
+    } catch (err: any) {
+      const revertData: Hex | undefined = err?.cause?.data || err?.data
+      if (revertData && typeof revertData === 'string' && revertData.startsWith('0x')) {
+        try {
+          // Uniswap V3 QuoterV2 encodes (uint256 amount, uint160 sqrtPriceX96After, int24 tickAfter)
+          const [amount, sqrtPriceX96After] = decodeAbiParameters(
+            [{ type: 'uint256' }, { type: 'uint160' }, { type: 'int24' }],
+            revertData as Hex,
+          ) as unknown as [bigint, bigint, number]
+          return {
+            amountOut: amount,
+            sqrtPriceX96After,
+            initializedTicksCrossed: 0,
+            gasEstimate: 0n,
+          }
+        } catch (_) {
+          // fall through
+        }
+      }
+      throw err
     }
   }
   
@@ -78,24 +99,45 @@ export class Quoter {
   }> {
     const addresses = getAddresses(this.chainId)
     
-    const { result } = await this.publicClient.simulateContract({
-      address: addresses.v3Quoter,
-      abi: quoterV2Abi,
-      functionName: 'quoteExactOutputSingle',
-      args: [{
-        tokenIn: params.tokenIn,
-        tokenOut: params.tokenOut,
-        fee: params.fee,
-        amountOut: params.amountOut,
-        sqrtPriceLimitX96: params.sqrtPriceLimitX96 ?? BigInt(0),
-      }],
-    })
-    
-    return {
-      amountIn: result[0],
-      sqrtPriceX96After: result[1],
-      initializedTicksCrossed: result[2],
-      gasEstimate: result[3],
+    try {
+      const { result } = await this.publicClient.simulateContract({
+        address: addresses.v3Quoter,
+        abi: quoterV2Abi,
+        functionName: 'quoteExactOutputSingle',
+        args: [{
+          tokenIn: params.tokenIn,
+          tokenOut: params.tokenOut,
+          amount: params.amountOut,
+          fee: params.fee,
+          sqrtPriceLimitX96: params.sqrtPriceLimitX96 ?? BigInt(0),
+        }],
+      })
+      return {
+        amountIn: result[0],
+        sqrtPriceX96After: result[1],
+        initializedTicksCrossed: result[2],
+        gasEstimate: result[3],
+      }
+    } catch (err: any) {
+      const revertData: Hex | undefined = err?.cause?.data || err?.data
+      if (revertData && typeof revertData === 'string' && revertData.startsWith('0x')) {
+        try {
+          // Uniswap V3 QuoterV2 encodes (uint256 amount, uint160 sqrtPriceX96After, int24 tickAfter)
+          const [amount, sqrtPriceX96After] = decodeAbiParameters(
+            [{ type: 'uint256' }, { type: 'uint160' }, { type: 'int24' }],
+            revertData as Hex,
+          ) as unknown as [bigint, bigint, number]
+          return {
+            amountIn: amount,
+            sqrtPriceX96After,
+            initializedTicksCrossed: 0,
+            gasEstimate: 0n,
+          }
+        } catch (_) {
+          // fall through
+        }
+      }
+      throw err
     }
   }
   

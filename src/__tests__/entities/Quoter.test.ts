@@ -123,8 +123,8 @@ describe('Quoter', () => {
           {
             tokenIn: mockAddresses.weth,
             tokenOut: '0x1234567890123456789012345678901234567890',
+            amount: parseEther('1'),
             fee: 3000,
-            amountOut: parseEther('1'),
             sqrtPriceLimitX96: BigInt(0),
           },
         ],
