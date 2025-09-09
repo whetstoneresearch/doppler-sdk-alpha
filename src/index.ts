@@ -14,7 +14,7 @@ export { Quoter } from './entities/quoter'
 export { Derc20, Eth } from './entities/token'
 
 // Export builders
-export { StaticAuctionBuilder, DynamicAuctionBuilder } from './builders'
+export { StaticAuctionBuilder, DynamicAuctionBuilder, MulticurveBuilder } from './builders'
 
 // Export all types
 export type {
@@ -35,6 +35,7 @@ export type {
   // Parameter types
   CreateStaticAuctionParams,
   CreateDynamicAuctionParams,
+  CreateMulticurveParams,
   
   // Configuration types
   DopplerSDKConfig,

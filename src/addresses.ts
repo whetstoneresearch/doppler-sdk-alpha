@@ -25,6 +25,8 @@ export interface ChainAddresses {
   
   // Dynamic auction contracts (V4)
   v4Initializer: Address
+  // Multicurve initializer (V4) — optional per chain
+  v4MulticurveInitializer?: Address
   doppler: Address
   dopplerLens: Address
   dopplerDeployer: Address
@@ -39,6 +41,8 @@ export interface ChainAddresses {
   v3Migrator: Address
   v4Migrator: Address
   v4MigratorHook?: Address
+  // Multicurve migrator (V4) — optional per chain
+  v4MulticurveMigrator?: Address
   
   // Governance contracts
   governanceFactory: Address
@@ -120,6 +124,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v3Quoter: '0xC5290058841028F1614F3A6F0F5816cAd0df5E27' as Address,
     lockableV3Initializer: '0x16ada5be50c3c2d94af5feae6b539c40a78ad53c' as Address,
     v4Initializer: '0x8e891d249f1ecbffa6143c03eb1b12843aef09d3' as Address,
+    v4MulticurveInitializer: '0xdb67214d5de4b8c1bc81fd15a858072d3c451cbe' as Address, // From doppler multicurve deployments (Base Sepolia)
     doppler: '0x60a039e4add40ca95e0475c11e8a4182d06c9aa0' as Address,
     dopplerLens: '0x4a8d81db741248a36d9eb3bc6ef648bf798b47a7' as Address,
     dopplerDeployer: '0x60a039e4add40ca95e0475c11e8a4182d06c9aa0' as Address,
@@ -201,6 +206,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v2Migrator: '0x44C448E38A2C3D206c9132E7f645510dFbBC946b' as Address,
     v3Migrator: '0x44C448E38A2C3D206c9132E7f645510dFbBC946b' as Address,
     v4Migrator: '0x44C448E38A2C3D206c9132E7f645510dFbBC946b' as Address, // Same as v2/v3 migrator
+    v4MulticurveMigrator: ZERO_ADDRESS, // Unknown; override when available
     governanceFactory: '0x1E4332EEfAE9e4967C2D186f7b2d439D778e81cC' as Address,
     noOpGovernanceFactory: ZERO_ADDRESS, // Not yet deployed
     streamableFeesLocker: ZERO_ADDRESS, // Not yet deployed

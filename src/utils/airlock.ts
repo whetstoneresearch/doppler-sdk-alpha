@@ -1,5 +1,5 @@
-import { SupportedPublicClient } from '@/types';
-import { ADDRESSES } from '@/addresses';
+import { SupportedPublicClient } from '../types';
+import { ADDRESSES } from '../addresses';
 
 const airlockAbi = [
   {

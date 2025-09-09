@@ -17,6 +17,7 @@ import {
 import type {
   CreateDynamicAuctionParams,
   CreateStaticAuctionParams,
+  CreateMulticurveParams,
   GovernanceOption,
   MigrationConfig,
   PriceRange,
@@ -495,6 +496,129 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
       userAddress: this.userAddress,
       startTimeOffset: this.startTimeOffset,
       blockTimestamp: this.blockTimestamp,
+      modules: this.moduleAddresses,
+    }
+  }
+}
+
+// Multicurve (V4-style initializer) Builder
+export class MulticurveBuilder<C extends SupportedChainId> {
+  private token?: TokenConfig
+  private sale?: CreateMulticurveParams<C>['sale']
+  private pool?: CreateMulticurveParams<C>['pool']
+  private vesting?: VestingConfig
+  private governance?: GovernanceOption<C>
+  private migration?: MigrationConfig
+  private integrator?: Address
+  private userAddress?: Address
+  private moduleAddresses?: ModuleAddressOverrides
+  public chainId: C
+
+  constructor(chainId: C) {
+    this.chainId = chainId
+  }
+
+  static forChain<C extends SupportedChainId>(chainId: C): MulticurveBuilder<C> {
+    return new MulticurveBuilder(chainId)
+  }
+
+  tokenConfig(
+    params:
+      | { type?: 'standard'; name: string; symbol: string; tokenURI: string; yearlyMintRate?: bigint }
+      | { type: 'doppler404'; name: string; symbol: string; baseURI: string; unit?: bigint }
+  ): this {
+    if (params && 'type' in params && params.type === 'doppler404') {
+      this.token = {
+        type: 'doppler404',
+        name: params.name,
+        symbol: params.symbol,
+        baseURI: params.baseURI,
+        unit: params.unit,
+      }
+    } else {
+      this.token = {
+        type: 'standard',
+        name: params.name,
+        symbol: params.symbol,
+        tokenURI: params.tokenURI,
+        yearlyMintRate: params.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE,
+      }
+    }
+    return this
+  }
+
+  saleConfig(params: { initialSupply: bigint; numTokensToSell: bigint; numeraire: Address }): this {
+    this.sale = { initialSupply: params.initialSupply, numTokensToSell: params.numTokensToSell, numeraire: params.numeraire }
+    return this
+  }
+
+  poolConfig(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; lockableBeneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
+    this.pool = { fee: params.fee, tickSpacing: params.tickSpacing, curves: params.curves, lockableBeneficiaries: params.lockableBeneficiaries }
+    return this
+  }
+
+  // Alias for clarity: indicate use of V4 multicurve initializer
+  withMulticurveAuction(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; lockableBeneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
+    return this.poolConfig(params)
+  }
+
+  withVesting(params?: { duration?: bigint; cliffDuration?: number }): this {
+    if (!params) { this.vesting = undefined; return this }
+    this.vesting = { duration: Number(params.duration ?? 0n), cliffDuration: params.cliffDuration ?? 0 }
+    return this
+  }
+
+  withGovernance(params: GovernanceOption<C>): this {
+    this.governance = params
+    return this
+  }
+
+  withMigration(migration: MigrationConfig): this {
+    this.migration = migration
+    return this
+  }
+
+  withUserAddress(address: Address): this {
+    this.userAddress = address
+    return this
+  }
+
+  withIntegrator(address?: Address): this {
+    this.integrator = address ?? ZERO_ADDRESS
+    return this
+  }
+
+  private overrideModule<K extends keyof ModuleAddressOverrides>(key: K, address: NonNullable<ModuleAddressOverrides[K]>): this {
+    this.moduleAddresses = { ...(this.moduleAddresses ?? {}), [key]: address } as ModuleAddressOverrides
+    return this
+  }
+
+  withTokenFactory(address: Address): this { return this.overrideModule('tokenFactory', address) }
+  withAirlock(address: Address): this { return this.overrideModule('airlock', address) }
+  withV4MulticurveInitializer(address: Address): this { return this.overrideModule('v4MulticurveInitializer', address) }
+  withGovernanceFactory(address: Address): this { return this.overrideModule('governanceFactory', address) }
+  withV4MulticurveMigrator(address: Address): this { return this.overrideModule('v4MulticurveMigrator', address) }
+  withV2Migrator(address: Address): this { return this.overrideModule('v2Migrator', address) }
+  withV3Migrator(address: Address): this { return this.overrideModule('v3Migrator', address) }
+  withV4Migrator(address: Address): this { return this.overrideModule('v4Migrator', address) }
+
+  build(): CreateMulticurveParams<C> {
+    if (!this.token) throw new Error('tokenConfig is required')
+    if (!this.sale) throw new Error('saleConfig is required')
+    if (!this.pool) throw new Error('poolConfig is required')
+    if (!this.migration) throw new Error('migration configuration is required')
+    if (!this.userAddress) throw new Error('userAddress is required')
+    if (!this.governance) throw new Error("governance configuration is required; call withGovernance({ type: 'default' | 'custom' | 'noOp' })")
+
+    return {
+      token: this.token,
+      sale: this.sale,
+      pool: this.pool,
+      vesting: this.vesting,
+      governance: this.governance,
+      migration: this.migration,
+      integrator: this.integrator ?? ZERO_ADDRESS,
+      userAddress: this.userAddress,
       modules: this.moduleAddresses,
     }
   }

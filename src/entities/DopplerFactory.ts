@@ -13,6 +13,7 @@ import {
 import type { 
   CreateStaticAuctionParams, 
   CreateDynamicAuctionParams,
+  CreateMulticurveParams,
   MigrationConfig,
   SupportedPublicClient,
   TokenConfig,
@@ -112,7 +113,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     } else {
       const tokenStd = params.token as StandardTokenConfig
       const vestingDuration = params.vesting?.duration ?? BigInt(0)
-      const yearlyMintRate = tokenStd.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
+      const yearlyMintRate = tokenStd.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE
       tokenFactoryData = encodeAbiParameters(
         [
           { type: 'string' },
@@ -685,10 +686,189 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
             }))
           ]
         )
-        
+      case 'uniswapV4Multicurve': {
+        // Encode V4 multicurve migration data: fee, tickSpacing, lockDuration, beneficiaries (shares in WAD), curves
+        const sortedBeneficiaries = [...config.beneficiaries].sort((a: typeof config.beneficiaries[number], b: typeof config.beneficiaries[number]) => {
+          const aAddr = a.beneficiary.toLowerCase()
+          const bAddr = b.beneficiary.toLowerCase()
+          return aAddr < bAddr ? -1 : aAddr > bAddr ? 1 : 0
+        })
+        return encodeAbiParameters(
+          [
+            { type: 'uint24' }, // fee
+            { type: 'int24' },  // tickSpacing
+            { type: 'uint32' }, // lockDuration
+            { type: 'tuple[]', components: [ { type: 'address', name: 'beneficiary' }, { type: 'uint96', name: 'shares' } ] },
+            { type: 'tuple[]', components: [ { type: 'int24', name: 'tickLower' }, { type: 'int24', name: 'tickUpper' }, { type: 'uint16', name: 'numPositions' }, { type: 'uint256', name: 'shares' } ] }
+          ],
+          [
+            config.fee,
+            config.tickSpacing,
+            config.lockDuration,
+            sortedBeneficiaries.map(b => ({ beneficiary: b.beneficiary, shares: b.shares })),
+            config.curves.map(c => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares }))
+          ]
+        )
+      }
+      
       default:
         throw new Error(`Unknown migration type: ${(config as any).type}`)
     }
+  }
+
+  /**
+   * Encode create params for Uniswap V4 Multicurve initializer/migrator flow
+   */
+  encodeCreateMulticurveParams(params: CreateMulticurveParams<C>): CreateParams {
+    // Basic validation
+    if (!params.pool || params.pool.curves.length === 0) {
+      throw new Error('Multicurve pool must include at least one curve')
+    }
+
+    const addresses = getAddresses(this.chainId)
+
+    // Pool initializer data: (fee, tickSpacing, curves[], beneficiaries[])
+    const sortedLockBeneficiaries = (params.pool.lockableBeneficiaries ?? []).slice().sort((a: NonNullable<typeof params.pool.lockableBeneficiaries>[number], b: NonNullable<typeof params.pool.lockableBeneficiaries>[number]) => {
+      const aAddr = a.beneficiary.toLowerCase()
+      const bAddr = b.beneficiary.toLowerCase()
+      return aAddr < bAddr ? -1 : aAddr > bAddr ? 1 : 0
+    })
+
+    const poolInitializerData = encodeAbiParameters(
+      [
+        { type: 'uint24' },
+        { type: 'int24' },
+        { type: 'tuple[]', components: [ { type: 'int24', name: 'tickLower' }, { type: 'int24', name: 'tickUpper' }, { type: 'uint16', name: 'numPositions' }, { type: 'uint256', name: 'shares' } ] },
+        { type: 'tuple[]', components: [ { type: 'address', name: 'beneficiary' }, { type: 'uint96', name: 'shares' } ] },
+      ],
+      [
+        params.pool.fee,
+        params.pool.tickSpacing,
+        params.pool.curves.map((c: typeof params.pool.curves[number]) => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares })),
+        sortedLockBeneficiaries.map((b: NonNullable<typeof params.pool.lockableBeneficiaries>[number]) => ({ beneficiary: b.beneficiary, shares: b.shares }))
+      ]
+    )
+
+    // Token factory data (standard vs 404)
+    let tokenFactoryData: Hex
+    if (this.isDoppler404Token(params.token)) {
+      const token404 = params.token
+      const unit = token404.unit !== undefined ? BigInt(token404.unit) : 1000n
+      tokenFactoryData = encodeAbiParameters(
+        [ { type: 'string' }, { type: 'string' }, { type: 'string' }, { type: 'uint256' } ],
+        [ token404.name, token404.symbol, token404.baseURI, unit ]
+      )
+    } else {
+      const tokenStd = params.token as StandardTokenConfig
+      const vestingDuration = params.vesting?.duration ?? BigInt(0)
+      const yearlyMintRate = tokenStd.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
+      const recipients: Address[] = params.vesting ? [params.userAddress] : []
+      const vestingAmounts: bigint[] = params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : []
+      tokenFactoryData = encodeAbiParameters(
+        [ { type: 'string' }, { type: 'string' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address[]' }, { type: 'uint256[]' }, { type: 'string' } ],
+        [ tokenStd.name, tokenStd.symbol, yearlyMintRate, BigInt(vestingDuration), recipients, vestingAmounts, tokenStd.tokenURI ]
+      )
+    }
+
+    // Governance factory data
+    const governanceFactoryData = encodeAbiParameters(
+      [ { type: 'string' }, { type: 'uint48' }, { type: 'uint32' }, { type: 'uint256' } ],
+      [
+        params.token.name,
+        params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V4_INITIAL_VOTING_DELAY,
+        params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V4_INITIAL_VOTING_PERIOD,
+        params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
+      ]
+    )
+
+    // Resolve module addresses
+    const salt = this.generateRandomSalt(params.userAddress)
+    const resolvedTokenFactory: Address | undefined = params.modules?.tokenFactory ?? (
+      this.isDoppler404Token(params.token) ? (addresses.doppler404Factory as Address | undefined) : addresses.tokenFactory
+    )
+    if (!resolvedTokenFactory || resolvedTokenFactory === ZERO_ADDRESS) {
+      throw new Error('Token factory address not configured. Provide an explicit address or ensure chain config includes a valid factory.')
+    }
+
+    const resolvedInitializer: Address | undefined = params.modules?.v4MulticurveInitializer ?? addresses.v4MulticurveInitializer
+    if (!resolvedInitializer || resolvedInitializer === ZERO_ADDRESS) {
+      throw new Error('Multicurve initializer address not configured on this chain. Override via builder or update chain config.')
+    }
+
+    const liquidityMigratorData = this.encodeMigrationData(params.migration)
+    const resolvedMigrator: Address | undefined = this.getMigratorAddress(params.migration, params.modules)
+    if (!resolvedMigrator || resolvedMigrator === ZERO_ADDRESS) {
+      throw new Error('Multicurve migrator address not configured on this chain. Override via builder or update chain config.')
+    }
+
+    const governanceFactoryAddress: Address = (() => {
+      if (params.governance.type === 'noOp') {
+        const resolved = params.modules?.governanceFactory ?? (addresses.noOpGovernanceFactory ?? ZERO_ADDRESS)
+        if (!resolved || resolved === ZERO_ADDRESS) {
+          throw new Error('No-op governance requested, but no-op governanceFactory is not configured on this chain.')
+        }
+        return resolved
+      }
+      const resolved = params.modules?.governanceFactory ?? addresses.governanceFactory
+      if (!resolved || resolved === ZERO_ADDRESS) {
+        throw new Error('Standard governance requested but governanceFactory is not deployed on this chain.')
+      }
+      return resolved
+    })()
+
+    const createParams: CreateParams = {
+      initialSupply: params.sale.initialSupply,
+      numTokensToSell: params.sale.numTokensToSell,
+      numeraire: params.sale.numeraire,
+      tokenFactory: resolvedTokenFactory,
+      tokenFactoryData,
+      governanceFactory: governanceFactoryAddress,
+      governanceFactoryData,
+      poolInitializer: resolvedInitializer,
+      poolInitializerData,
+      liquidityMigrator: resolvedMigrator,
+      liquidityMigratorData,
+      integrator: params.integrator ?? ZERO_ADDRESS,
+      salt,
+    }
+
+    return createParams
+  }
+
+  async simulateCreateMulticurve(params: CreateMulticurveParams<C>): Promise<{ createParams: CreateParams; asset: Address; pool: Address }> {
+    const createParams = this.encodeCreateMulticurveParams(params)
+    const addresses = getAddresses(this.chainId)
+    const { result } = await this.publicClient.simulateContract({
+      address: params.modules?.airlock ?? addresses.airlock,
+      abi: airlockAbi,
+      functionName: 'create',
+      args: [{ ...createParams }],
+      account: this.walletClient?.account,
+    })
+    if (!result || !Array.isArray(result) || result.length < 2) {
+      throw new Error('Failed to simulate multicurve create')
+    }
+    return { createParams, asset: result[0] as Address, pool: result[1] as Address }
+  }
+
+  async createMulticurve(params: CreateMulticurveParams<C>): Promise<{ poolAddress: Address; tokenAddress: Address; transactionHash: string }> {
+    const createParams = this.encodeCreateMulticurveParams(params)
+    const addresses = getAddresses(this.chainId)
+    if (!this.walletClient) throw new Error('Wallet client required for write operations')
+    const { request, result } = await this.publicClient.simulateContract({
+      address: params.modules?.airlock ?? addresses.airlock,
+      abi: airlockAbi,
+      functionName: 'create',
+      args: [{ ...createParams }],
+      account: this.walletClient.account,
+    })
+    const gas = params.gas ?? 13_500_000n
+    const hash = await this.walletClient.writeContract({ ...request, gas })
+    await this.publicClient.waitForTransactionReceipt({ hash, confirmations: 2 })
+    if (result && Array.isArray(result) && result.length >= 2) {
+      return { tokenAddress: result[0] as Address, poolAddress: result[1] as Address, transactionHash: hash }
+    }
+    throw new Error('Failed to get pool/token addresses from multicurve create')
   }
 
   /**
@@ -852,6 +1032,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         return overrides?.v3Migrator ?? addresses.v3Migrator
       case 'uniswapV4':
         return overrides?.v4Migrator ?? addresses.v4Migrator
+      case 'uniswapV4Multicurve':
+        return overrides?.v4MulticurveMigrator ?? (addresses.v4MulticurveMigrator ?? zeroAddress)
       default:
         throw new Error(`Unknown migration type: ${(config as any).type}`)
     }

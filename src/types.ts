@@ -139,6 +139,15 @@ export type MigrationConfig =
         lockDuration: number; // in seconds
         beneficiaries: BeneficiaryData[];
       };
+    }
+  | {
+      // Multicurve Uniswap V4 migration with explicit curve configuration
+      type: 'uniswapV4Multicurve';
+      fee: number; // pool fee
+      tickSpacing: number; // pool tick spacing
+      lockDuration: number; // in seconds for StreamableFeesLockerV2
+      beneficiaries: LockableBeneficiaryData[]; // WAD-based shares, sorted ascending by address
+      curves: MulticurveCurve[]; // distribution curves
     };
 
 // Create Static Auction parameters
@@ -359,6 +368,51 @@ export interface LockableV3InitializerParams {
   beneficiaries: LockableBeneficiaryData[];
 }
 
+// Multicurve curve configuration (mirrors solidity struct)
+export interface MulticurveCurve {
+  tickLower: number; // int24
+  tickUpper: number; // int24
+  numPositions: number; // uint16
+  shares: bigint; // uint256 (WAD)
+}
+
+// Create Multicurve initializer parameters
+export interface CreateMulticurveParams<C extends SupportedChainId = SupportedChainId> {
+  // Token configuration
+  token: TokenConfig;
+
+  // Sale configuration
+  sale: SaleConfig;
+
+  // Pool configuration for multicurve initializer
+  pool: {
+    fee: number;
+    tickSpacing: number;
+    curves: MulticurveCurve[];
+    // Optional beneficiaries to lock the pool (fee collection only, no migration)
+    lockableBeneficiaries?: LockableBeneficiaryData[];
+  };
+
+  // Vesting configuration (optional)
+  vesting?: VestingConfig;
+
+  // Governance configuration
+  governance: GovernanceOption<C>;
+
+  // Migration configuration (can be any supported migrator: V2, V3, V4, or V4 Multicurve)
+  migration: MigrationConfig;
+
+  // Integrator details
+  integrator?: Address;
+  userAddress: Address;
+
+  // Optional address overrides for on-chain modules used during encoding/creation
+  modules?: ModuleAddressOverrides;
+
+  // Optional transaction gas limit override for the create() transaction
+  gas?: bigint;
+}
+
 // Final Params object that gets passed as arg to create
 export interface CreateParams {
     initialSupply: bigint,
@@ -386,6 +440,7 @@ export interface ModuleAddressOverrides {
   // Initializers
   v3Initializer?: Address;
   v4Initializer?: Address;
+  v4MulticurveInitializer?: Address;
 
   // Governance
   governanceFactory?: Address;
@@ -398,4 +453,5 @@ export interface ModuleAddressOverrides {
   v2Migrator?: Address;
   v3Migrator?: Address;
   v4Migrator?: Address;
+  v4MulticurveMigrator?: Address;
 }

@@ -4,7 +4,7 @@ import type { SupportedChainId } from './addresses'
 import { DopplerFactory } from './entities/DopplerFactory'
 import { StaticAuction, DynamicAuction } from './entities/auction'
 import { Quoter } from './entities/quoter'
-import { StaticAuctionBuilder, DynamicAuctionBuilder } from './builders'
+import { StaticAuctionBuilder, DynamicAuctionBuilder, MulticurveBuilder } from './builders'
 
 export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
   private publicClient: SupportedPublicClient
@@ -85,6 +85,13 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
    */
   buildDynamicAuction(): DynamicAuctionBuilder<C> {
     return new DynamicAuctionBuilder(this.chainId)
+  }
+
+  /**
+   * Create a new multicurve (V4 initializer) auction builder
+   */
+  buildMulticurveAuction(): MulticurveBuilder<C> {
+    return new MulticurveBuilder(this.chainId)
   }
 
   /**
