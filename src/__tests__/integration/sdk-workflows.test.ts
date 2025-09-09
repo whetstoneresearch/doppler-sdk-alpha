@@ -60,7 +60,7 @@ describe('SDK Workflows Integration Tests', () => {
           functionName: 'create',
           args: [{}, {}],
         },
-        result: [mockPoolAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockPoolAddress],
       } as any)
 
       vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
@@ -410,7 +410,7 @@ describe('SDK Workflows Integration Tests', () => {
           functionName: 'create',
           args: [{}, {}],
         },
-        result: [mockPoolAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockPoolAddress],
       } as any)
 
       // Should work with chain-specific configuration

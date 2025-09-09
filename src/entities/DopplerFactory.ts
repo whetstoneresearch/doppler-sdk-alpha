@@ -273,8 +273,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     // We can get these from the simulation result or parse from logs
     if (result && Array.isArray(result) && result.length >= 2) {
       return {
-        poolAddress: result[0] as Address, // tests expect pool first
-        tokenAddress: result[1] as Address, // tests expect token second
+        tokenAddress: result[0] as Address, // asset
+        poolAddress: result[1] as Address,  // pool
         transactionHash: hash
       }
     }

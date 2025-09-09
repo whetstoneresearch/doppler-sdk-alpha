@@ -82,7 +82,7 @@ describe('DopplerFactory', () => {
           functionName: 'create',
           args: [{}, {}],
         },
-        result: [mockPoolAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockPoolAddress],
       } as any)
 
       vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
@@ -306,7 +306,7 @@ describe('DopplerFactory', () => {
       
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
         request: { address: mockAddresses.airlock, functionName: 'create', args: [{}, {}] },
-        result: [mockPoolAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockPoolAddress],
       } as any)
       vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
       vi.mocked(publicClient.waitForTransactionReceipt).mockResolvedValueOnce(
