@@ -12,6 +12,15 @@ export class Derc20 {
   private walletClient?: WalletClient
   private address: Address
   
+  private static splitSignature(signature: `0x${string}`): { v: number; r: `0x${string}`; s: `0x${string}` } {
+    const sig = signature.toLowerCase() as `0x${string}`
+    const r = (`0x${sig.slice(2, 66)}`) as `0x${string}`
+    const s = (`0x${sig.slice(66, 130)}`) as `0x${string}`
+    let v = parseInt(sig.slice(130, 132), 16)
+    if (v < 27) v += 27
+    return { v, r, s }
+  }
+  
   constructor(publicClient: SupportedPublicClient, walletClient: WalletClient | undefined, address: Address) {
     this.publicClient = publicClient
     this.walletClient = walletClient
@@ -51,6 +60,40 @@ export class Derc20 {
       address: this.address,
       abi: derc20Abi,
       functionName: 'tokenURI',
+    })
+  }
+  
+  // -------------------------
+  // Governance (Votes) reads
+  // -------------------------
+  
+  /** Get the current delegate for an account */
+  async getDelegates(account: Address): Promise<Address> {
+    return await this.publicClient.readContract({
+      address: this.address,
+      abi: derc20Abi,
+      functionName: 'delegates',
+      args: [account],
+    })
+  }
+  
+  /** Get current voting power for an account */
+  async getVotes(account: Address): Promise<bigint> {
+    return await this.publicClient.readContract({
+      address: this.address,
+      abi: derc20Abi,
+      functionName: 'getVotes',
+      args: [account],
+    })
+  }
+  
+  /** Get historical voting power at a given timepoint (block) */
+  async getPastVotes(account: Address, timepoint: bigint): Promise<bigint> {
+    return await this.publicClient.readContract({
+      address: this.address,
+      abi: derc20Abi,
+      functionName: 'getPastVotes',
+      args: [account, timepoint],
     })
   }
   
@@ -219,11 +262,9 @@ export class Derc20 {
   }
   
   /**
-   * Release vested tokens to the caller
-   * @param amount - Amount of vested tokens to release
-   * @returns Transaction hash
+   * Delegate governance votes to an address
    */
-  async release(amount: bigint, options?: { gas?: bigint }): Promise<`0x${string}`> {
+  async delegate(delegatee: Address, options?: { gas?: bigint }): Promise<`0x${string}`> {
     if (!this.walletClient) {
       throw new Error('Wallet client required for write operations')
     }
@@ -231,11 +272,90 @@ export class Derc20 {
     const { request } = await this.publicClient.simulateContract({
       address: this.address,
       abi: derc20Abi,
-      functionName: 'release',
-      args: [amount],
+      functionName: 'delegate',
+      args: [delegatee],
       account: this.walletClient.account,
     })
     
+    return await this.walletClient.writeContract(options?.gas ? { ...request, gas: options.gas } : request)
+  }
+  
+  /**
+   * Delegate governance votes using an EIP-712 signature (gasless path)
+   * Note: Caller signs typed data; a relayer or the caller submits the tx.
+   */
+  async delegateBySig(
+    delegatee: Address,
+    expiry: bigint,
+    options?: { gas?: bigint }
+  ): Promise<`0x${string}`> {
+    if (!this.walletClient) {
+      throw new Error('Wallet client required for write operations')
+    }
+
+    const accountAddress = (typeof (this.walletClient.account as any) === 'string'
+      ? (this.walletClient.account as any)
+      : (this.walletClient.account as any)?.address) as Address
+    const [nonce, name] = await Promise.all([
+      this.publicClient.readContract({ address: this.address, abi: derc20Abi, functionName: 'nonces', args: [accountAddress] }),
+      this.getName(),
+    ])
+    const chainId = this.publicClient.chain?.id ?? (await this.publicClient.getChainId())
+
+    const domain = {
+      name,
+      version: '1',
+      chainId,
+      verifyingContract: this.address,
+    } as const
+
+    const types = {
+      Delegation: [
+        { name: 'delegatee', type: 'address' },
+        { name: 'nonce', type: 'uint256' },
+        { name: 'expiry', type: 'uint256' },
+      ],
+    } as const
+
+    const message = { delegatee, nonce, expiry } as const
+
+    const signature = await this.walletClient.signTypedData({
+      domain,
+      types,
+      primaryType: 'Delegation',
+      message,
+      account: accountAddress,
+    })
+
+    const { v, r, s } = Derc20.splitSignature(signature)
+
+    const { request } = await this.publicClient.simulateContract({
+      address: this.address,
+      abi: derc20Abi,
+      functionName: 'delegateBySig',
+      args: [delegatee, nonce, expiry, v, r, s],
+      account: this.walletClient.account,
+    })
+
+    return await this.walletClient.writeContract(options?.gas ? { ...request, gas: options.gas } : request)
+  }
+
+  /**
+   * Release all currently available vested tokens to the caller
+   */
+  async release(options?: { gas?: bigint }): Promise<`0x${string}`> {
+    if (!this.walletClient) {
+      throw new Error('Wallet client required for write operations')
+    }
+
+    const { request } = await this.publicClient.simulateContract({
+      address: this.address,
+      abi: derc20Abi,
+      functionName: 'release',
+      args: [],
+      account: this.walletClient.account,
+    })
+
     return await this.walletClient.writeContract(options?.gas ? { ...request, gas: options.gas } : request)
   }
 }

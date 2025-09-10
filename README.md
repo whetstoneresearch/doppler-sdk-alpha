@@ -285,9 +285,8 @@ const currentEpoch = await auction.getCurrentEpoch();
 The SDK includes full support for DERC20 tokens with vesting functionality:
 
 ```typescript
-import { Derc20 } from '@whetstone-research/doppler-sdk';
-
-const token = new Derc20(publicClient, walletClient, tokenAddress);
+// Get a DERC20 instance from the SDK (uses its clients)
+const token = sdk.getDerc20(tokenAddress);
 
 // Read token information
 const name = await token.getName();
@@ -299,9 +298,99 @@ const vestingData = await token.getVestingData(address);
 console.log('Total vested:', vestingData.totalAmount);
 console.log('Released:', vestingData.releasedAmount);
 
-// Release vested tokens
-await token.release(amountToRelease);
+// Release currently available vested tokens
+await token.release();
 ```
+
+Alternatively, you can instantiate directly if needed:
+```typescript
+import { Derc20 } from '@whetstone-research/doppler-sdk'
+const tokenDirect = new Derc20(publicClient, walletClient, tokenAddress)
+```
+
+### Governance Delegation (ERC20Votes)
+
+DERC20 extends OpenZeppelin's ERC20Votes. Voting power is tracked via checkpoints and only updates once an address delegates voting power (typically to itself). The SDK exposes simple read/write helpers for delegation.
+
+Basics:
+```ts
+import { Derc20 } from '@whetstone-research/doppler-sdk'
+
+const token = sdk.getDerc20(tokenAddress)
+
+// Read: who an account delegates to, and current voting power
+const currentDelegate = await token.getDelegates(userAddress)
+const votes = await token.getVotes(userAddress)
+
+// Self‑delegate to activate vote tracking
+await token.delegate(userAddress)
+
+// Or delegate to another address
+await token.delegate('0xDelegatee...')
+```
+
+Historical votes:
+```ts
+// OZ v5 uses timepoints (block numbers for block‑based clocks)
+const blockNumber = await publicClient.getBlockNumber()
+const pastVotes = await token.getPastVotes(userAddress, blockNumber - 1n)
+```
+
+Signature‑based delegation (delegateBySig):
+```ts
+// Signs an EIP‑712 message and submits a transaction calling delegateBySig
+// Note: This still submits a transaction from the connected wallet.
+const expiry = BigInt(Math.floor(Date.now() / 1000) + 3600) // 1h
+await token.delegateBySig('0xDelegatee...', expiry)
+```
+
+Advanced: gasless delegation via relayer
+- The token supports `delegateBySig(delegatee, nonce, expiry, v, r, s)`. A relayer can submit this on behalf of the user if it holds ETH for gas.
+- To do this, have the user sign typed data, then send the signature to your backend that calls the contract.
+
+Client (sign only):
+```ts
+const [nonce, name] = await Promise.all([
+  publicClient.readContract({ address: tokenAddress, abi: derc20Abi, functionName: 'nonces', args: [userAddress] }),
+  token.getName(),
+])
+const chainId = await publicClient.getChainId()
+const domain = { name, version: '1', chainId, verifyingContract: tokenAddress } as const
+const types = { Delegation: [
+  { name: 'delegatee', type: 'address' },
+  { name: 'nonce', type: 'uint256' },
+  { name: 'expiry', type: 'uint256' },
+] } as const
+const message = { delegatee: '0xDelegatee...', nonce, expiry } as const
+
+const signature = await walletClient.signTypedData({
+  domain, types, primaryType: 'Delegation', message, account: userAddress,
+})
+// POST { signature, delegatee, nonce, expiry } to your relayer
+```
+
+Relayer (submit tx):
+```ts
+function splitSig(sig: `0x${string}`) {
+  const r = `0x${sig.slice(2, 66)}` as `0x${string}`
+  const s = `0x${sig.slice(66, 130)}` as `0x${string}`
+  let v = parseInt(sig.slice(130, 132), 16); if (v < 27) v += 27
+  return { v, r, s }
+}
+
+const { v, r, s } = splitSig(signature)
+await relayerWallet.writeContract({
+  address: tokenAddress,
+  abi: derc20Abi,
+  functionName: 'delegateBySig',
+  args: ['0xDelegatee...', nonce, expiry, v, r, s],
+})
+```
+
+Notes
+- Users must delegate (even to themselves) before votes appear in `getVotes`.
+- `getPastVotes`/`getPastTotalSupply` expect a timepoint; for block‑based clocks, pass a block number that has already been mined.
+- Events you may track: `DelegateChanged` and `DelegateVotesChanged` for live updates.
 
 ### Native ETH
 

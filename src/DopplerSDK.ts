@@ -4,6 +4,7 @@ import type { SupportedChainId } from './addresses'
 import { DopplerFactory } from './entities/DopplerFactory'
 import { StaticAuction, DynamicAuction } from './entities/auction'
 import { Quoter } from './entities/quoter'
+import { Derc20 } from './entities/token'
 import { StaticAuctionBuilder, DynamicAuctionBuilder, MulticurveBuilder } from './builders'
 
 export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
@@ -53,6 +54,14 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
    */
   async getDynamicAuction(hookAddress: Address): Promise<DynamicAuction> {
     return new DynamicAuction(this.publicClient, hookAddress)
+  }
+
+  /**
+   * Get a DERC20 token instance for interacting with a token
+   * @param tokenAddress The address of the DERC20 token
+   */
+  getDerc20(tokenAddress: Address): Derc20 {
+    return new Derc20(this.publicClient, this.walletClient, tokenAddress)
   }
 
   /**

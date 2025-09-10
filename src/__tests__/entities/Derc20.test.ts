@@ -297,27 +297,26 @@ describe('Derc20', () => {
     })
 
     it('should release vested tokens', async () => {
-      const amount = parseEther('1000')
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
         request: {
           address: mockTokenAddress,
           functionName: 'release',
-          args: [amount],
+          args: [],
         },
       } as any)
 
       vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
 
-      const txHash = await derc20.release(amount)
+      const txHash = await derc20.release()
       expect(txHash).toBe(mockTxHash)
 
       expect(publicClient.simulateContract).toHaveBeenCalledWith({
         address: mockTokenAddress,
         abi: expect.any(Array),
         functionName: 'release',
-        args: [amount],
+        args: [],
         account: walletClient.account,
       })
     })
@@ -329,9 +328,7 @@ describe('Derc20', () => {
         derc20ReadOnly.approve('0x2345678901234567890123456789012345678901', parseEther('100'))
       ).rejects.toThrow('Wallet client required for write operations')
 
-      await expect(
-        derc20ReadOnly.release(parseEther('1000'))
-      ).rejects.toThrow('Wallet client required for write operations')
+      await expect(derc20ReadOnly.release()).rejects.toThrow('Wallet client required for write operations')
     })
   })
 })
