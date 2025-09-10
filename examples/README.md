@@ -10,13 +10,16 @@ Create a simple token launch using a static price range on Uniswap V3, then migr
 ### 2. [Dynamic Auction with V4 Migration](./dynamic-auction-v4.ts)
 Create a gradual Dutch auction that adjusts price over time based on demand.
 
-### 3. [Auction Monitoring](./auction-monitoring.ts)
+### 3. [Multicurve Initializer (V4)](./multicurve-initializer.ts)
+Create a pool seeded with multiple curves in one initializer call. Use any standard migration path (V2/V3/V4).
+
+### 4. [Auction Monitoring](./auction-monitoring.ts)
 Monitor an existing auction for graduation status and key metrics.
 
-### 4. [Token Interaction](./token-interaction.ts)
+### 5. [Token Interaction](./token-interaction.ts)
 Interact with launched tokens - check balances, approve spending, and release vested tokens.
 
-### 5. [Price Quoter](./price-quoter.ts)
+### 6. [Price Quoter](./price-quoter.ts)
 Get price quotes across different Uniswap versions for optimal trading.
 
 ## Prerequisites

@@ -1,9 +1,10 @@
 # Builder API Reference
 
-This document specifies the fluent builder APIs used to create Doppler auctions. Builders assemble type‑safe parameter objects for `DopplerFactory.createStaticAuction` and `DopplerFactory.createDynamicAuction`, applying sensible defaults and computing derived values (ticks, gamma) where helpful.
+This document specifies the fluent builder APIs used to create Doppler auctions. Builders assemble type‑safe parameter objects for `DopplerFactory.createStaticAuction`, `DopplerFactory.createDynamicAuction`, and `DopplerFactory.createMulticurve`, applying sensible defaults and computing derived values (ticks, gamma) where helpful.
 
 - Static auctions: Uniswap V3 style, fixed price range liquidity bootstrapping
 - Dynamic auctions: Uniswap V4 hook, dynamic Dutch auction with epoch steps
+- Multicurve auctions: Uniswap V4 initializer with multiple curves
 
 All types referenced are exported from `src/types.ts`.
 
@@ -144,15 +145,80 @@ const params = new DynamicAuctionBuilder()
 
 ---
 
+## MulticurveBuilder (V4 Multicurve Initializer)
+
+Recommended when you want to seed a Uniswap V4 pool with multiple curves in a single initializer call. This supports richer liquidity distributions and works with any migration type (V2, V3, or V4).
+
+Methods (chainable):
+
+- tokenConfig(params)
+  - Standard: `{ name, symbol, tokenURI, yearlyMintRate? }`
+    - Defaults: `yearlyMintRate = DEFAULT_V4_YEARLY_MINT_RATE (0.02e18)`
+- saleConfig({ initialSupply, numTokensToSell, numeraire })
+- poolConfig({ fee, tickSpacing, curves, lockableBeneficiaries? })
+  - Or use the alias `.withMulticurveAuction({...})`
+  - `curves`: Array of `{ tickLower, tickUpper, numPositions, shares }` where `shares` are WAD-based weights
+  - `lockableBeneficiaries` (optional): share-based beneficiaries for fee locking at initialization
+- withVesting({ duration?, cliffDuration? } | undefined)
+- withGovernance(GovernanceConfig)
+  - Call is required; use `{ type: 'default' }`, `{ type: 'custom', ... }`, or `{ type: 'noOp' }` where supported
+- withMigration(MigrationConfig)
+  - Supports `uniswapV2`, `uniswapV3`, or `uniswapV4`
+- withUserAddress(address)
+- withIntegrator(address?)
+- Address overrides (optional):
+  - withAirlock(address)
+  - withTokenFactory(address)
+  - withV4MulticurveInitializer(address)
+  - withGovernanceFactory(address)
+  - withV2Migrator(address)
+  - withV3Migrator(address)
+  - withV4Migrator(address)
+- build(): CreateMulticurveParams
+
+Validation highlights:
+- At least one curve required
+- `initialSupply > 0`, `numTokensToSell > 0`, and `numTokensToSell <= initialSupply`
+- Governance selection is required
+- SDK sorts beneficiaries by address as required on-chain when encoding
+
+Example:
+```ts
+import { MulticurveBuilder } from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
+
+const params = new MulticurveBuilder(chainId)
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
+  .saleConfig({ initialSupply: parseEther('1_000_000'), numTokensToSell: parseEther('900_000'), numeraire: weth })
+  .withMulticurveAuction({
+    fee: 3000,
+    tickSpacing: 60,
+    curves: [
+      { tickLower: -120000, tickUpper: -90000, numPositions: 8, shares: parseEther('0.4') },
+      { tickLower: -90000, tickUpper: -70000, numPositions: 8, shares: parseEther('0.6') },
+    ],
+  })
+  .withGovernance({ type: 'default' })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress(user)
+  .build()
+
+const { poolAddress, tokenAddress } = await sdk.factory.createMulticurve(params)
+```
+
+---
+
 ## Build Results
 
 - Static: `CreateStaticAuctionParams` with fields: `token`, `sale`, `pool`, optional `vesting`, `governance`, `migration`, `integrator`, `userAddress`
 - Dynamic: `CreateDynamicAuctionParams` with fields: `token`, `sale`, `auction`, `pool`, optional `vesting`, `governance`, `migration`, `integrator`, `userAddress`, optional `startTimeOffset`, optional `blockTimestamp`
+- Multicurve: `CreateMulticurveParams` with fields: `token`, `sale`, `pool` (with `curves`), optional `vesting`, `governance`, `migration`, `integrator`, `userAddress`
 
 Pass the built object directly to the factory:
 ```ts
 const { poolAddress, tokenAddress } = await sdk.factory.createStaticAuction(staticParams)
 const { hookAddress, tokenAddress: token2, poolId } = await sdk.factory.createDynamicAuction(dynamicParams)
+const { poolAddress: pool3, tokenAddress: token3 } = await sdk.factory.createMulticurve(multicurveParams)
 ```
 
 Notes:

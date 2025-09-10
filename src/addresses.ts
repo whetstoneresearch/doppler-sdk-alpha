@@ -41,8 +41,6 @@ export interface ChainAddresses {
   v3Migrator: Address
   v4Migrator: Address
   v4MigratorHook?: Address
-  // Multicurve migrator (V4) — optional per chain
-  v4MulticurveMigrator?: Address
   
   // Governance contracts
   governanceFactory: Address
@@ -206,7 +204,6 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v2Migrator: '0x44C448E38A2C3D206c9132E7f645510dFbBC946b' as Address,
     v3Migrator: '0x44C448E38A2C3D206c9132E7f645510dFbBC946b' as Address,
     v4Migrator: '0x44C448E38A2C3D206c9132E7f645510dFbBC946b' as Address, // Same as v2/v3 migrator
-    v4MulticurveMigrator: ZERO_ADDRESS, // Unknown; override when available
     governanceFactory: '0x1E4332EEfAE9e4967C2D186f7b2d439D778e81cC' as Address,
     noOpGovernanceFactory: ZERO_ADDRESS, // Not yet deployed
     streamableFeesLocker: ZERO_ADDRESS, // Not yet deployed

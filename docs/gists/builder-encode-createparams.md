@@ -3,7 +3,7 @@
 This gist shows how to use the new builder methods to override module addresses and how to call the encode helpers to obtain `CreateParams` objects for both static (V3) and dynamic (V4) auctions. These `CreateParams` match what the old v3/v4 SDKs returned from their respective `encode*` functions.
 
 ```ts
-import { DopplerSDK, StaticAuctionBuilder, DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk'
+import { DopplerSDK, StaticAuctionBuilder, DynamicAuctionBuilder, MulticurveBuilder } from '@whetstone-research/doppler-sdk'
 import { createPublicClient, http, parseEther } from 'viem'
 import { base } from 'viem/chains'
 
@@ -59,6 +59,27 @@ const { createParams: dynamicCreateParams, hookAddress, tokenAddress } = await s
 console.log('Dynamic CreateParams:', dynamicCreateParams)
 console.log('Expected Hook Address:', hookAddress)
 console.log('Expected Token Address:', tokenAddress)
+
+// --- Multicurve (V4 initializer with multiple curves) ---
+const multicurveParams = new MulticurveBuilder(base.id)
+  .tokenConfig({ name: 'MyToken', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: weth })
+  .withMulticurveAuction({
+    fee: 3000,
+    tickSpacing: 60,
+    curves: [
+      { tickLower: -120000, tickUpper: -90000, numPositions: 8, shares: parseEther('0.4') },
+      { tickLower: -90000, tickUpper: -70000, numPositions: 8, shares: parseEther('0.6') },
+    ],
+  })
+  .withGovernance({ type: 'default' })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress(user)
+  .build()
+
+// Encode to CreateParams for multicurve
+const multicurveCreateParams = sdk.factory.encodeCreateMulticurveParams(multicurveParams)
+console.log('Multicurve CreateParams:', multicurveCreateParams)
 ```
 
 Notes

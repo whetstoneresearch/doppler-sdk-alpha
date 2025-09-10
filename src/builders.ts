@@ -597,7 +597,6 @@ export class MulticurveBuilder<C extends SupportedChainId> {
   withAirlock(address: Address): this { return this.overrideModule('airlock', address) }
   withV4MulticurveInitializer(address: Address): this { return this.overrideModule('v4MulticurveInitializer', address) }
   withGovernanceFactory(address: Address): this { return this.overrideModule('governanceFactory', address) }
-  withV4MulticurveMigrator(address: Address): this { return this.overrideModule('v4MulticurveMigrator', address) }
   withV2Migrator(address: Address): this { return this.overrideModule('v2Migrator', address) }
   withV3Migrator(address: Address): this { return this.overrideModule('v3Migrator', address) }
   withV4Migrator(address: Address): this { return this.overrideModule('v4Migrator', address) }

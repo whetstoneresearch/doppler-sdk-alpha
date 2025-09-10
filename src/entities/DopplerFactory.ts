@@ -686,30 +686,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
             }))
           ]
         )
-      case 'uniswapV4Multicurve': {
-        // Encode V4 multicurve migration data: fee, tickSpacing, lockDuration, beneficiaries (shares in WAD), curves
-        const sortedBeneficiaries = [...config.beneficiaries].sort((a: typeof config.beneficiaries[number], b: typeof config.beneficiaries[number]) => {
-          const aAddr = a.beneficiary.toLowerCase()
-          const bAddr = b.beneficiary.toLowerCase()
-          return aAddr < bAddr ? -1 : aAddr > bAddr ? 1 : 0
-        })
-        return encodeAbiParameters(
-          [
-            { type: 'uint24' }, // fee
-            { type: 'int24' },  // tickSpacing
-            { type: 'uint32' }, // lockDuration
-            { type: 'tuple[]', components: [ { type: 'address', name: 'beneficiary' }, { type: 'uint96', name: 'shares' } ] },
-            { type: 'tuple[]', components: [ { type: 'int24', name: 'tickLower' }, { type: 'int24', name: 'tickUpper' }, { type: 'uint16', name: 'numPositions' }, { type: 'uint256', name: 'shares' } ] }
-          ],
-          [
-            config.fee,
-            config.tickSpacing,
-            config.lockDuration,
-            sortedBeneficiaries.map(b => ({ beneficiary: b.beneficiary, shares: b.shares })),
-            config.curves.map(c => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares }))
-          ]
-        )
-      }
+      
       
       default:
         throw new Error(`Unknown migration type: ${(config as any).type}`)
@@ -798,7 +775,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     const liquidityMigratorData = this.encodeMigrationData(params.migration)
     const resolvedMigrator: Address | undefined = this.getMigratorAddress(params.migration, params.modules)
     if (!resolvedMigrator || resolvedMigrator === ZERO_ADDRESS) {
-      throw new Error('Multicurve migrator address not configured on this chain. Override via builder or update chain config.')
+      throw new Error('Migrator address not configured on this chain. Override via builder or update chain config.')
     }
 
     const governanceFactoryAddress: Address = (() => {
@@ -1032,8 +1009,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         return overrides?.v3Migrator ?? addresses.v3Migrator
       case 'uniswapV4':
         return overrides?.v4Migrator ?? addresses.v4Migrator
-      case 'uniswapV4Multicurve':
-        return overrides?.v4MulticurveMigrator ?? (addresses.v4MulticurveMigrator ?? zeroAddress)
+      
       default:
         throw new Error(`Unknown migration type: ${(config as any).type}`)
     }

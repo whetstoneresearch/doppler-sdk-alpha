@@ -10,6 +10,7 @@ The Doppler SDK consolidates functionality from the previous `doppler-v3-sdk` an
 
 - **Static Auctions**: Fixed price range liquidity bootstrapping using Uniswap V3
 - **Dynamic Auctions**: Gradual Dutch auctions using Uniswap V4 hooks
+- **Multicurve Initializer**: Seed Uniswap V4 pools across multiple curves
 - **Flexible Migration**: Support for migrating to Uniswap V2, V3, or V4
 - **Token Management**: Built-in support for DERC20 tokens with vesting
 - **Type Safety**: Full TypeScript support with discriminated unions
@@ -124,6 +125,45 @@ const params = new DynamicAuctionBuilder()
 const result = await sdk.factory.createDynamicAuction(params)
 console.log('Hook address:', result.hookAddress)
 console.log('Token address:', result.tokenAddress)
+```
+
+### Multicurve Auction (V4 Multicurve Initializer)
+
+Multicurve auctions use a Uniswap V4-style initializer that seeds liquidity across multiple curves in a single pool. This enables richer distributions and can be combined with any supported migration path (V2, V3, or V4).
+
+```typescript
+import { MulticurveBuilder } from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
+
+const params = new MulticurveBuilder(base.id)
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: '0x...' })
+  .withMulticurveAuction({
+    fee: 3000,
+    tickSpacing: 60,
+    curves: [
+      { tickLower: -120000, tickUpper: -90000, numPositions: 8, shares: parseEther('0.4') },
+      { tickLower: -90000, tickUpper: -70000, numPositions: 8, shares: parseEther('0.6') },
+    ],
+    // Optional: lock fee revenue to beneficiaries (shares in WAD)
+    lockableBeneficiaries: [
+      { beneficiary: '0x...', shares: parseEther('0.05') },
+    ],
+  })
+  .withGovernance({ type: 'default' })
+  // Choose a migration path (V2, V3, or V4). Example uses V2
+  .withMigration({ type: 'uniswapV2' })
+  // Optional address overrides if not provided by chain config
+  // .withV4MulticurveInitializer('0xInitializer...')
+  .withUserAddress('0x...')
+  .build()
+
+const result = await sdk.factory.createMulticurve(params)
+console.log('Pool address:', result.poolAddress)
+console.log('Token address:', result.tokenAddress)
+
+// Or simulate to preview addresses without sending a transaction
+const { asset, pool } = await sdk.factory.simulateCreateMulticurve(params)
 ```
 
 #### Transaction gas override
@@ -341,6 +381,8 @@ migration: {
 }
 ```
 
+ 
+
 ## Supported Chains
 
 The SDK currently supports:
@@ -391,6 +433,8 @@ class DopplerSDK {
   // Methods
   getStaticAuction(poolAddress: Address): Promise<StaticAuction>
   getDynamicAuction(hookAddress: Address): Promise<DynamicAuction>
+  // Multicurve helper
+  buildMulticurveAuction(): MulticurveBuilder
   getPoolInfo(poolAddress: Address): Promise<PoolInfo>
   getHookInfo(hookAddress: Address): Promise<HookInfo>
 }
@@ -404,6 +448,7 @@ Key types are exported for use in your applications:
 import type {
   CreateStaticAuctionParams,
   CreateDynamicAuctionParams,
+  CreateMulticurveParams,
   MigrationConfig,
   PoolInfo,
   HookInfo,

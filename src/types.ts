@@ -139,15 +139,6 @@ export type MigrationConfig =
         lockDuration: number; // in seconds
         beneficiaries: BeneficiaryData[];
       };
-    }
-  | {
-      // Multicurve Uniswap V4 migration with explicit curve configuration
-      type: 'uniswapV4Multicurve';
-      fee: number; // pool fee
-      tickSpacing: number; // pool tick spacing
-      lockDuration: number; // in seconds for StreamableFeesLockerV2
-      beneficiaries: LockableBeneficiaryData[]; // WAD-based shares, sorted ascending by address
-      curves: MulticurveCurve[]; // distribution curves
     };
 
 // Create Static Auction parameters
@@ -399,7 +390,7 @@ export interface CreateMulticurveParams<C extends SupportedChainId = SupportedCh
   // Governance configuration
   governance: GovernanceOption<C>;
 
-  // Migration configuration (can be any supported migrator: V2, V3, V4, or V4 Multicurve)
+  // Migration configuration (can be any supported migrator: V2, V3, or V4)
   migration: MigrationConfig;
 
   // Integrator details
@@ -453,5 +444,4 @@ export interface ModuleAddressOverrides {
   v2Migrator?: Address;
   v3Migrator?: Address;
   v4Migrator?: Address;
-  v4MulticurveMigrator?: Address;
 }

@@ -79,7 +79,9 @@ Internally, the factory resolves the on‑chain migrator address for your chain 
   - Percentages must sum to exactly 10000
   - Contract enforces: airlock owner must receive at least 5% of streamed fees (add as a beneficiary if applicable)
 - Chain support:
-  - Ensure `streamableFeesLocker` and `v4Migrator` are deployed on your target chain (see `src/addresses.ts`)
+- Ensure `streamableFeesLocker` and `v4Migrator` are deployed on your target chain (see `src/addresses.ts`)
+
+ 
 
 ## Governance Selection
 
