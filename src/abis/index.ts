@@ -694,21 +694,13 @@ export const dopplerHookAbi = [
     name: "state",
     inputs: [],
     outputs: [
-      {
-        name: "",
-        type: "tuple",
-        components: [
-          { name: "lastEpoch", type: "uint40" },
-          { name: "tickAccumulator", type: "int256" },
-          { name: "totalTokensSold", type: "uint256" },
-          { name: "totalProceeds", type: "uint256" },
-          { name: "totalTokensSoldLastEpoch", type: "uint256" },
-          { name: "feesAccrued", type: "tuple", components: [
-            { name: "amount0", type: "int128" },
-            { name: "amount1", type: "int128" }
-          ]}
-        ]
-      }
+      { name: "lastEpoch", type: "uint40" },
+      { name: "tickAccumulator", type: "int256" },
+      { name: "totalTokensSold", type: "uint256" },
+      { name: "totalProceeds", type: "uint256" },
+      { name: "totalTokensSoldLastEpoch", type: "uint256" },
+      // BalanceDelta is encoded as a single int256 in the compiled ABI.
+      { name: "feesAccrued", type: "int256" },
     ],
     stateMutability: "view",
   },
@@ -731,17 +723,11 @@ export const dopplerHookAbi = [
     name: "poolKey",
     inputs: [],
     outputs: [
-      {
-        name: "",
-        type: "tuple",
-        components: [
-          { name: "currency0", type: "address" },
-          { name: "currency1", type: "address" },
-          { name: "fee", type: "uint24" },
-          { name: "tickSpacing", type: "int24" },
-          { name: "hooks", type: "address" }
-        ]
-      }
+      { name: "currency0", type: "address" },
+      { name: "currency1", type: "address" },
+      { name: "fee", type: "uint24" },
+      { name: "tickSpacing", type: "int24" },
+      { name: "hooks", type: "address" },
     ],
     stateMutability: "view",
   },

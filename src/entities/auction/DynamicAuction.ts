@@ -30,14 +30,14 @@ export class DynamicAuction {
   
   /**
    * Get current hook information
-   */
+  */
   async getHookInfo(): Promise<HookInfo> {
     // Fetch all hook data in parallel
     const [
       state,
       earlyExit,
       insufficientProceeds,
-      poolKey,
+      poolKeyRaw,
       startingTime,
       endingTime,
       epochLength,
@@ -45,11 +45,7 @@ export class DynamicAuction {
       maximumProceeds,
       numTokensToSell,
     ] = await Promise.all([
-      this.rpc.readContract({
-        address: this.hookAddress,
-        abi: dopplerHookAbi,
-        functionName: 'state',
-      }),
+      this.readHookState(),
       this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
@@ -103,6 +99,7 @@ export class DynamicAuction {
     const currentEpoch = epochLength > 0n ? Number(elapsedTime / epochLength) : 0
     
     // Determine token addresses from poolKey
+    const poolKey = this.normalizePoolKey(poolKeyRaw as any)
     const isToken0 = poolKey.currency0 !== zeroAddress
     const tokenAddress = isToken0 ? poolKey.currency0 : poolKey.currency1
     const numeraireAddress = isToken0 ? poolKey.currency1 : poolKey.currency0
@@ -116,8 +113,8 @@ export class DynamicAuction {
       numeraireAddress,
       poolId,
       currentEpoch,
-      totalProceeds: state.totalProceeds,
-      totalTokensSold: state.totalTokensSold,
+      totalProceeds: (state as any).totalProceeds,
+      totalTokensSold: (state as any).totalTokensSold,
       earlyExit,
       insufficientProceeds,
       startingTime,
@@ -132,12 +129,13 @@ export class DynamicAuction {
    * Get the token address for this auction
    */
   async getTokenAddress(): Promise<Address> {
-    const poolKey = await this.rpc.readContract({
+    const poolKeyRaw = await this.rpc.readContract({
       address: this.hookAddress,
       abi: dopplerHookAbi,
       functionName: 'poolKey',
     })
-    
+    const poolKey = this.normalizePoolKey(poolKeyRaw as any)
+
     const isToken0 = await this.rpc.readContract({
       address: this.hookAddress,
       abi: dopplerHookAbi,
@@ -151,12 +149,12 @@ export class DynamicAuction {
    * Get the pool ID for this auction
    */
   async getPoolId(): Promise<string> {
-    const poolKey = await this.rpc.readContract({
+    const poolKeyRaw = await this.rpc.readContract({
       address: this.hookAddress,
       abi: dopplerHookAbi,
       functionName: 'poolKey',
     })
-    
+    const poolKey = this.normalizePoolKey(poolKeyRaw as any)
     return this.computePoolId(poolKey)
   }
   
@@ -210,18 +208,14 @@ export class DynamicAuction {
    */
   async getCurrentPrice(): Promise<bigint> {
     const [
-      state,
+      _state,
       startingTick,
       endingTick,
       gamma,
       startingTime,
       epochLength,
     ] = await Promise.all([
-      this.rpc.readContract({
-        address: this.hookAddress,
-        abi: dopplerHookAbi,
-        functionName: 'state',
-      }),
+      this.readHookState(),
       this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
@@ -271,13 +265,9 @@ export class DynamicAuction {
    * Get total proceeds collected so far
    */
   async getTotalProceeds(): Promise<bigint> {
-    const state = await this.rpc.readContract({
-      address: this.hookAddress,
-      abi: dopplerHookAbi,
-      functionName: 'state',
-    })
+    const state = await this.readHookState()
     
-    return state.totalProceeds
+    return (state as any).totalProceeds
   }
   
   /**
@@ -319,5 +309,50 @@ export class DynamicAuction {
       ]
     )
     return keccak256(encoded)
+  }
+
+  /**
+   * Read hook state with backward-compatible decoding.
+   * Falls back to legacy state() ABI if the latest ABI fails to decode.
+   */
+  private async readHookState(): Promise<any> {
+    const result: any = await this.rpc.readContract({
+      address: this.hookAddress,
+      abi: dopplerHookAbi,
+      functionName: 'state',
+    })
+    if (Array.isArray(result)) {
+      const [
+        lastEpoch,
+        tickAccumulator,
+        totalTokensSold,
+        totalProceeds,
+        totalTokensSoldLastEpoch,
+        feesAccrued,
+      ] = result as any[]
+      return {
+        lastEpoch,
+        tickAccumulator,
+        totalTokensSold,
+        totalProceeds,
+        totalTokensSoldLastEpoch,
+        feesAccrued,
+      }
+    }
+    return result
+  }
+
+  private normalizePoolKey(value: any): {
+    currency0: Address
+    currency1: Address
+    fee: number
+    tickSpacing: number
+    hooks: Address
+  } {
+    if (Array.isArray(value)) {
+      const [currency0, currency1, fee, tickSpacing, hooks] = value as [Address, Address, number, number, Address]
+      return { currency0, currency1, fee, tickSpacing, hooks }
+    }
+    return value as any
   }
 }
