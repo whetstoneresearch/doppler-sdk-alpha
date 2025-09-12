@@ -43,7 +43,18 @@ export type {
   // Information types
   PoolInfo,
   HookInfo,
-  QuoteResult
+  QuoteResult,
+
+  // Chain/public client helper types
+  SupportedPublicClient,
+  SupportedChain,
+
+  // Governance helper types
+  NoOpEnabledChainId,
+  GovernanceOption,
+  
+  // Internal create() param shape (advanced)
+  CreateParams,
 } from './types'
 
 // Also export module override type for advanced usage
@@ -53,8 +64,8 @@ export type { ModuleAddressOverrides } from './types'
 export { LockablePoolStatus } from './types'
 
 // Export addresses and utilities
-export { ADDRESSES, CHAIN_IDS, getAddresses } from './addresses'
-export type { SupportedChainId } from './addresses'
+export { ADDRESSES, CHAIN_IDS, getAddresses, SUPPORTED_CHAIN_IDS, isSupportedChainId } from './addresses'
+export type { SupportedChainId, ChainAddresses, SupportedChainKey } from './addresses'
 
 // Export constants (excluding MIN_SQRT_RATIO and MAX_SQRT_RATIO to avoid conflicts)
 export {

@@ -12,6 +12,9 @@ export const CHAIN_IDS = {
 
 export type SupportedChainId = typeof CHAIN_IDS[keyof typeof CHAIN_IDS]
 
+// Human-friendly chain key type (e.g., 'BASE', 'UNICHAIN')
+export type SupportedChainKey = keyof typeof CHAIN_IDS
+
 // Contract addresses per chain
 export interface ChainAddresses {
   // Core contracts
@@ -225,4 +228,17 @@ export function getAddresses(chainId: number): ChainAddresses {
     throw new Error(`Unsupported chain ID: ${chainId}`)
   }
   return addresses
+}
+
+/**
+ * List of supported chain IDs for easy iteration/validation
+ */
+export const SUPPORTED_CHAIN_IDS = Object.values(CHAIN_IDS) as SupportedChainId[]
+
+/**
+ * Runtime/type guard for narrowing a number to SupportedChainId
+ */
+export function isSupportedChainId(id: number): id is SupportedChainId {
+  // Numeric object keys are coerced to strings at runtime; `in` is fine here
+  return id in ADDRESSES
 }

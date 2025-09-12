@@ -474,10 +474,33 @@ migration: {
 
 ## Supported Chains
 
-The SDK currently supports:
-- Base (8453)
-- Unichain (1301)
-- Ink Sepolia (763373)
+The SDK exposes runtime constants and TypeScript types for supported chains:
+
+```ts
+import {
+  CHAIN_IDS,
+  SUPPORTED_CHAIN_IDS,
+  getAddresses,
+  isSupportedChainId,
+  type SupportedChainId,
+  type ChainAddresses,
+} from '@whetstone-research/doppler-sdk'
+
+// Validate and narrow a chain ID
+function ensureSupported(id: number): SupportedChainId {
+  if (!isSupportedChainId(id)) throw new Error('Unsupported chain')
+  return id
+}
+
+const chainId = ensureSupported(CHAIN_IDS.BASE)
+const addresses: ChainAddresses = getAddresses(chainId)
+console.log('Airlock for Base:', addresses.airlock)
+
+// Iterate supported chains
+for (const id of SUPPORTED_CHAIN_IDS) {
+  console.log('Supported chain id:', id)
+}
+```
 
 ## Advanced Usage
 
