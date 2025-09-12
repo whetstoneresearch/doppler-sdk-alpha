@@ -277,6 +277,22 @@ describe('DopplerFactory', () => {
         transactionHash: mockTxHash,
       })
     })
+
+    it('should simulate dynamic auction creation and compute poolId', async () => {
+      vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
+        result: [mockPoolAddress, mockTokenAddress],
+      } as any)
+
+      const { createParams, hookAddress, tokenAddress, poolId } = await factory.simulateCreateDynamicAuction(
+        validParams
+      )
+
+      expect(createParams).toBeDefined()
+      expect(hookAddress).toBe(mockPoolAddress)
+      expect(tokenAddress).toBe(mockTokenAddress)
+      expect(typeof poolId).toBe('string')
+      expect(poolId.startsWith('0x')).toBe(true)
+    })
   })
 
   describe('Edge cases', () => {

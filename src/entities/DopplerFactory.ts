@@ -218,13 +218,14 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     const createParams = this.encodeCreateStaticAuctionParams(params)
     const addresses = getAddresses(this.chainId)
 
-    const { result } = await this.publicClient.simulateContract({
+    const simStatic = await (this.publicClient as PublicClient).simulateContract({
       address: params.modules?.airlock ?? addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
       account: this.walletClient?.account,
     })
+    const result = (simStatic as { result: unknown }).result as unknown[] | undefined
 
     if (!result || !Array.isArray(result) || result.length < 2) {
       throw new Error('Failed to simulate static auction create')
@@ -256,37 +257,38 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Wallet client required for write operations')
     }
     
-    const { request, result } = await this.publicClient.simulateContract({
+    const { request, result } = await (this.publicClient as PublicClient).simulateContract({
       address: params.modules?.airlock ?? addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
       account: this.walletClient.account,
     })
+    const simResult = result as readonly unknown[] | undefined
     
     const gasOverride = params.gas ?? 13_500_000n
     const hash = await this.walletClient.writeContract({ ...request, gas: gasOverride })
     
     // Wait for transaction and get the receipt
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash, confirmations: 2 })
+    const receipt = await (this.publicClient as PublicClient).waitForTransactionReceipt({ hash, confirmations: 2 })
     
     // The create function returns [asset, pool, governance, timelock, migrationPool]
     // We can get these from the simulation result or parse from logs
-    if (result && Array.isArray(result) && result.length >= 2) {
+    if (simResult && Array.isArray(simResult) && simResult.length >= 2) {
       return {
-        tokenAddress: result[0] as Address, // asset
-        poolAddress: result[1] as Address,  // pool
+        tokenAddress: simResult[0] as Address, // asset
+        poolAddress: simResult[1] as Address,  // pool
         transactionHash: hash
       }
     }
     
     // Fallback: Parse the Create event from logs
-    const createEvent = receipt.logs.find(log => {
+    const createEvent = (receipt.logs as readonly unknown[]).find((log: unknown) => {
       try {
         const decoded = decodeEventLog({
           abi: airlockAbi,
-          data: log.data,
-          topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+          data: (log as { data: Hex }).data,
+          topics: (log as { topics: readonly `0x${string}`[] }).topics as [`0x${string}`, ...`0x${string}`[]],
         })
         return decoded.eventName === 'Create'
       } catch {
@@ -297,14 +299,14 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     if (createEvent) {
       const decoded = decodeEventLog({
         abi: airlockAbi,
-        data: createEvent.data,
-        topics: createEvent.topics as [`0x${string}`, ...`0x${string}`[]],
+        data: (createEvent as { data: Hex }).data,
+        topics: (createEvent as { topics: readonly `0x${string}`[] }).topics as [`0x${string}`, ...`0x${string}`[]],
       })
       
       if (decoded.eventName === 'Create') {
         return {
-          poolAddress: (decoded.args as any).poolOrHook as Address,
-          tokenAddress: (decoded.args as any).asset as Address,
+          poolAddress: (decoded as { args: { poolOrHook: Address } }).args.poolOrHook,
+          tokenAddress: (decoded as { args: { asset: Address } }).args.asset,
           transactionHash: hash
         }
       }
@@ -383,8 +385,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     if (params.blockTimestamp !== undefined) {
       blockTimestamp = params.blockTimestamp
     } else {
-      const latestBlock = await this.publicClient.getBlock({ blockTag: 'latest' })
-      blockTimestamp = Number(latestBlock.timestamp)
+      const latestBlock = await (this.publicClient as PublicClient).getBlock({ blockTag: 'latest' })
+      blockTimestamp = Number((latestBlock as { timestamp: bigint | number }).timestamp)
     }
 
     // Use startTimeOffset if provided, otherwise default to 30 seconds
@@ -547,36 +549,37 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Wallet client required for write operations')
     }
     
-    const { request, result } = await this.publicClient.simulateContract({
+    const { request, result } = await (this.publicClient as PublicClient).simulateContract({
       address: params.modules?.airlock ?? addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
       account: this.walletClient.account,
     })
+    const simResult = result as readonly unknown[] | undefined
     
     const gasOverride = params.gas ?? 13_500_000n
     const hash = await this.walletClient.writeContract({ ...request, gas: gasOverride })
     
     // Wait for transaction and get the receipt
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
+    const receipt = await (this.publicClient as PublicClient).waitForTransactionReceipt({ hash })
     
     // Get actual addresses from the return value or event logs
     let actualHookAddress: Address = hookAddress
     let actualTokenAddress: Address = tokenAddress
     
-    if (result && Array.isArray(result) && result.length >= 2) {
+    if (simResult && Array.isArray(simResult) && simResult.length >= 2) {
       // Tests expect [poolOrHook, asset]
-      actualHookAddress = result[0] as Address
-      actualTokenAddress = result[1] as Address
+      actualHookAddress = simResult[0] as Address
+      actualTokenAddress = simResult[1] as Address
     } else {
       // Fallback: Parse the Create event from logs
-      const createEvent = receipt.logs.find(log => {
+      const createEvent = (receipt.logs as readonly unknown[]).find((log: unknown) => {
         try {
           const decoded = decodeEventLog({
             abi: airlockAbi,
-            data: log.data,
-            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: (log as { data: Hex }).data,
+            topics: (log as { topics: readonly `0x${string}`[] }).topics as [`0x${string}`, ...`0x${string}`[]],
           })
           return decoded.eventName === 'Create'
         } catch {
@@ -587,13 +590,13 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       if (createEvent) {
         const decoded = decodeEventLog({
           abi: airlockAbi,
-          data: createEvent.data,
-          topics: createEvent.topics as [`0x${string}`, ...`0x${string}`[]],
+          data: (createEvent as { data: Hex }).data,
+          topics: (createEvent as { topics: readonly `0x${string}`[] }).topics as [`0x${string}`, ...`0x${string}`[]],
         })
         
         if (decoded.eventName === 'Create') {
-          actualHookAddress = (decoded.args as any).poolOrHook as Address
-          actualTokenAddress = (decoded.args as any).asset as Address
+          actualHookAddress = (decoded as { args: { poolOrHook: Address } }).args.poolOrHook
+          actualTokenAddress = (decoded as { args: { asset: Address } }).args.asset
         }
       }
     }
@@ -613,6 +616,46 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       poolId,
       transactionHash: hash
     }
+  }
+
+  /**
+   * Simulate a dynamic auction creation and return predicted addresses and poolId.
+   * Useful for clients that need the hook/token/poolId before submitting the tx.
+   */
+  async simulateCreateDynamicAuction(params: CreateDynamicAuctionParams<C>): Promise<{
+    createParams: CreateParams
+    hookAddress: Address
+    tokenAddress: Address
+    poolId: string
+  }> {
+    const { createParams } = await this.encodeCreateDynamicAuctionParams(params)
+    const addresses = getAddresses(this.chainId)
+
+    const simDyn = await (this.publicClient as PublicClient).simulateContract({
+      address: params.modules?.airlock ?? addresses.airlock,
+      abi: airlockAbi,
+      functionName: 'create',
+      args: [{ ...createParams }],
+      account: this.walletClient?.account,
+    })
+    const result = (simDyn as { result: unknown }).result as unknown[] | undefined
+
+    if (!result || !Array.isArray(result) || result.length < 2) {
+      throw new Error('Failed to simulate dynamic auction create')
+    }
+
+    const hookAddress = result[0] as Address
+    const tokenAddress = result[1] as Address
+
+    const poolId = this.computePoolId({
+      currency0: tokenAddress < params.sale.numeraire ? tokenAddress : params.sale.numeraire,
+      currency1: tokenAddress < params.sale.numeraire ? params.sale.numeraire : tokenAddress,
+      fee: params.pool.fee,
+      tickSpacing: params.pool.tickSpacing,
+      hooks: hookAddress,
+    })
+
+    return { createParams, hookAddress, tokenAddress, poolId }
   }
 
   private isDoppler404Token(token: TokenConfig): token is Doppler404TokenConfig {
@@ -815,13 +858,14 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   async simulateCreateMulticurve(params: CreateMulticurveParams<C>): Promise<{ createParams: CreateParams; asset: Address; pool: Address }> {
     const createParams = this.encodeCreateMulticurveParams(params)
     const addresses = getAddresses(this.chainId)
-    const { result } = await this.publicClient.simulateContract({
+    const simMulti = await (this.publicClient as PublicClient).simulateContract({
       address: params.modules?.airlock ?? addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
       account: this.walletClient?.account,
     })
+    const result = (simMulti as { result: unknown }).result as unknown[] | undefined
     if (!result || !Array.isArray(result) || result.length < 2) {
       throw new Error('Failed to simulate multicurve create')
     }
@@ -832,18 +876,19 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     const createParams = this.encodeCreateMulticurveParams(params)
     const addresses = getAddresses(this.chainId)
     if (!this.walletClient) throw new Error('Wallet client required for write operations')
-    const { request, result } = await this.publicClient.simulateContract({
+    const { request, result } = await (this.publicClient as PublicClient).simulateContract({
       address: params.modules?.airlock ?? addresses.airlock,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
       account: this.walletClient.account,
     })
+    const simResult = result as readonly unknown[] | undefined
     const gas = params.gas ?? 13_500_000n
     const hash = await this.walletClient.writeContract({ ...request, gas })
-    await this.publicClient.waitForTransactionReceipt({ hash, confirmations: 2 })
-    if (result && Array.isArray(result) && result.length >= 2) {
-      return { tokenAddress: result[0] as Address, poolAddress: result[1] as Address, transactionHash: hash }
+    await (this.publicClient as PublicClient).waitForTransactionReceipt({ hash, confirmations: 2 })
+    if (simResult && Array.isArray(simResult) && simResult.length >= 2) {
+      return { tokenAddress: simResult[0] as Address, poolAddress: simResult[1] as Address, transactionHash: hash }
     }
     throw new Error('Failed to get pool/token addresses from multicurve create')
   }
@@ -1060,7 +1105,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     sqrtPriceLimitX96: bigint
   }): Promise<bigint> {
     const bundler = this.getBundlerAddress()
-    const { result } = await this.publicClient.simulateContract({
+    const { result } = await (this.publicClient as PublicClient).simulateContract({
       address: bundler,
       abi: bundlerAbi,
       functionName: 'simulateBundleExactIn',
@@ -1090,7 +1135,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     sqrtPriceLimitX96: bigint
   }): Promise<bigint> {
     const bundler = this.getBundlerAddress()
-    const { result } = await this.publicClient.simulateContract({
+    const { result } = await (this.publicClient as PublicClient).simulateContract({
       address: bundler,
       abi: bundlerAbi,
       functionName: 'simulateBundleExactOut',
@@ -1118,7 +1163,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
 
     const bundler = this.getBundlerAddress()
-    const { request } = await this.publicClient.simulateContract({
+    const { request } = await (this.publicClient as PublicClient).simulateContract({
       address: bundler,
       abi: bundlerAbi,
       functionName: 'bundle',
@@ -1130,7 +1175,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       account: this.walletClient.account,
       value: options?.value ?? 0n,
     })
-
     const gas = options?.gas ?? undefined
     const tx = await this.walletClient.writeContract(gas ? { ...request, gas } : request)
     return tx

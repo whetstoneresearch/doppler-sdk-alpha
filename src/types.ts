@@ -2,12 +2,7 @@ import { base, baseSepolia, ink, unichain } from 'viem/chains';
 import { CHAIN_IDS, type SupportedChainId } from './addresses';
 // Re-export SupportedChainId so consumers can import from this module
 export { type SupportedChainId } from './addresses';
-import type {
-  Address,
-  PublicClient,
-  Transport,
-  WalletClient,
-} from 'viem';
+import type { Address, WalletClient } from 'viem';
 
 export type SupportedChain =
   | typeof base
@@ -15,7 +10,8 @@ export type SupportedChain =
   | typeof ink
   | typeof unichain
   | typeof baseSepolia;
-export type SupportedPublicClient = PublicClient<Transport, SupportedChain>;
+// Use a wide type to avoid cross-package viem type identity issues when linking packages locally.
+export type SupportedPublicClient = unknown;
 
 // Core configuration types
 // Token configuration (discriminated union)
@@ -308,10 +304,10 @@ export interface DynamicAuctionBuildConfig {
 }
 
 // SDK initialization configuration
-export interface DopplerSDKConfig<C extends SupportedChainId = SupportedChainId> {
+export interface DopplerSDKConfig {
   publicClient: SupportedPublicClient;
   walletClient?: WalletClient;
-  chainId: C;
+  chainId: number;
 }
 
 // Pool information types

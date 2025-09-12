@@ -14,10 +14,10 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
   private _factory?: DopplerFactory<C>
   private _quoter?: Quoter
 
-  constructor(config: DopplerSDKConfig<C>) {
+  constructor(config: DopplerSDKConfig) {
     this.publicClient = config.publicClient
     this.walletClient = config.walletClient
-    this.chainId = config.chainId
+    this.chainId = (config.chainId as unknown) as C
   }
 
   /**
