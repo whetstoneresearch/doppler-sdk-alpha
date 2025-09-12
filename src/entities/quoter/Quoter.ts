@@ -216,8 +216,7 @@ export class Quoter {
   }> {
     const addresses = getAddresses(this.chainId)
     
-    // Use v4Quoter if available, otherwise use dopplerLens (they're the same contract)
-    const quoterAddress = addresses.dopplerLens
+    const quoterAddress = addresses.uniswapV4Quoter
     
     if (!quoterAddress) {
       throw new Error('No V4 quoter available on this chain')
