@@ -1,4 +1,4 @@
-import { type Address, getAddress, zeroAddress } from 'viem'
+import { type Address, getAddress, zeroAddress, type PublicClient } from 'viem'
 import type { PoolInfo, SupportedPublicClient } from '../../types'
 import { uniswapV3PoolAbi, airlockAbi } from '../../abis'
 import { getAddresses } from '../../addresses'
@@ -12,6 +12,9 @@ import { getAddresses } from '../../addresses'
 export class StaticAuction {
   private client: SupportedPublicClient
   private poolAddress: Address
+  private get rpc(): PublicClient {
+    return this.client as PublicClient
+  }
   
   constructor(client: SupportedPublicClient, poolAddress: Address) {
     this.client = client
@@ -31,27 +34,27 @@ export class StaticAuction {
   async getPoolInfo(): Promise<PoolInfo> {
     // Fetch all pool data in parallel
     const [slot0, liquidity, token0, token1, fee] = await Promise.all([
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.poolAddress,
         abi: uniswapV3PoolAbi,
         functionName: 'slot0',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.poolAddress,
         abi: uniswapV3PoolAbi,
         functionName: 'liquidity',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.poolAddress,
         abi: uniswapV3PoolAbi,
         functionName: 'token0',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.poolAddress,
         abi: uniswapV3PoolAbi,
         functionName: 'token1',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.poolAddress,
         abi: uniswapV3PoolAbi,
         functionName: 'fee',
@@ -60,10 +63,10 @@ export class StaticAuction {
     
     // Determine which token is the auction token and which is numeraire
     // This requires checking with the Airlock contract
-    const chainId = await this.client.getChainId()
+    const chainId = await this.rpc.getChainId()
     const addresses = getAddresses(chainId)
     
-    const assetData = await this.client.readContract({
+    const assetData = await this.rpc.readContract({
       address: addresses.airlock,
       abi: airlockAbi,
       functionName: 'getAssetData',
@@ -104,10 +107,10 @@ export class StaticAuction {
    */
   async hasGraduated(): Promise<boolean> {
     const tokenAddress = await this.getTokenAddress()
-    const chainId = await this.client.getChainId()
+    const chainId = await this.rpc.getChainId()
     const addresses = getAddresses(chainId)
     
-    const assetData = await this.client.readContract({
+    const assetData = await this.rpc.readContract({
       address: addresses.airlock,
       abi: airlockAbi,
       functionName: 'getAssetData',
@@ -129,12 +132,12 @@ export class StaticAuction {
     
     // Get token ordering
     const [token0, token1] = await Promise.all([
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.poolAddress,
         abi: uniswapV3PoolAbi,
         functionName: 'token0',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.poolAddress,
         abi: uniswapV3PoolAbi,
         functionName: 'token1',
@@ -167,7 +170,7 @@ export class StaticAuction {
    * Get total liquidity in the pool
    */
   async getTotalLiquidity(): Promise<bigint> {
-    return await this.client.readContract({
+    return await this.rpc.readContract({
       address: this.poolAddress,
       abi: uniswapV3PoolAbi,
       functionName: 'liquidity',

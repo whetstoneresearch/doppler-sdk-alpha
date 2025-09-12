@@ -1,5 +1,5 @@
-import { SupportedPublicClient } from '../types';
-import { ADDRESSES } from '../addresses';
+import type { PublicClient, Address } from 'viem'
+import { ADDRESSES, type SupportedChainId } from '../addresses'
 
 const airlockAbi = [
   {
@@ -11,20 +11,17 @@ const airlockAbi = [
   },
 ] as const;
 
-export const getAirlockOwner = async (
-    publicClient: SupportedPublicClient
-) => {
-    const chain = publicClient.chain.id;
-    const airlockAddress = ADDRESSES[chain].airlock;
+export const getAirlockOwner = async (publicClient: unknown): Promise<Address> => {
+  const client = publicClient as PublicClient
+  const chainId = client.chain?.id as SupportedChainId
+  const airlockAddress = ADDRESSES[chainId].airlock
 
-    const owner = await publicClient.readContract({
-        address: airlockAddress,
-        abi: airlockAbi,
-        functionName: 'owner',
-    });
+  const owner = await client.readContract({
+    address: airlockAddress,
+    abi: airlockAbi,
+    functionName: 'owner',
+  })
 
-    if (!owner) throw new Error('Airlock owner not found');
-    console.log('Airlock owner:', owner);
-
-    return owner as `0x${string}`;
-};
+  if (!owner) throw new Error('Airlock owner not found')
+  return owner as Address
+}

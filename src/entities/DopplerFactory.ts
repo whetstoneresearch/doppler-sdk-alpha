@@ -732,7 +732,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       
       
       default:
-        throw new Error(`Unknown migration type: ${(config as any).type}`)
+        throw new Error('Unknown migration type')
     }
   }
 
@@ -1056,7 +1056,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         return overrides?.v4Migrator ?? addresses.v4Migrator
       
       default:
-        throw new Error(`Unknown migration type: ${(config as any).type}`)
+        throw new Error('Unknown migration type')
     }
   }
 
@@ -1201,9 +1201,38 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     numTokensToSell: bigint
     numeraire: Address
     tokenFactory: Address
-    tokenFactoryData: any
+    tokenFactoryData:
+      | {
+          name: string
+          symbol: string
+          baseURI: string
+          unit?: bigint
+        }
+      | {
+          name: string
+          symbol: string
+          initialSupply: bigint
+          airlock: Address
+          yearlyMintRate: bigint
+          vestingDuration: bigint
+          recipients: Address[]
+          amounts: bigint[]
+          tokenURI: string
+        }
     poolInitializer: Address
-    poolInitializerData: any
+    poolInitializerData: {
+      minimumProceeds: bigint
+      maximumProceeds: bigint
+      startingTime: bigint
+      endingTime: bigint
+      startingTick: number
+      endingTick: number
+      epochLength: bigint
+      gamma: number
+      numPDSlugs: bigint
+      fee: number
+      tickSpacing: number
+    }
     customDerc20Bytecode?: `0x${string}`
     tokenVariant?: 'standard' | 'doppler404'
   }): [Hash, Address, Address, Hex, Hex] {
@@ -1299,20 +1328,23 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     )
 
     const tokenFactoryData = (params.tokenVariant === 'doppler404')
-      ? encodeAbiParameters(
+      ? (() => {
+          const t = params.tokenFactoryData as {
+            name: string
+            symbol: string
+            baseURI: string
+            unit?: bigint
+          }
+          return encodeAbiParameters(
           [
             { type: 'string' },
             { type: 'string' },
             { type: 'string' },
             { type: 'uint256' },
           ],
-          [
-            params.tokenFactoryData.name,
-            params.tokenFactoryData.symbol,
-            params.tokenFactoryData.baseURI,
-            params.tokenFactoryData.unit ?? 1000n,
-          ]
+          [t.name, t.symbol, t.baseURI, t.unit ?? 1000n]
         )
+        })()
       : (() => {
           const {
             name,
@@ -1322,7 +1354,17 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
             recipients,
             amounts,
             tokenURI,
-          } = params.tokenFactoryData
+          } = params.tokenFactoryData as {
+            name: string
+            symbol: string
+            initialSupply: bigint
+            airlock: Address
+            yearlyMintRate: bigint
+            vestingDuration: bigint
+            recipients: Address[]
+            amounts: bigint[]
+            tokenURI: string
+          }
           return encodeAbiParameters(
             [
               { type: 'string' },
@@ -1350,7 +1392,12 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     // Compute token init hash; use DN404 bytecode if tokenVariant is doppler404
     let tokenInitHash: Hash | undefined
     if (params.tokenVariant === 'doppler404') {
-      const { name, symbol, baseURI } = params.tokenFactoryData
+      const { name, symbol, baseURI } = params.tokenFactoryData as {
+        name: string
+        symbol: string
+        baseURI: string
+        unit?: bigint
+      }
       const { airlock, initialSupply } = params
       // DN404 constructor: (name, symbol, initialSupply, recipient, owner, baseURI)
       const initHashData = encodeAbiParameters(
@@ -1375,7 +1422,18 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         encodePacked(['bytes', 'bytes'], [DopplerDN404Bytecode as Hex, initHashData])
       )
     } else {
-      const { name, symbol, yearlyMintRate, vestingDuration, recipients, amounts, tokenURI } = params.tokenFactoryData
+      const { name, symbol, yearlyMintRate, vestingDuration, recipients, amounts, tokenURI } =
+        params.tokenFactoryData as {
+          name: string
+          symbol: string
+          initialSupply: bigint
+          airlock: Address
+          yearlyMintRate: bigint
+          vestingDuration: bigint
+          recipients: Address[]
+          amounts: bigint[]
+          tokenURI: string
+        }
       const { airlock, initialSupply } = params
       const initHashData = encodeAbiParameters(
         [

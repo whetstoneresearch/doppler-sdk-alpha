@@ -1,4 +1,4 @@
-import { type Address, type WalletClient } from 'viem'
+import { type Address, type WalletClient, type PublicClient } from 'viem'
 import { derc20Abi } from '../../../abis'
 import { SupportedPublicClient } from '@/types'
 
@@ -11,6 +11,9 @@ export class Derc20 {
   private publicClient: SupportedPublicClient
   private walletClient?: WalletClient
   private address: Address
+  private get rpc(): PublicClient {
+    return this.publicClient as PublicClient
+  }
   
   private static splitSignature(signature: `0x${string}`): { v: number; r: `0x${string}`; s: `0x${string}` } {
     const sig = signature.toLowerCase() as `0x${string}`
@@ -29,7 +32,7 @@ export class Derc20 {
   
   /** Get the human-readable name of the token */
   async getName(): Promise<string> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'name',
@@ -38,7 +41,7 @@ export class Derc20 {
   
   /** Get the symbol/ticker of the token */
   async getSymbol(): Promise<string> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'symbol',
@@ -47,7 +50,7 @@ export class Derc20 {
   
   /** Get the number of decimals used for token divisions */
   async getDecimals(): Promise<number> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'decimals',
@@ -56,7 +59,7 @@ export class Derc20 {
   
   /** Get the token URI for the token */
   async getTokenURI(): Promise<string> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'tokenURI',
@@ -69,7 +72,7 @@ export class Derc20 {
   
   /** Get the current delegate for an account */
   async getDelegates(account: Address): Promise<Address> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'delegates',
@@ -79,7 +82,7 @@ export class Derc20 {
   
   /** Get current voting power for an account */
   async getVotes(account: Address): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'getVotes',
@@ -89,7 +92,7 @@ export class Derc20 {
   
   /** Get historical voting power at a given timepoint (block) */
   async getPastVotes(account: Address, timepoint: bigint): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'getPastVotes',
@@ -103,7 +106,7 @@ export class Derc20 {
    * @param spender - The address that can spend the tokens
    */
   async getAllowance(owner: Address, spender: Address): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'allowance',
@@ -116,7 +119,7 @@ export class Derc20 {
    * @param account - Address to check balance for
    */
   async getBalanceOf(account: Address): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'balanceOf',
@@ -126,7 +129,7 @@ export class Derc20 {
   
   /** Get the total supply of tokens in circulation */
   async getTotalSupply(): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'totalSupply',
@@ -135,7 +138,7 @@ export class Derc20 {
   
   /** Get the duration (in seconds) of the vesting period */
   async getVestingDuration(): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'vestingDuration',
@@ -144,7 +147,7 @@ export class Derc20 {
   
   /** Get the timestamp when vesting begins */
   async getVestingStart(): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'vestingStart',
@@ -153,7 +156,7 @@ export class Derc20 {
   
   /** Get the total amount of tokens allocated for vesting */
   async getVestedTotalAmount(): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'vestedTotalAmount',
@@ -162,7 +165,7 @@ export class Derc20 {
   
   /** Get the amount of vested tokens available for a specific address */
   async getAvailableVestedAmount(account: Address): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'computeAvailableVestedAmount',
@@ -172,7 +175,7 @@ export class Derc20 {
   
   /** Get the current annual mint rate in tokens per year */
   async getYearlyMintRate(): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'yearlyMintRate',
@@ -181,7 +184,7 @@ export class Derc20 {
   
   /** Get the pool address for the token */
   async getPool(): Promise<Address> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'pool',
@@ -190,7 +193,7 @@ export class Derc20 {
   
   /** Check if the liquidity pool is unlocked */
   async getIsPoolUnlocked(): Promise<boolean> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'isPoolUnlocked',
@@ -199,7 +202,7 @@ export class Derc20 {
   
   /** Get the timestamp when token minting begins */
   async getCurrentYearStart(): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'currentYearStart',
@@ -208,7 +211,7 @@ export class Derc20 {
   
   /** Get the timestamp of the last mint */
   async getLastMintTimestamp(): Promise<bigint> {
-    return await this.publicClient.readContract({
+    return await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'lastMintTimestamp',
@@ -224,7 +227,7 @@ export class Derc20 {
     totalAmount: bigint
     releasedAmount: bigint
   }> {
-    const result = await this.publicClient.readContract({
+    const result = await this.rpc.readContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'getVestingDataOf',
@@ -250,7 +253,7 @@ export class Derc20 {
       throw new Error('Wallet client required for write operations')
     }
     
-    const { request } = await this.publicClient.simulateContract({
+    const { request } = await this.rpc.simulateContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'approve',
@@ -269,7 +272,7 @@ export class Derc20 {
       throw new Error('Wallet client required for write operations')
     }
     
-    const { request } = await this.publicClient.simulateContract({
+    const { request } = await this.rpc.simulateContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'delegate',
@@ -293,14 +296,20 @@ export class Derc20 {
       throw new Error('Wallet client required for write operations')
     }
 
-    const accountAddress = (typeof (this.walletClient.account as any) === 'string'
-      ? (this.walletClient.account as any)
-      : (this.walletClient.account as any)?.address) as Address
+    const acct = this.walletClient.account as unknown
+    let accountAddress: Address
+    if (typeof acct === 'string') {
+      accountAddress = acct as Address
+    } else if (acct && typeof acct === 'object' && 'address' in acct) {
+      accountAddress = (acct as { address: Address }).address
+    } else {
+      throw new Error('Invalid wallet account')
+    }
     const [nonce, name] = await Promise.all([
-      this.publicClient.readContract({ address: this.address, abi: derc20Abi, functionName: 'nonces', args: [accountAddress] }),
+      this.rpc.readContract({ address: this.address, abi: derc20Abi, functionName: 'nonces', args: [accountAddress] }),
       this.getName(),
     ])
-    const chainId = this.publicClient.chain?.id ?? (await this.publicClient.getChainId())
+    const chainId = (this.rpc.chain?.id as number | undefined) ?? (await this.rpc.getChainId())
 
     const domain = {
       name,
@@ -329,7 +338,7 @@ export class Derc20 {
 
     const { v, r, s } = Derc20.splitSignature(signature)
 
-    const { request } = await this.publicClient.simulateContract({
+    const { request } = await this.rpc.simulateContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'delegateBySig',
@@ -348,7 +357,7 @@ export class Derc20 {
       throw new Error('Wallet client required for write operations')
     }
 
-    const { request } = await this.publicClient.simulateContract({
+    const { request } = await this.rpc.simulateContract({
       address: this.address,
       abi: derc20Abi,
       functionName: 'release',

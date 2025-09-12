@@ -1,4 +1,4 @@
-import { type Address, zeroAddress } from 'viem'
+import { type Address, zeroAddress, type PublicClient } from 'viem'
 import { SupportedPublicClient } from '@/types'
 
 /**
@@ -13,6 +13,9 @@ import { SupportedPublicClient } from '@/types'
  */
 export class Eth {
   private publicClient: SupportedPublicClient
+  private get rpc(): PublicClient {
+    return this.publicClient as PublicClient
+  }
   
   /** Static ETH address identifier (zero address) */
   static readonly address = zeroAddress
@@ -63,7 +66,7 @@ export class Eth {
    * @returns Promise resolving to the account's ETH balance in wei
    */
   async getBalanceOf(account: Address): Promise<bigint> {
-    return await this.publicClient.getBalance({
+    return await this.rpc.getBalance({
       address: account,
     })
   }

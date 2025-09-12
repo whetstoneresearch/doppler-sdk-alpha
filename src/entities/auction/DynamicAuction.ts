@@ -12,6 +12,9 @@ import { getAddresses } from '../../addresses'
 export class DynamicAuction {
   private client: SupportedPublicClient
   private hookAddress: Address
+  private get rpc(): PublicClient {
+    return this.client as PublicClient
+  }
   
   constructor(client: SupportedPublicClient, hookAddress: Address) {
     this.client = client
@@ -42,52 +45,52 @@ export class DynamicAuction {
       maximumProceeds,
       numTokensToSell,
     ] = await Promise.all([
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'state',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'earlyExit',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'insufficientProceeds',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'poolKey',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'startingTime',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'endingTime',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'epochLength',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'minimumProceeds',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'maximumProceeds',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'numTokensToSell',
@@ -129,13 +132,13 @@ export class DynamicAuction {
    * Get the token address for this auction
    */
   async getTokenAddress(): Promise<Address> {
-    const poolKey = await this.client.readContract({
+    const poolKey = await this.rpc.readContract({
       address: this.hookAddress,
       abi: dopplerHookAbi,
       functionName: 'poolKey',
     })
     
-    const isToken0 = await this.client.readContract({
+    const isToken0 = await this.rpc.readContract({
       address: this.hookAddress,
       abi: dopplerHookAbi,
       functionName: 'isToken0',
@@ -148,7 +151,7 @@ export class DynamicAuction {
    * Get the pool ID for this auction
    */
   async getPoolId(): Promise<string> {
-    const poolKey = await this.client.readContract({
+    const poolKey = await this.rpc.readContract({
       address: this.hookAddress,
       abi: dopplerHookAbi,
       functionName: 'poolKey',
@@ -162,10 +165,10 @@ export class DynamicAuction {
    */
   async hasGraduated(): Promise<boolean> {
     const tokenAddress = await this.getTokenAddress()
-    const chainId = await this.client.getChainId()
+    const chainId = await this.rpc.getChainId()
     const addresses = getAddresses(chainId)
     
-    const assetData = await this.client.readContract({
+    const assetData = await this.rpc.readContract({
       address: addresses.airlock,
       abi: airlockAbi,
       functionName: 'getAssetData',
@@ -183,12 +186,12 @@ export class DynamicAuction {
    */
   async getCurrentEpoch(): Promise<number> {
     const [startingTime, epochLength] = await Promise.all([
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'startingTime',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'epochLength',
@@ -214,32 +217,32 @@ export class DynamicAuction {
       startingTime,
       epochLength,
     ] = await Promise.all([
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'state',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'startingTick',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'endingTick',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'gamma',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'startingTime',
       }),
-      this.client.readContract({
+      this.rpc.readContract({
         address: this.hookAddress,
         abi: dopplerHookAbi,
         functionName: 'epochLength',
@@ -268,7 +271,7 @@ export class DynamicAuction {
    * Get total proceeds collected so far
    */
   async getTotalProceeds(): Promise<bigint> {
-    const state = await this.client.readContract({
+    const state = await this.rpc.readContract({
       address: this.hookAddress,
       abi: dopplerHookAbi,
       functionName: 'state',
@@ -281,7 +284,7 @@ export class DynamicAuction {
    * Check if the auction ended early due to max proceeds
    */
   async hasEndedEarly(): Promise<boolean> {
-    return await this.client.readContract({
+    return await this.rpc.readContract({
       address: this.hookAddress,
       abi: dopplerHookAbi,
       functionName: 'earlyExit',

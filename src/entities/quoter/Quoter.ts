@@ -1,4 +1,4 @@
-import { type Address, encodeFunctionData, decodeAbiParameters, type Hex } from 'viem'
+import { type Address, encodeFunctionData, decodeAbiParameters, type Hex, type PublicClient } from 'viem'
 import { quoterV2Abi, uniswapV2Router02Abi, v4QuoterAbi } from '../../abis'
 import { getAddresses } from '../../addresses'
 import type { SupportedPublicClient } from '../../types'
@@ -13,6 +13,9 @@ import type { SupportedPublicClient } from '../../types'
 export class Quoter {
   private publicClient: SupportedPublicClient
   private chainId: number
+  private get rpc(): PublicClient {
+    return this.publicClient as PublicClient
+  }
   
   constructor(publicClient: SupportedPublicClient, chainId: number) {
     this.publicClient = publicClient
@@ -39,7 +42,7 @@ export class Quoter {
     const addresses = getAddresses(this.chainId)
     
     try {
-      const { result } = await this.publicClient.simulateContract({
+      const { result } = await this.rpc.simulateContract({
         address: addresses.v3Quoter,
         abi: quoterV2Abi,
         functionName: 'quoteExactInputSingle',
@@ -57,8 +60,8 @@ export class Quoter {
         initializedTicksCrossed: result[2],
         gasEstimate: result[3],
       }
-    } catch (err: any) {
-      const revertData: Hex | undefined = err?.cause?.data || err?.data
+    } catch (err: unknown) {
+      const revertData: Hex | undefined = (err as { cause?: { data?: Hex }; data?: Hex })?.cause?.data || (err as { data?: Hex }).data
       if (revertData && typeof revertData === 'string' && revertData.startsWith('0x')) {
         try {
           // Uniswap V3 QuoterV2 encodes (uint256 amount, uint160 sqrtPriceX96After, int24 tickAfter)
@@ -100,7 +103,7 @@ export class Quoter {
     const addresses = getAddresses(this.chainId)
     
     try {
-      const { result } = await this.publicClient.simulateContract({
+      const { result } = await this.rpc.simulateContract({
         address: addresses.v3Quoter,
         abi: quoterV2Abi,
         functionName: 'quoteExactOutputSingle',
@@ -118,8 +121,8 @@ export class Quoter {
         initializedTicksCrossed: result[2],
         gasEstimate: result[3],
       }
-    } catch (err: any) {
-      const revertData: Hex | undefined = err?.cause?.data || err?.data
+    } catch (err: unknown) {
+      const revertData: Hex | undefined = (err as { cause?: { data?: Hex }; data?: Hex })?.cause?.data || (err as { data?: Hex }).data
       if (revertData && typeof revertData === 'string' && revertData.startsWith('0x')) {
         try {
           // Uniswap V3 QuoterV2 encodes (uint256 amount, uint160 sqrtPriceX96After, int24 tickAfter)
@@ -156,7 +159,7 @@ export class Quoter {
       throw new Error('Uniswap V2 Router not available on this chain')
     }
     
-    const result = await this.publicClient.readContract({
+    const result = await this.rpc.readContract({
       address: addresses.univ2Router02,
       abi: uniswapV2Router02Abi,
       functionName: 'getAmountsOut',
@@ -181,7 +184,7 @@ export class Quoter {
       throw new Error('Uniswap V2 Router not available on this chain')
     }
     
-    const result = await this.publicClient.readContract({
+    const result = await this.rpc.readContract({
       address: addresses.univ2Router02,
       abi: uniswapV2Router02Abi,
       functionName: 'getAmountsIn',
@@ -222,7 +225,7 @@ export class Quoter {
     
     try {
       // First try simulateContract for better gas estimation
-      const { result } = await this.publicClient.simulateContract({
+      const { result } = await this.rpc.simulateContract({
         address: quoterAddress,
         abi: v4QuoterAbi,
         functionName: 'quoteExactInputSingle',
@@ -274,7 +277,7 @@ export class Quoter {
       throw new Error('No V4 quoter available on this chain')
     }
 
-    const { result } = await this.publicClient.simulateContract({
+    const { result } = await this.rpc.simulateContract({
       address: quoterAddress,
       abi: v4QuoterAbi,
       functionName: 'quoteExactOutputSingle',
@@ -312,13 +315,13 @@ export class Quoter {
     gasEstimate: bigint
   }> {
     const addresses = getAddresses(this.chainId)
-    const quoterAddress = (addresses as any).uniswapV4Quoter as Address | undefined
+    const quoterAddress = addresses.uniswapV4Quoter
 
     if (!quoterAddress) {
       throw new Error('Uniswap V4 Quoter address not available on this chain')
     }
 
-    const { result } = await this.publicClient.simulateContract({
+    const { result } = await this.rpc.simulateContract({
       address: quoterAddress,
       abi: v4QuoterAbi,
       functionName: 'quoteExactInputSingle',
@@ -356,13 +359,13 @@ export class Quoter {
     gasEstimate: bigint
   }> {
     const addresses = getAddresses(this.chainId)
-    const quoterAddress = (addresses as any).uniswapV4Quoter as Address | undefined
+    const quoterAddress = addresses.uniswapV4Quoter
 
     if (!quoterAddress) {
       throw new Error('Uniswap V4 Quoter address not available on this chain')
     }
 
-    const { result } = await this.publicClient.simulateContract({
+    const { result } = await this.rpc.simulateContract({
       address: quoterAddress,
       abi: v4QuoterAbi,
       functionName: 'quoteExactOutputSingle',
