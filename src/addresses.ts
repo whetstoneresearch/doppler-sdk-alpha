@@ -125,7 +125,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v3Quoter: '0xC5290058841028F1614F3A6F0F5816cAd0df5E27' as Address,
     lockableV3Initializer: '0x16ada5be50c3c2d94af5feae6b539c40a78ad53c' as Address,
     v4Initializer: '0x8e891d249f1ecbffa6143c03eb1b12843aef09d3' as Address,
-    v4MulticurveInitializer: '0xdb67214d5de4b8c1bc81fd15a858072d3c451cbe' as Address, // From doppler multicurve deployments (Base Sepolia)
+    v4MulticurveInitializer: '0x359b5952a254baaa0105381825daedb8986bb55c' as Address, // From doppler multicurve deployments (Base Sepolia)
     doppler: '0x60a039e4add40ca95e0475c11e8a4182d06c9aa0' as Address,
     dopplerLens: '0x4a8d81db741248a36d9eb3bc6ef648bf798b47a7' as Address,
     dopplerDeployer: '0x60a039e4add40ca95e0475c11e8a4182d06c9aa0' as Address,

@@ -13,13 +13,16 @@ Create a gradual Dutch auction that adjusts price over time based on demand.
 ### 3. [Multicurve Initializer (V4)](./multicurve-initializer.ts)
 Create a pool seeded with multiple curves in one initializer call. Use any standard migration path (V2/V3/V4).
 
-### 4. [Auction Monitoring](./auction-monitoring.ts)
+### 4. [Multicurve Quote & Swap](./multicurve-quote-and-swap.ts)
+Launch a multicurve auction, get a V4 quote, and execute a swap on the new pool.
+
+### 5. [Auction Monitoring](./auction-monitoring.ts)
 Monitor an existing auction for graduation status and key metrics.
 
-### 5. [Token Interaction](./token-interaction.ts)
+### 6. [Token Interaction](./token-interaction.ts)
 Interact with launched tokens - check balances, approve spending, and release vested tokens.
 
-### 6. [Price Quoter](./price-quoter.ts)
+### 7. [Price Quoter](./price-quoter.ts)
 Get price quotes across different Uniswap versions for optimal trading.
 
 ## Prerequisites

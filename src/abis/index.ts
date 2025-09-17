@@ -1452,5 +1452,75 @@ export const bundlerAbi = [
   { type: 'error', name: 'InvalidOutputToken', inputs: [] },
 ] as const
 
+export const poolManagerAbi = [
+  {
+    type: 'function',
+    name: 'swap',
+    inputs: [
+      {
+        name: 'key',
+        type: 'tuple',
+        internalType: 'struct PoolKey',
+        components: [
+          { name: 'currency0', type: 'address', internalType: 'Currency' },
+          { name: 'currency1', type: 'address', internalType: 'Currency' },
+          { name: 'fee', type: 'uint24', internalType: 'uint24' },
+          { name: 'tickSpacing', type: 'int24', internalType: 'int24' },
+          { name: 'hooks', type: 'address', internalType: 'contract IHooks' },
+        ],
+      },
+      {
+        name: 'params',
+        type: 'tuple',
+        internalType: 'struct IPoolManager.SwapParams',
+        components: [
+          { name: 'zeroForOne', type: 'bool', internalType: 'bool' },
+          { name: 'amountSpecified', type: 'int256', internalType: 'int256' },
+          { name: 'sqrtPriceLimitX96', type: 'uint160', internalType: 'uint160' },
+        ],
+      },
+      { name: 'hookData', type: 'bytes', internalType: 'bytes' },
+    ],
+    outputs: [
+      { name: 'swapDelta', type: 'int256', internalType: 'BalanceDelta' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+] as const
+
+export const weth9Abi = [
+  {
+    type: 'function',
+    name: 'deposit',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'withdraw',
+    inputs: [{ name: 'wad', type: 'uint256', internalType: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'approve',
+    inputs: [
+      { name: 'spender', type: 'address', internalType: 'address' },
+      { name: 'amount', type: 'uint256', internalType: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool', internalType: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'balanceOf',
+    inputs: [{ name: 'owner', type: 'address', internalType: 'address' }],
+    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'view',
+  },
+] as const
+
 // Export bytecodes for CREATE2 address calculation
 export { DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from './bytecodes'
