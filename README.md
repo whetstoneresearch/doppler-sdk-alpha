@@ -139,11 +139,11 @@ const params = new MulticurveBuilder(base.id)
   .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
   .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: '0x...' })
   .withMulticurveAuction({
-    fee: 3000,
-    tickSpacing: 60,
+    fee: 0,
+    tickSpacing: 8,
     curves: [
-      { tickLower: -120000, tickUpper: -90000, numPositions: 8, shares: parseEther('0.4') },
-      { tickLower: -90000, tickUpper: -70000, numPositions: 8, shares: parseEther('0.6') },
+      { tickLower: 0, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
+      { tickLower: 16000, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
     ],
     // Optional: lock fee revenue to beneficiaries (shares in WAD)
     lockableBeneficiaries: [

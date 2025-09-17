@@ -31,11 +31,11 @@ async function main() {
     .tokenConfig({ name: 'TEST MULTICURVE', symbol: 'TMC', tokenURI: 'ipfs://token.json' })
     .saleConfig({ initialSupply: 1_000_000n * WAD, numTokensToSell: 900_000n * WAD, numeraire: '0x4200000000000000000000000000000000000006' }) // WETH on Base
     .withMulticurveAuction({
-      fee: 3000,
-      tickSpacing: 60,
+      fee: 0,
+      tickSpacing: 8,
       curves: [
-        { tickLower: -120000, tickUpper: -90000, numPositions: 8, shares: parseEther('0.4') },
-        { tickLower: -90000, tickUpper: -70000, numPositions: 8, shares: parseEther('0.6') },
+        { tickLower: 0, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
+        { tickLower: 16000, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
       ],
       // Optional: lock fee revenue to beneficiaries at init (shares in WAD)
       // lockableBeneficiaries: [ { beneficiary: account.address, shares: parseEther('0.05') } ],
@@ -63,4 +63,3 @@ main().catch((err) => {
   console.error('Error:', err)
   process.exit(1)
 })
-
