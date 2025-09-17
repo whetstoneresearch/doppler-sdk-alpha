@@ -1,11 +1,12 @@
 import type { Address, WalletClient } from 'viem'
-import type { DopplerSDKConfig, HookInfo, PoolInfo, SupportedPublicClient } from './types'
+import type { BeneficiaryData, DopplerSDKConfig, HookInfo, PoolInfo, SupportedPublicClient } from './types'
 import type { SupportedChainId } from './addresses'
 import { DopplerFactory } from './entities/DopplerFactory'
 import { StaticAuction, DynamicAuction } from './entities/auction'
 import { Quoter } from './entities/quoter'
 import { Derc20 } from './entities/token'
 import { StaticAuctionBuilder, DynamicAuctionBuilder, MulticurveBuilder } from './builders'
+import { DEFAULT_AIRLOCK_BENEFICIARY_BPS, getAirlockBeneficiary, getAirlockOwner as fetchAirlockOwner } from './utils/airlock'
 
 export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
   private publicClient: SupportedPublicClient
@@ -118,5 +119,19 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
       publicClient: this.publicClient,
       walletClient: this.walletClient
     }
+  }
+
+  /**
+   * Get the airlock owner address for the configured chain
+   */
+  async getAirlockOwner(): Promise<Address> {
+    return fetchAirlockOwner(this.publicClient)
+  }
+
+  /**
+   * Convenience helper for building the airlock beneficiary entry with the default 5%
+   */
+  async getAirlockBeneficiary(percentage: number = DEFAULT_AIRLOCK_BENEFICIARY_BPS): Promise<BeneficiaryData> {
+    return getAirlockBeneficiary(this.publicClient, percentage)
   }
 }

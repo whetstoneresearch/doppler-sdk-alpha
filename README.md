@@ -470,6 +470,36 @@ migration: {
 }
 ```
 
+To make configuring the first beneficiary simpler, the SDK now exposes helpers for resolving the
+airlock owner and creating the default 5% entry:
+
+```ts
+import { DopplerSDK, createAirlockBeneficiary, getAirlockOwner } from '@whetstone-research/doppler-sdk'
+
+const sdk = new DopplerSDK({ publicClient, chainId })
+
+// Get the owner and construct the beneficiary entry (5% by default)
+const airlockBeneficiary = await sdk.getAirlockBeneficiary()
+
+// Or build the entry manually if you do not have an SDK instance handy
+// (airlockEntry will be equivalent to airlockBeneficiary above)
+const owner = await getAirlockOwner(publicClient)
+const airlockEntry = createAirlockBeneficiary(owner)
+
+const migration = {
+  type: 'uniswapV4' as const,
+  fee: 3000,
+  tickSpacing: 60,
+  streamableFees: {
+    lockDuration: 365 * 24 * 60 * 60,
+    beneficiaries: [
+      airlockEntry, // or airlockBeneficiary
+      { address: '0xYourDAO...', percentage: 9500 },
+    ],
+  },
+}
+```
+
  
 
 ## Supported Chains

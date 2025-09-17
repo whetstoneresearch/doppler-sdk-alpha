@@ -248,7 +248,7 @@ describe('Quoter', () => {
       })
 
       expect(publicClient.simulateContract).toHaveBeenCalledWith({
-        address: mockAddresses.dopplerLens,
+        address: mockAddresses.uniswapV4Quoter,
         abi: expect.any(Array),
         functionName: 'quoteExactInputSingle',
         args: [
@@ -321,7 +321,7 @@ describe('Quoter', () => {
       })
 
       expect(publicClient.simulateContract).toHaveBeenCalledWith({
-        address: mockAddresses.dopplerLens,
+        address: mockAddresses.uniswapV4Quoter,
         abi: expect.any(Array),
         functionName: 'quoteExactOutputSingle',
         args: [

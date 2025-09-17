@@ -33,6 +33,11 @@ export {
 // Re-export the existing address miner
 // export { getHookAddress } from './getHookAddress' // File doesn't exist yet
 
-export { getAirlockOwner } from './airlock'
+export {
+  getAirlockOwner,
+  getAirlockBeneficiary,
+  createAirlockBeneficiary,
+  DEFAULT_AIRLOCK_BENEFICIARY_BPS,
+} from './airlock'
 
 export { decodeBalanceDelta } from './balanceDelta'
