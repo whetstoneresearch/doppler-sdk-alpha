@@ -17,6 +17,7 @@ export const createMockPublicClient = (): SupportedPublicClient => {
   client.getTransactionReceipt = vi.fn();
   client.waitForTransactionReceipt = vi.fn();
   client.getBalance = vi.fn();
+  client.estimateContractGas = vi.fn();
 
   return client;
 };

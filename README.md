@@ -162,13 +162,16 @@ const result = await sdk.factory.createMulticurve(params)
 console.log('Pool address:', result.poolAddress)
 console.log('Token address:', result.tokenAddress)
 
-// Or simulate to preview addresses without sending a transaction
-const { asset, pool } = await sdk.factory.simulateCreateMulticurve(params)
+// Or simulate to preview addresses and gas without sending a transaction
+const { asset, pool, gasEstimate } = await sdk.factory.simulateCreateMulticurve(params)
+console.log('Estimated gas:', gasEstimate?.toString() ?? 'not available')
 ```
 
 #### Transaction gas override
-- You can pass a gas limit to factory create calls via the `gas` field on `CreateStaticAuctionParams`/`CreateDynamicAuctionParams`.
-- If omitted, the SDK uses a default gas limit of 13,500,000 for the `create()` transaction.
+- You can pass a gas limit to factory create calls via the `gas` field on `CreateStaticAuctionParams` / `CreateDynamicAuctionParams` / `CreateMulticurveParams`.
+- If omitted, the SDK uses the simulation's gas estimate when available, falling back to 13,500,000 gas for the `create()` transaction.
+- `simulateCreate*` helpers now return `gasEstimate` so you can tune overrides before sending.
+- Builders expose `.withGasLimit(gas: bigint)` so you can set overrides fluently.
 
 
 

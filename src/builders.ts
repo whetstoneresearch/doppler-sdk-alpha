@@ -70,6 +70,7 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
   private integrator?: Address
   private userAddress?: Address
   private moduleAddresses?: ModuleAddressOverrides
+  private gasLimit?: bigint
   public chainId: C
 
   constructor(chainId: C) {
@@ -191,6 +192,11 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
     return this
   }
 
+  withGasLimit(gas?: bigint): this {
+    this.gasLimit = gas
+    return this
+  }
+
   // Address override helpers
   private overrideModule<K extends keyof ModuleAddressOverrides>(key: K, address: NonNullable<ModuleAddressOverrides[K]>): this {
     this.moduleAddresses = {
@@ -246,6 +252,7 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
       integrator: this.integrator ?? ZERO_ADDRESS,
       userAddress: this.userAddress,
       modules: this.moduleAddresses,
+      gas: this.gasLimit,
     }
   }
 }
@@ -264,6 +271,7 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
   private startTimeOffset?: number
   private blockTimestamp?: number
   private moduleAddresses?: ModuleAddressOverrides
+  private gasLimit?: bigint
   public chainId: C
 
   constructor(chainId: C) {
@@ -405,6 +413,11 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     return this
   }
 
+  withGasLimit(gas?: bigint): this {
+    this.gasLimit = gas
+    return this
+  }
+
   withTime(params?: { startTimeOffset?: number; blockTimestamp?: number }): this {
     if (!params) {
       this.startTimeOffset = undefined
@@ -497,6 +510,7 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
       startTimeOffset: this.startTimeOffset,
       blockTimestamp: this.blockTimestamp,
       modules: this.moduleAddresses,
+      gas: this.gasLimit,
     }
   }
 }
@@ -512,6 +526,7 @@ export class MulticurveBuilder<C extends SupportedChainId> {
   private integrator?: Address
   private userAddress?: Address
   private moduleAddresses?: ModuleAddressOverrides
+  private gasLimit?: bigint
   public chainId: C
 
   constructor(chainId: C) {
@@ -588,6 +603,11 @@ export class MulticurveBuilder<C extends SupportedChainId> {
     return this
   }
 
+  withGasLimit(gas?: bigint): this {
+    this.gasLimit = gas
+    return this
+  }
+
   private overrideModule<K extends keyof ModuleAddressOverrides>(key: K, address: NonNullable<ModuleAddressOverrides[K]>): this {
     this.moduleAddresses = { ...(this.moduleAddresses ?? {}), [key]: address } as ModuleAddressOverrides
     return this
@@ -619,6 +639,7 @@ export class MulticurveBuilder<C extends SupportedChainId> {
       integrator: this.integrator ?? ZERO_ADDRESS,
       userAddress: this.userAddress,
       modules: this.moduleAddresses,
+      gas: this.gasLimit,
     }
   }
 }

@@ -4,6 +4,7 @@ import {
   type Hash,
   type PublicClient, 
   type WalletClient,
+  type Account,
   encodeAbiParameters, 
   encodePacked,
   keccak256,
@@ -41,7 +42,8 @@ import {
   DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD,
   DEFAULT_V4_INITIAL_VOTING_DELAY,
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
-  DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
+  DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
+  DEFAULT_CREATE_GAS_LIMIT
 } from '../constants'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
 
@@ -214,27 +216,36 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     createParams: CreateParams
     asset: Address
     pool: Address
+    gasEstimate?: bigint
   }> {
     const createParams = this.encodeCreateStaticAuctionParams(params)
     const addresses = getAddresses(this.chainId)
 
-    const simStatic = await (this.publicClient as PublicClient).simulateContract({
-      address: params.modules?.airlock ?? addresses.airlock,
+    const airlockAddress = params.modules?.airlock ?? addresses.airlock
+    const { request, result } = await (this.publicClient as PublicClient).simulateContract({
+      address: airlockAddress,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
       account: this.walletClient?.account,
     })
-    const result = (simStatic as { result: unknown }).result as unknown[] | undefined
+    const simResult = result as readonly unknown[] | undefined
+    const gasEstimate = await this.resolveCreateGasEstimate({
+      request,
+      address: airlockAddress,
+      createParams,
+      account: this.walletClient?.account ?? params.userAddress,
+    })
 
-    if (!result || !Array.isArray(result) || result.length < 2) {
+    if (!simResult || !Array.isArray(simResult) || simResult.length < 2) {
       throw new Error('Failed to simulate static auction create')
     }
 
     return {
       createParams,
-      asset: result[0] as Address,
-      pool: result[1] as Address,
+      asset: simResult[0] as Address,
+      pool: simResult[1] as Address,
+      gasEstimate,
     }
   }
 
@@ -257,8 +268,9 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Wallet client required for write operations')
     }
     
+    const airlockAddress = params.modules?.airlock ?? addresses.airlock
     const { request, result } = await (this.publicClient as PublicClient).simulateContract({
-      address: params.modules?.airlock ?? addresses.airlock,
+      address: airlockAddress,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
@@ -266,7 +278,13 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     })
     const simResult = result as readonly unknown[] | undefined
     
-    const gasOverride = params.gas ?? 13_500_000n
+    const gasEstimate = await this.resolveCreateGasEstimate({
+      request,
+      address: airlockAddress,
+      createParams,
+      account: this.walletClient.account,
+    })
+    const gasOverride = params.gas ?? gasEstimate ?? DEFAULT_CREATE_GAS_LIMIT
     const hash = await this.walletClient.writeContract({ ...request, gas: gasOverride })
     
     // Wait for transaction and get the receipt
@@ -549,8 +567,9 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Wallet client required for write operations')
     }
     
+    const airlockAddress = params.modules?.airlock ?? addresses.airlock
     const { request, result } = await (this.publicClient as PublicClient).simulateContract({
-      address: params.modules?.airlock ?? addresses.airlock,
+      address: airlockAddress,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
@@ -558,7 +577,13 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     })
     const simResult = result as readonly unknown[] | undefined
     
-    const gasOverride = params.gas ?? 13_500_000n
+    const gasEstimate = await this.resolveCreateGasEstimate({
+      request,
+      address: airlockAddress,
+      createParams,
+      account: this.walletClient.account,
+    })
+    const gasOverride = params.gas ?? gasEstimate ?? DEFAULT_CREATE_GAS_LIMIT
     const hash = await this.walletClient.writeContract({ ...request, gas: gasOverride })
     
     // Wait for transaction and get the receipt
@@ -627,25 +652,33 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     hookAddress: Address
     tokenAddress: Address
     poolId: string
+    gasEstimate?: bigint
   }> {
     const { createParams } = await this.encodeCreateDynamicAuctionParams(params)
     const addresses = getAddresses(this.chainId)
 
-    const simDyn = await (this.publicClient as PublicClient).simulateContract({
-      address: params.modules?.airlock ?? addresses.airlock,
+    const airlockAddress = params.modules?.airlock ?? addresses.airlock
+    const { request, result } = await (this.publicClient as PublicClient).simulateContract({
+      address: airlockAddress,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
       account: this.walletClient?.account,
     })
-    const result = (simDyn as { result: unknown }).result as unknown[] | undefined
+    const simResult = result as readonly unknown[] | undefined
+    const gasEstimate = await this.resolveCreateGasEstimate({
+      request,
+      address: airlockAddress,
+      createParams,
+      account: this.walletClient?.account ?? params.userAddress,
+    })
 
-    if (!result || !Array.isArray(result) || result.length < 2) {
+    if (!simResult || !Array.isArray(simResult) || simResult.length < 2) {
       throw new Error('Failed to simulate dynamic auction create')
     }
 
-    const hookAddress = result[0] as Address
-    const tokenAddress = result[1] as Address
+    const hookAddress = simResult[0] as Address
+    const tokenAddress = simResult[1] as Address
 
     const poolId = this.computePoolId({
       currency0: tokenAddress < params.sale.numeraire ? tokenAddress : params.sale.numeraire,
@@ -655,7 +688,37 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       hooks: hookAddress,
     })
 
-    return { createParams, hookAddress, tokenAddress, poolId }
+    return { createParams, hookAddress, tokenAddress, poolId, gasEstimate }
+  }
+
+  private async resolveCreateGasEstimate(args: {
+    request?: unknown
+    address: Address
+    createParams: CreateParams
+    account?: Address | Account
+  }): Promise<bigint | undefined> {
+    const { request, address, createParams, account } = args
+    const gasFromRequest =
+      request && typeof request === 'object' && 'gas' in (request as Record<string, unknown>)
+        ? (request as { gas?: bigint }).gas
+        : undefined
+
+    if (gasFromRequest) {
+      return gasFromRequest
+    }
+
+    try {
+      const estimated = await (this.publicClient as PublicClient).estimateContractGas({
+        address,
+        abi: airlockAbi,
+        functionName: 'create',
+        args: [{ ...createParams }],
+        account,
+      })
+      return estimated
+    } catch {
+      return undefined
+    }
   }
 
   private isDoppler404Token(token: TokenConfig): token is Doppler404TokenConfig {
@@ -855,36 +918,60 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return createParams
   }
 
-  async simulateCreateMulticurve(params: CreateMulticurveParams<C>): Promise<{ createParams: CreateParams; asset: Address; pool: Address }> {
+  async simulateCreateMulticurve(params: CreateMulticurveParams<C>): Promise<{
+    createParams: CreateParams
+    asset: Address
+    pool: Address
+    gasEstimate?: bigint
+  }> {
     const createParams = this.encodeCreateMulticurveParams(params)
     const addresses = getAddresses(this.chainId)
-    const simMulti = await (this.publicClient as PublicClient).simulateContract({
-      address: params.modules?.airlock ?? addresses.airlock,
+    const airlockAddress = params.modules?.airlock ?? addresses.airlock
+    const { request, result } = await (this.publicClient as PublicClient).simulateContract({
+      address: airlockAddress,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
       account: this.walletClient?.account,
     })
-    const result = (simMulti as { result: unknown }).result as unknown[] | undefined
-    if (!result || !Array.isArray(result) || result.length < 2) {
+    const simResult = result as readonly unknown[] | undefined
+    const gasEstimate = await this.resolveCreateGasEstimate({
+      request,
+      address: airlockAddress,
+      createParams,
+      account: this.walletClient?.account ?? params.userAddress,
+    })
+    if (!simResult || !Array.isArray(simResult) || simResult.length < 2) {
       throw new Error('Failed to simulate multicurve create')
     }
-    return { createParams, asset: result[0] as Address, pool: result[1] as Address }
+    return {
+      createParams,
+      asset: simResult[0] as Address,
+      pool: simResult[1] as Address,
+      gasEstimate,
+    }
   }
 
   async createMulticurve(params: CreateMulticurveParams<C>): Promise<{ poolAddress: Address; tokenAddress: Address; transactionHash: string }> {
     const createParams = this.encodeCreateMulticurveParams(params)
     const addresses = getAddresses(this.chainId)
     if (!this.walletClient) throw new Error('Wallet client required for write operations')
+    const airlockAddress = params.modules?.airlock ?? addresses.airlock
     const { request, result } = await (this.publicClient as PublicClient).simulateContract({
-      address: params.modules?.airlock ?? addresses.airlock,
+      address: airlockAddress,
       abi: airlockAbi,
       functionName: 'create',
       args: [{ ...createParams }],
       account: this.walletClient.account,
     })
     const simResult = result as readonly unknown[] | undefined
-    const gas = params.gas ?? 13_500_000n
+    const gasEstimate = await this.resolveCreateGasEstimate({
+      request,
+      address: airlockAddress,
+      createParams,
+      account: this.walletClient.account,
+    })
+    const gas = params.gas ?? gasEstimate ?? DEFAULT_CREATE_GAS_LIMIT
     const hash = await this.walletClient.writeContract({ ...request, gas })
     await (this.publicClient as PublicClient).waitForTransactionReceipt({ hash, confirmations: 2 })
     if (simResult && Array.isArray(simResult) && simResult.length >= 2) {

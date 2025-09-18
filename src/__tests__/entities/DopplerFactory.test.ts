@@ -76,6 +76,7 @@ describe('DopplerFactory', () => {
       ]
 
       // Mock the contract calls
+      vi.mocked(publicClient.estimateContractGas).mockImplementationOnce(async () => 9_500_000n)
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
         request: {
           address: mockAddresses.airlock,
@@ -99,11 +100,39 @@ describe('DopplerFactory', () => {
         transactionHash: mockTxHash,
       })
 
+      expect(walletClient.writeContract).toHaveBeenCalledWith(
+        expect.objectContaining({ gas: 9_500_000n })
+      )
+
       expect(publicClient.simulateContract).toHaveBeenCalledWith(
         expect.objectContaining({
           address: mockAddresses.airlock,
           functionName: 'create',
         })
+      )
+    })
+
+    it('should honor explicit gas override when creating a static auction', async () => {
+      const mockTxHash = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd'
+
+      vi.mocked(publicClient.estimateContractGas).mockImplementationOnce(async () => 9_500_000n)
+      vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
+        request: {
+          address: mockAddresses.airlock,
+          functionName: 'create',
+          args: [{}, {}],
+        },
+        result: [mockTokenAddress, mockPoolAddress],
+      } as any)
+      vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
+      vi.mocked(publicClient.waitForTransactionReceipt).mockResolvedValueOnce(
+        createMockTransactionReceipt([])
+      )
+
+      await factory.createStaticAuction({ ...validParams, gas: 21_000_000n })
+
+      expect(walletClient.writeContract).toHaveBeenCalledWith(
+        expect.objectContaining({ gas: 21_000_000n })
       )
     })
 
@@ -160,6 +189,20 @@ describe('DopplerFactory', () => {
       // Should contain encoded V3 migration data
       expect((call as any).args[0].liquidityMigratorData).toMatch(/^0x[a-fA-F0-9]+$/)
       expect((call as any).args[0].liquidityMigratorData).not.toBe('0x')
+    })
+
+    it('should include gas estimate when simulating static auction', async () => {
+      vi.mocked(publicClient.estimateContractGas).mockImplementationOnce(async () => 11_000_000n)
+      vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
+        request: {},
+        result: [mockTokenAddress, mockPoolAddress],
+      } as any)
+
+      const result = await factory.simulateCreateStaticAuction(validParams)
+
+      expect(result.gasEstimate).toBe(11_000_000n)
+      expect(result.asset).toBe(mockTokenAddress)
+      expect(result.pool).toBe(mockPoolAddress)
     })
   })
 
@@ -276,14 +319,23 @@ describe('DopplerFactory', () => {
         poolId: expect.any(String),
         transactionHash: mockTxHash,
       })
+
+      expect(publicClient.estimateContractGas).toHaveBeenCalledWith(
+        expect.objectContaining({ functionName: 'create' })
+      )
+      expect(walletClient.writeContract).toHaveBeenCalledWith(
+        expect.objectContaining({ gas: 13_500_000n })
+      )
     })
 
     it('should simulate dynamic auction creation and compute poolId', async () => {
+      vi.mocked(publicClient.estimateContractGas).mockImplementationOnce(async () => 12_250_000n)
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
+        request: {},
         result: [mockPoolAddress, mockTokenAddress],
       } as any)
 
-      const { createParams, hookAddress, tokenAddress, poolId } = await factory.simulateCreateDynamicAuction(
+      const { createParams, hookAddress, tokenAddress, poolId, gasEstimate } = await factory.simulateCreateDynamicAuction(
         validParams
       )
 
@@ -292,6 +344,25 @@ describe('DopplerFactory', () => {
       expect(tokenAddress).toBe(mockTokenAddress)
       expect(typeof poolId).toBe('string')
       expect(poolId.startsWith('0x')).toBe(true)
+      expect(gasEstimate).toBe(12_250_000n)
+    })
+
+    it('should allow overriding gas when creating a dynamic auction', async () => {
+      const mockTxHash = '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
+
+      vi.mocked(publicClient.estimateContractGas).mockImplementationOnce(async () => 10_000_000n)
+      vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
+        request: { address: mockAddresses.airlock, functionName: 'create', args: [{}, {}] },
+        result: [mockPoolAddress, mockTokenAddress],
+      } as any)
+      vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
+      vi.mocked(publicClient.waitForTransactionReceipt).mockResolvedValueOnce(createMockTransactionReceipt([]))
+
+      await factory.createDynamicAuction({ ...validParams, gas: 18_000_000n })
+
+      expect(walletClient.writeContract).toHaveBeenCalledWith(
+        expect.objectContaining({ gas: 18_000_000n })
+      )
     })
   })
 

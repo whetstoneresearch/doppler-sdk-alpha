@@ -208,8 +208,11 @@ const staticParams = new StaticAuctionBuilder(base.id)
   .withUserAddress(user)
   .build()
 
-// 2) Simulate create → get CreateParams and predicted token address
-const { createParams, asset } = await sdk.factory.simulateCreateStaticAuction(staticParams)
+// 2) Simulate create → get CreateParams, predicted token address, and gas estimate
+const { createParams, asset, gasEstimate } = await sdk.factory.simulateCreateStaticAuction(staticParams)
+
+// (Optional) Adjust your gas limit with the returned estimate if you need custom buffers
+const gasLimit = gasEstimate ? gasEstimate + 500_000n : undefined
 
 // 3) Choose a pre‑buy target amountOut (e.g., 1% of tokens for sale)
 const amountOut = staticParams.sale.numTokensToSell / 100n
@@ -232,7 +235,10 @@ builder.addV3SwapExactOut(user, amountOut, amountIn, encodedPath, false)
 const [commands, inputs] = builder.build()
 
 // 6) Atomically create + pre‑buy
-const txHash = await sdk.factory.bundle(createParams, commands, inputs, { value: amountIn })
+const txHash = await sdk.factory.bundle(createParams, commands, inputs, {
+  value: amountIn,
+  gas: gasLimit,
+})
 ```
 
 Notes:

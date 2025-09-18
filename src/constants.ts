@@ -32,6 +32,9 @@ export const DEFAULT_LOCK_DURATION = SECONDS_PER_YEAR // 1 year
 export const DEFAULT_PD_SLUGS = 5 // Default price discovery slugs
 export const DAY_SECONDS = SECONDS_PER_DAY // Alias for consistency
 
+// Default gas limit to fall back on when create() simulations do not return a value
+export const DEFAULT_CREATE_GAS_LIMIT = 13_500_000n
+
 // V3 Default parameters
 export const DEFAULT_V3_START_TICK = 175000
 export const DEFAULT_V3_END_TICK = 225000
