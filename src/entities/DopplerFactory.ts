@@ -22,7 +22,10 @@ import type {
   StandardTokenConfig,
   SupportedChainId,
   DynamicAuctionConfig,
-  CreateParams
+  CreateParams,
+  MulticurveBundleExactInResult,
+  MulticurveBundleExactOutResult,
+  V4PoolKey
 } from '../types'
 import type { ModuleAddressOverrides } from '../types'
 import { getAddresses } from '../addresses'
@@ -46,6 +49,8 @@ import {
   DEFAULT_CREATE_GAS_LIMIT
 } from '../constants'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
+
+const MAX_UINT128 = (1n << 128n) - 1n
 
 export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   private publicClient: SupportedPublicClient
@@ -1240,6 +1245,76 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return result as unknown as bigint
   }
 
+  // Bundler helpers (Multicurve/V4)
+  async simulateMulticurveBundleExactOut(
+    createParams: CreateParams,
+    params?: {
+      exactAmountOut?: bigint
+      hookData?: Hex
+    }
+  ): Promise<MulticurveBundleExactOutResult> {
+    const bundler = this.getBundlerAddress()
+    const exactAmountOut = params?.exactAmountOut ?? 0n
+    this.ensureUint128(exactAmountOut, 'exactAmountOut', { allowZero: true })
+    const hookData = (params?.hookData ?? '0x') as Hex
+
+    const { result } = await (this.publicClient as PublicClient).simulateContract({
+      address: bundler,
+      abi: bundlerAbi,
+      functionName: 'simulateMulticurveBundleExactOut',
+      args: [
+        { ...createParams },
+        exactAmountOut,
+        hookData,
+      ],
+    })
+
+    const { asset, poolKey, amount, gasEstimate } = this.parseMulticurveBundleResult(result)
+
+    return {
+      asset,
+      poolKey,
+      amountIn: amount,
+      gasEstimate,
+    }
+  }
+
+  async simulateMulticurveBundleExactIn(
+    createParams: CreateParams,
+    params: {
+      exactAmountIn: bigint
+      hookData?: Hex
+    }
+  ): Promise<MulticurveBundleExactInResult> {
+    const bundler = this.getBundlerAddress()
+    if (params.exactAmountIn === undefined) {
+      throw new Error('exactAmountIn is required for multicurve bundle simulations')
+    }
+    const exactAmountIn = params.exactAmountIn
+    this.ensureUint128(exactAmountIn, 'exactAmountIn')
+    const hookData = (params.hookData ?? '0x') as Hex
+
+    const { result } = await (this.publicClient as PublicClient).simulateContract({
+      address: bundler,
+      abi: bundlerAbi,
+      functionName: 'simulateMulticurveBundleExactIn',
+      args: [
+        { ...createParams },
+        exactAmountIn,
+        hookData,
+      ],
+    })
+
+    const { asset, poolKey, amount, gasEstimate } = this.parseMulticurveBundleResult(result)
+
+    return {
+      asset,
+      poolKey,
+      amountOut: amount,
+      gasEstimate,
+    }
+  }
+
   /**
    * Execute an atomic create + swap bundle through the Bundler
    * commands/inputs are Universal Router encoded values (e.g., from doppler-router)
@@ -1267,6 +1342,89 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return tx
   }
 
+
+  private ensureUint128(value: bigint, paramName: string, options: { allowZero?: boolean } = {}): void {
+    const { allowZero = false } = options
+    if (value < 0n) {
+      throw new Error(`${paramName} cannot be negative`)
+    }
+    if (!allowZero && value === 0n) {
+      throw new Error(`${paramName} must be greater than zero`)
+    }
+    if (value > MAX_UINT128) {
+      throw new Error(`${paramName} exceeds uint128 range`)
+    }
+  }
+
+  private parseMulticurveBundleResult(result: unknown): { asset: Address; poolKey: V4PoolKey; amount: bigint; gasEstimate: bigint } {
+    let asset: Address | undefined
+    let poolKeyRaw: unknown
+    let amount: bigint | undefined
+    let gasEstimate: bigint | undefined
+
+    if (Array.isArray(result)) {
+      if (result.length < 4) {
+        throw new Error('Unexpected multicurve bundle simulation result shape')
+      }
+      asset = result[0] as Address
+      poolKeyRaw = result[1]
+      amount = result[2] as bigint
+      gasEstimate = result[3] as bigint
+    } else if (result && typeof result === 'object') {
+      const obj = result as Record<string, unknown>
+      asset = obj.asset as Address | undefined
+      poolKeyRaw = obj.poolKey
+      amount = (obj.amountIn ?? obj.amountOut ?? obj.amount) as bigint | undefined
+      gasEstimate = obj.gasEstimate as bigint | undefined
+    } else {
+      throw new Error('Unexpected multicurve bundle simulation result format')
+    }
+
+    if (asset === undefined || poolKeyRaw === undefined || amount === undefined || gasEstimate === undefined) {
+      throw new Error('Incomplete multicurve bundle simulation result')
+    }
+
+    return {
+      asset,
+      poolKey: this.normalizePoolKey(poolKeyRaw),
+      amount,
+      gasEstimate,
+    }
+  }
+
+  private normalizePoolKey(value: any): V4PoolKey {
+    if (Array.isArray(value)) {
+      const [currency0, currency1, feeRaw, tickSpacingRaw, hooks] = value as [Address, Address, number | bigint, number | bigint, Address]
+      const feeValue = Number(feeRaw)
+      const tickSpacingValue = Number(tickSpacingRaw)
+      if (!Number.isFinite(feeValue) || !Number.isFinite(tickSpacingValue)) {
+        throw new Error('Invalid pool key numeric fields in multicurve bundle simulation result')
+      }
+      return {
+        currency0: currency0 as Address,
+        currency1: currency1 as Address,
+        fee: feeValue,
+        tickSpacing: tickSpacingValue,
+        hooks: hooks as Address,
+      }
+    }
+    if (value && typeof value === 'object') {
+      const { currency0, currency1, fee, tickSpacing, hooks } = value as Record<string, unknown>
+      const feeValue = Number(fee)
+      const tickSpacingValue = Number(tickSpacing)
+      if (!Number.isFinite(feeValue) || !Number.isFinite(tickSpacingValue)) {
+        throw new Error('Invalid pool key numeric fields in multicurve bundle simulation result')
+      }
+      return {
+        currency0: currency0 as Address,
+        currency1: currency1 as Address,
+        fee: feeValue,
+        tickSpacing: tickSpacingValue,
+        hooks: hooks as Address,
+      }
+    }
+    throw new Error('Unable to normalize PoolKey from multicurve bundle simulation result')
+  }
   /**
    * Mines a salt and hook address with the appropriate flags
    * 

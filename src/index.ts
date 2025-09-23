@@ -36,6 +36,9 @@ export type {
   CreateStaticAuctionParams,
   CreateDynamicAuctionParams,
   CreateMulticurveParams,
+  V4PoolKey,
+  MulticurveBundleExactOutResult,
+  MulticurveBundleExactInResult,
   
   // Configuration types
   DopplerSDKConfig,

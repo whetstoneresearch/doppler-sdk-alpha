@@ -363,6 +363,28 @@ export interface MulticurveCurve {
   shares: bigint; // uint256 (WAD)
 }
 
+export interface V4PoolKey {
+  currency0: Address;
+  currency1: Address;
+  fee: number;
+  tickSpacing: number;
+  hooks: Address;
+}
+
+export interface MulticurveBundleExactOutResult {
+  asset: Address;
+  poolKey: V4PoolKey;
+  amountIn: bigint;
+  gasEstimate: bigint;
+}
+
+export interface MulticurveBundleExactInResult {
+  asset: Address;
+  poolKey: V4PoolKey;
+  amountOut: bigint;
+  gasEstimate: bigint;
+}
+
 // Create Multicurve initializer parameters
 export interface CreateMulticurveParams<C extends SupportedChainId = SupportedChainId> {
   // Token configuration
