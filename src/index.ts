@@ -1,4 +1,4 @@
-export const VERSION = '0.0.1-alpha.30'
+export const VERSION = '0.0.1-alpha.31'
 
 // Export the main SDK class
 export { DopplerSDK } from './DopplerSDK'

@@ -56,6 +56,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   private publicClient: SupportedPublicClient
   private walletClient?: WalletClient
   private chainId: C
+
+  private multicurveBundlerSupport = new Map<Address, boolean>()
   
   constructor(publicClient: SupportedPublicClient, walletClient: WalletClient | undefined, chainId: C) {
     this.publicClient = publicClient
@@ -1250,13 +1252,13 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     createParams: CreateParams,
     params?: {
       exactAmountOut?: bigint
-      hookData?: Hex
     }
   ): Promise<MulticurveBundleExactOutResult> {
     const bundler = this.getBundlerAddress()
+    await this.ensureMulticurveBundlerSupport(bundler)
     const exactAmountOut = params?.exactAmountOut ?? 0n
     this.ensureUint128(exactAmountOut, 'exactAmountOut', { allowZero: true })
-    const hookData = (params?.hookData ?? '0x') as Hex
+    const hookData = '0x' as Hex
 
     const { result } = await (this.publicClient as PublicClient).simulateContract({
       address: bundler,
@@ -1283,16 +1285,16 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     createParams: CreateParams,
     params: {
       exactAmountIn: bigint
-      hookData?: Hex
     }
   ): Promise<MulticurveBundleExactInResult> {
     const bundler = this.getBundlerAddress()
+    await this.ensureMulticurveBundlerSupport(bundler)
     if (params.exactAmountIn === undefined) {
       throw new Error('exactAmountIn is required for multicurve bundle simulations')
     }
     const exactAmountIn = params.exactAmountIn
     this.ensureUint128(exactAmountIn, 'exactAmountIn')
-    const hookData = (params.hookData ?? '0x') as Hex
+    const hookData = '0x' as Hex
 
     const { result } = await (this.publicClient as PublicClient).simulateContract({
       address: bundler,
@@ -1799,4 +1801,30 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     )
     return keccak256(encoded)
   }
+
+  private async ensureMulticurveBundlerSupport(bundler: Address): Promise<void> {
+    if (this.multicurveBundlerSupport.get(bundler)) {
+      return
+    }
+
+    const client = this.publicClient as PublicClient
+    if (!client || typeof client.getBytecode !== 'function') {
+      // If we cannot check support, optimistically assume true.
+      this.multicurveBundlerSupport.set(bundler, true)
+      return
+    }
+
+    const bytecode = await client.getBytecode({ address: bundler })
+    const supports = Boolean(bytecode && MULTICURVE_BUNDLER_SELECTORS.every(selector => bytecode.includes(selector.slice(2))))
+
+    if (!supports) {
+      throw new Error(
+        `Bundler at ${bundler} does not support multicurve bundling. Ensure the Doppler Bundler has been upgraded and update chain addresses.`
+      )
+    }
+
+    this.multicurveBundlerSupport.set(bundler, true)
+  }
 }
+
+const MULTICURVE_BUNDLER_SELECTORS = ['0xe2e9faa1', '0x07087b06'] as const
