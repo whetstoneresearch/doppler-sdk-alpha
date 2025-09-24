@@ -1,18 +1,18 @@
-import { 
-  type Address, 
-  type Hex, 
+import {
+  type Address,
+  type Hex,
   type Hash,
-  type PublicClient, 
+  type PublicClient,
   type WalletClient,
   type Account,
-  encodeAbiParameters, 
+  encodeAbiParameters,
   encodePacked,
   keccak256,
   getAddress,
   decodeEventLog
 } from 'viem'
-import type { 
-  CreateStaticAuctionParams, 
+import type {
+  CreateStaticAuctionParams,
   CreateDynamicAuctionParams,
   CreateMulticurveParams,
   MigrationConfig,
@@ -50,19 +50,33 @@ import {
 } from '../constants'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
 
+// Type definition for the custom migration encoder function
+export type MigrationEncoder = (config: MigrationConfig) => Hex
+
 const MAX_UINT128 = (1n << 128n) - 1n
 
 export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   private publicClient: SupportedPublicClient
   private walletClient?: WalletClient
   private chainId: C
+  private customMigrationEncoder?: MigrationEncoder
 
   private multicurveBundlerSupport = new Map<Address, boolean>()
-  
+
   constructor(publicClient: SupportedPublicClient, walletClient: WalletClient | undefined, chainId: C) {
     this.publicClient = publicClient
     this.walletClient = walletClient
     this.chainId = chainId
+  }
+
+  /**
+   * Set a custom migration data encoder function
+   * @param encoder Custom function to encode migration data
+   * @returns The factory instance for method chaining
+   */
+  withCustomMigrationEncoder(encoder: MigrationEncoder): this {
+    this.customMigrationEncoder = encoder
+    return this
   }
 
   encodeCreateStaticAuctionParams(params: CreateStaticAuctionParams<C>): CreateParams {
@@ -737,11 +751,16 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
    * This replaces the manual encoding methods from the old SDKs
    */
   private encodeMigrationData(config: MigrationConfig): Hex {
+    // Use custom encoder if available
+    if (this.customMigrationEncoder) {
+      return this.customMigrationEncoder(config)
+    }
+
     switch (config.type) {
       case 'uniswapV2':
         // V2 migrator expects empty data
         return '0x' as Hex
-        
+
       case 'uniswapV3':
         // Encode V3 migration data: fee and tick spacing
         return encodeAbiParameters(
@@ -751,13 +770,13 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           ],
           [config.fee, config.tickSpacing]
         )
-        
+
       case 'uniswapV4':
         // Encode V4 migration data with streamable fees config
         // The V4 migrator expects beneficiaries with shares in WAD (1e18) format
         const WAD = BigInt(1e18)
         const beneficiaryData: { beneficiary: Address; shares: bigint }[] = []
-        
+
         // Convert percentage-based beneficiaries to shares-based
         for (const b of config.streamableFees.beneficiaries) {
           beneficiaryData.push({
@@ -765,24 +784,24 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
             shares: (BigInt(b.percentage) * WAD) / BigInt(BASIS_POINTS)
           })
         }
-        
+
         // Sort beneficiaries by address in ascending order (required by contract)
         beneficiaryData.sort((a, b) => {
           const addrA = a.beneficiary.toLowerCase()
           const addrB = b.beneficiary.toLowerCase()
           return addrA < addrB ? -1 : addrA > addrB ? 1 : 0
         })
-        
+
         // Note: The contract will validate that the airlock owner gets at least 5%
         // If not present, the SDK user should add it manually
-        
+
         return encodeAbiParameters(
           [
             { type: 'uint24' },  // fee
             { type: 'int24' },   // tickSpacing
             { type: 'uint32' },  // lockDuration
             {
-              type: 'tuple[]', 
+              type: 'tuple[]',
               components: [
                 { type: 'address', name: 'beneficiary' },
                 { type: 'uint96', name: 'shares' }
@@ -799,8 +818,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
             }))
           ]
         )
-      
-      
+
+
       default:
         throw new Error('Unknown migration type')
     }
