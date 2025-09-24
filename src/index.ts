@@ -5,6 +5,7 @@ export { DopplerSDK } from './DopplerSDK'
 
 // Export factory and auction classes
 export { DopplerFactory } from './entities/DopplerFactory'
+export type { MigrationEncoder } from './entities/DopplerFactory'
 export { StaticAuction, DynamicAuction } from './entities/auction'
 
 // Export quoter
