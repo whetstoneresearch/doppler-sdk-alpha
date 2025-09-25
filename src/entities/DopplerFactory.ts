@@ -845,16 +845,22 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
 
     const poolInitializerData = encodeAbiParameters(
       [
-        { type: 'uint24' },
-        { type: 'int24' },
-        { type: 'tuple[]', components: [ { type: 'int24', name: 'tickLower' }, { type: 'int24', name: 'tickUpper' }, { type: 'uint16', name: 'numPositions' }, { type: 'uint256', name: 'shares' } ] },
-        { type: 'tuple[]', components: [ { type: 'address', name: 'beneficiary' }, { type: 'uint96', name: 'shares' } ] },
+{
+            type: "tuple",
+            components: [
+              { name: 'fee', type: 'uint24' },
+              { name: 'tickSpacing', type: 'int24' },
+              { name: 'curves', type: 'tuple[]', components: [ { type: 'int24', name: 'tickLower' }, { type: 'int24', name: 'tickUpper' }, { type: 'uint16', name: 'numPositions' }, { type: 'uint256', name: 'shares' } ] },
+              { name: 'lockableBeneficiaries', type: 'tuple[]', components: [ { type: 'address', name: 'beneficiary' }, { type: 'uint96', name: 'shares' } ] },
+            ]
+          }
       ],
-      [
-        params.pool.fee,
-        params.pool.tickSpacing,
-        params.pool.curves.map((c: typeof params.pool.curves[number]) => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares })),
-        sortedLockBeneficiaries.map((b: NonNullable<typeof params.pool.lockableBeneficiaries>[number]) => ({ beneficiary: b.beneficiary, shares: b.shares }))
+      [{
+        "fee": params.pool.fee,
+        "tickSpacing": params.pool.tickSpacing,
+        "curves": params.pool.curves.map((c: typeof params.pool.curves[number]) => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares })),
+        "lockableBeneficiaries": sortedLockBeneficiaries.map((b: NonNullable<typeof params.pool.lockableBeneficiaries>[number]) => ({ beneficiary: b.beneficiary, shares: b.shares }))
+      }
       ]
     )
 
