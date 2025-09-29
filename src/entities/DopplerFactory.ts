@@ -50,7 +50,7 @@ import {
   DEFAULT_CREATE_GAS_LIMIT,
   WAD,
 } from '../constants'
-import { MIN_TICK } from '../utils'
+import { MIN_TICK, MAX_TICK } from '../utils'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
 
 // Type definition for the custom migration encoder function
@@ -1087,7 +1087,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
 
     let totalShares = 0n
-    let mostNegativeTickUpper: number | undefined
+    let mostPositiveTickUpper: number | undefined
 
     const sanitizedCurves = curves.map(curve => {
       const sanitized = { ...curve }
@@ -1098,8 +1098,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       if (sanitized.tickLower >= sanitized.tickUpper) {
         throw new Error('Multicurve curve tickLower must be less than tickUpper')
       }
-      if (sanitized.tickLower >= 0 || sanitized.tickUpper >= 0) {
-        throw new Error('Multicurve ticks must be negative numbers')
+      if (sanitized.tickLower <= 0 || sanitized.tickUpper <= 0) {
+        throw new Error('Multicurve ticks must be positive numbers')
       }
       if (!Number.isInteger(sanitized.numPositions) || sanitized.numPositions <= 0) {
         throw new Error('Multicurve curve numPositions must be a positive integer')
@@ -1113,8 +1113,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         throw new Error('Total multicurve shares cannot exceed 100% (1e18)')
       }
 
-      if (mostNegativeTickUpper === undefined || sanitized.tickUpper < mostNegativeTickUpper) {
-        mostNegativeTickUpper = sanitized.tickUpper
+      if (mostPositiveTickUpper === undefined || sanitized.tickUpper > mostPositiveTickUpper) {
+        mostPositiveTickUpper = sanitized.tickUpper
       }
 
       return sanitized
@@ -1129,15 +1129,15 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       return sanitizedCurves
     }
 
-    const fallbackTickLower = mostNegativeTickUpper
+    const fallbackTickLower = mostPositiveTickUpper
     if (fallbackTickLower === undefined) {
       throw new Error('Unable to determine fallback multicurve tick range')
     }
 
-    const fallbackTickUpper = this.roundMinTickUp(tickSpacing)
+    const fallbackTickUpper = this.roundMaxTickDown(tickSpacing)
 
     const fallbackCurve = {
-      // Extend from the most negative user tick out to the minimum supported tick bucket
+      // Extend from the most positive user tick out to the maximum supported tick bucket
       tickLower: fallbackTickLower,
       tickUpper: fallbackTickUpper,
       numPositions: sanitizedCurves[sanitizedCurves.length - 1]?.numPositions ?? 1,
@@ -1147,12 +1147,12 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return [...sanitizedCurves, fallbackCurve]
   }
 
-  private roundMinTickUp(tickSpacing: number): number {
+  private roundMaxTickDown(tickSpacing: number): number {
     if (tickSpacing <= 0) {
       throw new Error('Tick spacing must be positive')
     }
 
-    const rounded = Math.ceil(MIN_TICK / tickSpacing) * tickSpacing
+    const rounded = Math.floor(MAX_TICK / tickSpacing) * tickSpacing
     return rounded
   }
 
