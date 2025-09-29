@@ -32,7 +32,7 @@ const staticParams = new StaticAuctionBuilder(base.id)
   .build()
 
 // Encode to CreateParams (matches old v3 SDK encode return shape)
-const staticCreateParams = sdk.factory.encodeCreateStaticAuctionParams(staticParams)
+const staticCreateParams = await sdk.factory.encodeCreateStaticAuctionParams(staticParams)
 console.log('Static CreateParams:', staticCreateParams)
 
 // --- Dynamic (V4-style) ---

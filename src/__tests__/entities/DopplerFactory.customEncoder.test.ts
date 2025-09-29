@@ -1,35 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPublicClient, createWalletClient, http } from 'viem'
-import { baseSepolia } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
 import { DopplerFactory, type MigrationEncoder } from '../../entities/DopplerFactory'
 import { CHAIN_IDS } from '../../addresses'
 import type { MigrationConfig, CreateStaticAuctionParams } from '../../types'
+import type { SupportedPublicClient } from '../../types'
 
 describe('DopplerFactory Custom Migration Encoder', () => {
   let factory: DopplerFactory
   let customEncoder: MigrationEncoder
   let mockCreateParams: CreateStaticAuctionParams
+  let publicClient: SupportedPublicClient
+  let simulateContractMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    const publicClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http()
+    const account = privateKeyToAccount('0x1234567890123456789012345678901234567890123456789012345678901234')
+
+    simulateContractMock = vi.fn().mockResolvedValue({
+      result: [
+        '0xffffffffffffffffffffffffffffffffffffffff',
+        '0x0000000000000000000000000000000000000001',
+      ],
     })
 
-    const account = privateKeyToAccount('0x1234567890123456789012345678901234567890123456789012345678901234')
-    const walletClient = createWalletClient({
-      account,
-      chain: baseSepolia,
-      transport: http()
-    })
+    publicClient = {
+      simulateContract: simulateContractMock,
+    } as unknown as SupportedPublicClient
 
     // Create a custom encoder that returns a specific hex value
     customEncoder = vi.fn((config: MigrationConfig) => {
       return `0x${'custom'.padEnd(64, '0')}` as `0x${string}`
     })
 
-    factory = new DopplerFactory(publicClient, walletClient, CHAIN_IDS.BASE_SEPOLIA)
+    factory = new DopplerFactory(publicClient, undefined, CHAIN_IDS.BASE_SEPOLIA)
       .withCustomMigrationEncoder(customEncoder)
 
     mockCreateParams = {
@@ -56,9 +58,9 @@ describe('DopplerFactory Custom Migration Encoder', () => {
     }
   })
 
-  it('should use custom migration encoder when provided', () => {
+  it('should use custom migration encoder when provided', async () => {
     // Call encodeCreateStaticAuctionParams to trigger migration data encoding
-    const result = factory.encodeCreateStaticAuctionParams(mockCreateParams)
+    const result = await factory.encodeCreateStaticAuctionParams(mockCreateParams)
 
     // Verify the custom encoder was called
     expect(customEncoder).toHaveBeenCalledWith(mockCreateParams.migration)
@@ -68,29 +70,17 @@ describe('DopplerFactory Custom Migration Encoder', () => {
     expect(result.liquidityMigratorData).toBe(`0x${'custom'.padEnd(64, '0')}`)
   })
 
-  it('should fall back to default encoding when no custom encoder provided', () => {
+  it('should fall back to default encoding when no custom encoder provided', async () => {
     // Create factory without custom encoder
-    const publicClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http()
-    })
+    const defaultFactory = new DopplerFactory(publicClient, undefined, CHAIN_IDS.BASE_SEPOLIA)
 
-    const account = privateKeyToAccount('0x1234567890123456789012345678901234567890123456789012345678901234')
-    const walletClient = createWalletClient({
-      account,
-      chain: baseSepolia,
-      transport: http()
-    })
-
-    const defaultFactory = new DopplerFactory(publicClient, walletClient, CHAIN_IDS.BASE_SEPOLIA)
-
-    const result = defaultFactory.encodeCreateStaticAuctionParams(mockCreateParams)
+    const result = await defaultFactory.encodeCreateStaticAuctionParams(mockCreateParams)
 
     // For uniswapV2 migration, default encoder returns '0x'
     expect(result.liquidityMigratorData).toBe('0x')
   })
 
-  it('should handle V3 migration with custom encoder', () => {
+  it('should handle V3 migration with custom encoder', async () => {
     const v3Migration: MigrationConfig = {
       type: 'uniswapV3',
       fee: 3000,
@@ -102,14 +92,14 @@ describe('DopplerFactory Custom Migration Encoder', () => {
       migration: v3Migration
     }
 
-    const result = factory.encodeCreateStaticAuctionParams(paramsWithV3)
+    const result = await factory.encodeCreateStaticAuctionParams(paramsWithV3)
 
     // Verify custom encoder was called with V3 migration config
     expect(customEncoder).toHaveBeenCalledWith(v3Migration)
     expect(result.liquidityMigratorData).toBe(`0x${'custom'.padEnd(64, '0')}`)
   })
 
-  it('should handle V4 migration with custom encoder', () => {
+  it('should handle V4 migration with custom encoder', async () => {
     const v4Migration: MigrationConfig = {
       type: 'uniswapV4',
       fee: 3000,
@@ -127,37 +117,48 @@ describe('DopplerFactory Custom Migration Encoder', () => {
       migration: v4Migration
     }
 
-    const result = factory.encodeCreateStaticAuctionParams(paramsWithV4)
+    const result = await factory.encodeCreateStaticAuctionParams(paramsWithV4)
 
     // Verify custom encoder was called with V4 migration config
     expect(customEncoder).toHaveBeenCalledWith(v4Migration)
     expect(result.liquidityMigratorData).toBe(`0x${'custom'.padEnd(64, '0')}`)
   })
 
-  it('should support fluent method chaining', () => {
-    const publicClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http()
-    })
-
-    const account = privateKeyToAccount('0x1234567890123456789012345678901234567890123456789012345678901234')
-    const walletClient = createWalletClient({
-      account,
-      chain: baseSepolia,
-      transport: http()
-    })
-
+  it('should support fluent method chaining', async () => {
     const mockEncoder: MigrationEncoder = vi.fn(() => '0xtest' as `0x${string}`)
 
     // Test that withCustomMigrationEncoder returns the factory instance for chaining
-    const chainedFactory = new DopplerFactory(publicClient, walletClient, CHAIN_IDS.BASE_SEPOLIA)
+    const chainedFactory = new DopplerFactory(publicClient, undefined, CHAIN_IDS.BASE_SEPOLIA)
       .withCustomMigrationEncoder(mockEncoder)
 
     expect(chainedFactory).toBeInstanceOf(DopplerFactory)
 
     // Verify the encoder works
-    const result = chainedFactory.encodeCreateStaticAuctionParams(mockCreateParams)
+    const result = await chainedFactory.encodeCreateStaticAuctionParams(mockCreateParams)
     expect(mockEncoder).toHaveBeenCalledWith(mockCreateParams.migration)
     expect(result.liquidityMigratorData).toBe('0xtest')
+  })
+
+  it('mines salt until the token sorts after the numeraire', async () => {
+    const smallerAsset = '0x0000000000000000000000000000000000000002'
+    const largerAsset = '0xffffffffffffffffffffffffffffffffffffffff'
+    simulateContractMock.mockResolvedValueOnce({
+      result: [smallerAsset, '0x0000000000000000000000000000000000000003'],
+    })
+    simulateContractMock.mockResolvedValueOnce({
+      result: [largerAsset, '0x0000000000000000000000000000000000000004'],
+    })
+
+    const params = {
+      ...mockCreateParams,
+      sale: {
+        ...mockCreateParams.sale,
+        numeraire: '0x0000000000000000000000000000000000000005',
+      },
+    }
+
+    await factory.encodeCreateStaticAuctionParams(params)
+
+    expect(simulateContractMock).toHaveBeenCalledTimes(2)
   })
 })

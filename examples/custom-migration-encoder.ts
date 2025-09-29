@@ -112,7 +112,7 @@ async function main() {
   }
 
   // The factory will now use your custom encoder for migration data
-  const encodedParams = sdk.factory.encodeCreateStaticAuctionParams(createParams)
+  const encodedParams = await sdk.factory.encodeCreateStaticAuctionParams(createParams)
   console.log('Migration data encoded with custom encoder:', encodedParams.liquidityMigratorData)
 
   console.log('SDK factory configured with custom migration encoder!')

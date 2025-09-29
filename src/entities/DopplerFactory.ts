@@ -9,7 +9,8 @@ import {
   encodePacked,
   keccak256,
   getAddress,
-  decodeEventLog
+  decodeEventLog,
+  toHex,
 } from 'viem'
 import type {
   CreateStaticAuctionParams,
@@ -79,7 +80,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return this
   }
 
-  encodeCreateStaticAuctionParams(params: CreateStaticAuctionParams<C>): CreateParams {
+  async encodeCreateStaticAuctionParams(params: CreateStaticAuctionParams<C>): Promise<CreateParams> {
     // Validate parameters
     this.validateStaticAuctionParams(params)
 
@@ -195,8 +196,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     })()
 
     // 5. Generate a unique salt
-    const salt = this.generateRandomSalt(params.userAddress)
-
     // Resolve token factory with override priority
     const resolvedTokenFactory: Address | undefined =
       params.modules?.tokenFactory ?? (
@@ -209,8 +208,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Token factory address not configured. Provide an explicit address via builder.withTokenFactory(...) or ensure chain config includes a valid factory.')
     }
 
-    // Build the complete CreateParams for the V3-style ABI
-    const createParams = {
+    // Build the base CreateParams for the V3-style ABI; salt will be mined below
+    const baseCreateParams = {
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
@@ -223,10 +222,15 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       liquidityMigrator: this.getMigratorAddress(params.migration, params.modules),
       liquidityMigratorData: liquidityMigratorData,
       integrator: params.integrator ?? ZERO_ADDRESS,
-      salt: salt,
     }
 
-    return createParams;
+    const minedCreateParams = await this.mineTokenOrder({
+      params,
+      baseCreateParams,
+      addresses,
+    })
+
+    return minedCreateParams
   }
 
   /**
@@ -239,7 +243,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     pool: Address
     gasEstimate?: bigint
   }> {
-    const createParams = this.encodeCreateStaticAuctionParams(params)
+    const createParams = await this.encodeCreateStaticAuctionParams(params)
     const addresses = getAddresses(this.chainId)
 
     const airlockAddress = params.modules?.airlock ?? addresses.airlock
@@ -280,7 +284,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     tokenAddress: Address
     transactionHash: string
   }> {
-    const createParams = this.encodeCreateStaticAuctionParams(params);
+    const createParams = await this.encodeCreateStaticAuctionParams(params);
 
     const addresses = getAddresses(this.chainId)
 
@@ -397,6 +401,58 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return `0x${Array.from(array)
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('')}` as Hex
+  }
+
+  /**
+   * Iteratively mine a salt that ensures the newly created token sorts after the numeraire.
+   * This mirrors the legacy SDK behaviour so tick configuration can assume the numeraire is token0.
+   */
+  private async mineTokenOrder(args: {
+    params: CreateStaticAuctionParams<C>
+    baseCreateParams: Omit<CreateParams, 'salt'>
+    addresses: ReturnType<typeof getAddresses>
+  }): Promise<CreateParams> {
+    const { params, baseCreateParams, addresses } = args
+
+    const airlockAddress = params.modules?.airlock ?? addresses.airlock
+    if (!airlockAddress || airlockAddress === ZERO_ADDRESS) {
+      throw new Error('Airlock address not configured. Provide an explicit address via modules.airlock or ensure chain config includes a valid airlock.')
+    }
+
+    const accountForSimulation = this.walletClient?.account ?? params.userAddress
+    const numeraireBigInt = BigInt(params.sale.numeraire)
+
+    let attempt = 0n
+    const maxAttempts = 256n
+    let salt = this.generateRandomSalt(params.userAddress)
+
+    while (attempt < maxAttempts) {
+      const createParams = { ...baseCreateParams, salt } as CreateParams
+
+      const { result } = await (this.publicClient as PublicClient).simulateContract({
+        address: airlockAddress,
+        abi: airlockAbi,
+        functionName: 'create',
+        args: [{ ...createParams }],
+        account: accountForSimulation,
+      })
+
+      const simResult = result as readonly unknown[] | undefined
+      if (!simResult || !Array.isArray(simResult) || simResult.length < 2) {
+        throw new Error('Failed to simulate static auction create while mining token ordering')
+      }
+
+      const tokenAddress = simResult[0] as Address
+      if (BigInt(tokenAddress) > numeraireBigInt) {
+        return createParams
+      }
+
+      attempt += 1n
+      const incrementedAccount = toHex(BigInt(params.userAddress) + attempt) as Address
+      salt = this.generateRandomSalt(incrementedAccount)
+    }
+
+    throw new Error('Token mining exceeded iteration limit while trying to force token order. Try again or provide a different user address.')
   }
 
   async encodeCreateDynamicAuctionParams(params: CreateDynamicAuctionParams<C>): Promise<{
