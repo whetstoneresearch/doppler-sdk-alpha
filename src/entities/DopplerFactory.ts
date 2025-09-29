@@ -1129,17 +1129,15 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       return sanitizedCurves
     }
 
-    const fallbackTickUpper = mostNegativeTickUpper
-    if (fallbackTickUpper === undefined) {
+    const fallbackTickLower = mostNegativeTickUpper
+    if (fallbackTickLower === undefined) {
       throw new Error('Unable to determine fallback multicurve tick range')
     }
 
-    const fallbackTickLower = this.roundMinTickUp(tickSpacing)
-    if (fallbackTickLower >= fallbackTickUpper) {
-      throw new Error('Fallback multicurve tick range must have tickLower < tickUpper')
-    }
+    const fallbackTickUpper = this.roundMinTickUp(tickSpacing)
 
     const fallbackCurve = {
+      // Extend from the most negative user tick out to the minimum supported tick bucket
       tickLower: fallbackTickLower,
       tickUpper: fallbackTickUpper,
       numPositions: sanitizedCurves[sanitizedCurves.length - 1]?.numPositions ?? 1,

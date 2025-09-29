@@ -97,12 +97,12 @@ describe('DopplerFactory', () => {
 
       const fallback = curves[curves.length - 1]
       const expectedShare = parseEther('1') - params.pool.curves.reduce((acc, curve) => acc + curve.shares, 0n)
-      const expectedTickLower = Math.ceil(MIN_TICK / tickSpacing) * tickSpacing
+      const expectedTickUpper = Math.ceil(MIN_TICK / tickSpacing) * tickSpacing
       const mostNegativeTickUpper = params.pool.curves.reduce((min, curve) => Math.min(min, curve.tickUpper), params.pool.curves[0]!.tickUpper)
 
       expect(fallback.shares).toBe(expectedShare)
-      expect(Number(fallback.tickLower)).toBe(expectedTickLower)
-      expect(Number(fallback.tickUpper)).toBe(mostNegativeTickUpper)
+      expect(Number(fallback.tickLower)).toBe(mostNegativeTickUpper)
+      expect(Number(fallback.tickUpper)).toBe(expectedTickUpper)
       expect(Number(fallback.numPositions)).toBe(params.pool.curves[params.pool.curves.length - 1]!.numPositions)
     })
 
