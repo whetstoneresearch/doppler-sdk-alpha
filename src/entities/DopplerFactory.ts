@@ -1483,7 +1483,17 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     customDerc20Bytecode?: `0x${string}`
     tokenVariant?: 'standard' | 'doppler404'
   }): [Hash, Address, Address, Hex, Hex] {
-    const isToken0 = params.numeraire !== zeroAddress
+    const numeraireBigInt = BigInt(params.numeraire)
+    const halfMaxUint256 = (2n ** 255n) - 1n
+
+    let isToken0: boolean
+    if (numeraireBigInt === 0n) {
+      isToken0 = false
+    } else if (numeraireBigInt > halfMaxUint256) {
+      isToken0 = true
+    } else {
+      isToken0 = false
+    }
 
     const {
       minimumProceeds,
@@ -1738,11 +1748,9 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           params.tokenFactory
         )
         const tokenBigInt = BigInt(token)
-        const numeraireBigInt = BigInt(params.numeraire)
         if (
           (hookBigInt & FLAG_MASK) === flags &&
-          ((isToken0 && tokenBigInt < numeraireBigInt) ||
-            (!isToken0 && tokenBigInt > numeraireBigInt))
+          numeraireBigInt < tokenBigInt
         ) {
           return [saltBytes, hook, token, poolInitializerData, tokenFactoryData]
         }

@@ -364,6 +364,129 @@ describe('DopplerFactory', () => {
         expect.objectContaining({ gas: 18_000_000n })
       )
     })
+
+    it('should handle non-ETH numeraire correctly', async () => {
+      const paramsWithERC20Numeraire = {
+        ...validParams,
+        sale: {
+          ...validParams.sale,
+          numeraire: '0x6B175474E89094C44Da98b954EedeAC495271d0F' as Address, // DAI address (high value)
+        },
+      }
+
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const eventSignature = keccak256(toHex('Create(address,address,address,address,address,address,address)'))
+
+      vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
+        request: { address: mockAddresses.airlock, functionName: 'create', args: [{}, {}] },
+        result: [mockPoolAddress, mockTokenAddress],
+      } as any)
+      vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
+      vi.mocked(publicClient.waitForTransactionReceipt).mockResolvedValueOnce(
+        createMockTransactionReceipt([{
+          address: mockAddresses.airlock,
+          topics: [eventSignature, `0x000000000000000000000000${mockPoolAddress.slice(2)}`, `0x000000000000000000000000${mockTokenAddress.slice(2)}`, `0x000000000000000000000000${paramsWithERC20Numeraire.sale.numeraire.slice(2)}`],
+          data: '0x' as `0x${string}`,
+        }])
+      )
+
+      const result = await factory.createDynamicAuction(paramsWithERC20Numeraire)
+
+      expect(result).toEqual({
+        hookAddress: mockPoolAddress,
+        tokenAddress: mockTokenAddress,
+        poolId: expect.any(String),
+        transactionHash: mockTxHash,
+      })
+
+      // Verify that the call succeeds without errors for non-ETH numeraire
+      expect(publicClient.simulateContract).toHaveBeenCalledWith(
+        expect.objectContaining({
+          address: mockAddresses.airlock,
+          functionName: 'create',
+        })
+      )
+    })
+
+    it('should handle ETH numeraire (zero address) correctly', async () => {
+      const paramsWithETHNumeraire = {
+        ...validParams,
+        sale: {
+          ...validParams.sale,
+          numeraire: '0x0000000000000000000000000000000000000000' as Address,
+        },
+      }
+
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const eventSignature = keccak256(toHex('Create(address,address,address,address,address,address,address)'))
+
+      vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
+        request: { address: mockAddresses.airlock, functionName: 'create', args: [{}, {}] },
+        result: [mockPoolAddress, mockTokenAddress],
+      } as any)
+      vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
+      vi.mocked(publicClient.waitForTransactionReceipt).mockResolvedValueOnce(
+        createMockTransactionReceipt([{
+          address: mockAddresses.airlock,
+          topics: [eventSignature, `0x000000000000000000000000${mockPoolAddress.slice(2)}`, `0x000000000000000000000000${mockTokenAddress.slice(2)}`, `0x0000000000000000000000000000000000000000`],
+          data: '0x' as `0x${string}`,
+        }])
+      )
+
+      const result = await factory.createDynamicAuction(paramsWithETHNumeraire)
+
+      expect(result).toEqual({
+        hookAddress: mockPoolAddress,
+        tokenAddress: mockTokenAddress,
+        poolId: expect.any(String),
+        transactionHash: mockTxHash,
+      })
+
+      // Verify that the call succeeds without errors for ETH numeraire
+      expect(publicClient.simulateContract).toHaveBeenCalledWith(
+        expect.objectContaining({
+          address: mockAddresses.airlock,
+          functionName: 'create',
+        })
+      )
+    })
+
+    it('should encode create params with different numeraire types correctly', async () => {
+      // Test ETH numeraire
+      const ethParams = {
+        ...validParams,
+        sale: {
+          ...validParams.sale,
+          numeraire: '0x0000000000000000000000000000000000000000' as Address,
+        },
+        blockTimestamp: 1700000000, // Provide explicit timestamp to avoid getBlock call
+      }
+
+      const ethResult = await factory.encodeCreateDynamicAuctionParams(ethParams)
+      expect(ethResult.createParams).toBeDefined()
+      expect(ethResult.hookAddress).toMatch(/^0x[a-fA-F0-9]{40}$/)
+      expect(ethResult.tokenAddress).toMatch(/^0x[a-fA-F0-9]{40}$/)
+
+      // Test non-ETH numeraire (DAI)
+      const daiParams = {
+        ...validParams,
+        sale: {
+          ...validParams.sale,
+          numeraire: '0x6B175474E89094C44Da98b954EedeAC495271d0F' as Address, // DAI address
+        },
+        blockTimestamp: 1700000000, // Provide explicit timestamp to avoid getBlock call
+      }
+
+      const daiResult = await factory.encodeCreateDynamicAuctionParams(daiParams)
+      expect(daiResult.createParams).toBeDefined()
+      expect(daiResult.hookAddress).toMatch(/^0x[a-fA-F0-9]{40}$/)
+      expect(daiResult.tokenAddress).toMatch(/^0x[a-fA-F0-9]{40}$/)
+
+      // The hook and token addresses should be different for different numeraires
+      // due to the address mining logic
+      expect(daiResult.hookAddress).not.toBe(ethResult.hookAddress)
+      expect(daiResult.tokenAddress).not.toBe(ethResult.tokenAddress)
+    })
   })
 
   describe('Edge cases', () => {
