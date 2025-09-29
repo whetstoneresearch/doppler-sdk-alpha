@@ -47,8 +47,10 @@ import {
   DEFAULT_V4_INITIAL_VOTING_DELAY,
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
-  DEFAULT_CREATE_GAS_LIMIT
+  DEFAULT_CREATE_GAS_LIMIT,
+  WAD,
 } from '../constants'
+import { MIN_TICK } from '../utils'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
 
 // Type definition for the custom migration encoder function
@@ -890,6 +892,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Multicurve pool must include at least one curve')
     }
 
+    const normalizedCurves = this.normalizeMulticurveCurves(params.pool.curves, params.pool.tickSpacing)
+
     const addresses = getAddresses(this.chainId)
 
     // Pool initializer data: (fee, tickSpacing, curves[], beneficiaries[])
@@ -914,7 +918,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       [{
         "fee": params.pool.fee,
         "tickSpacing": params.pool.tickSpacing,
-        "curves": params.pool.curves.map((c: typeof params.pool.curves[number]) => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares })),
+        "curves": normalizedCurves.map((c: typeof normalizedCurves[number]) => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares })),
         "lockableBeneficiaries": sortedLockBeneficiaries.map((b: NonNullable<typeof params.pool.lockableBeneficiaries>[number]) => ({ beneficiary: b.beneficiary, shares: b.shares }))
       }
       ]
@@ -1069,8 +1073,91 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   }
 
   /**
-   * Validate static auction parameters
+   * Normalize user-provided multicurve positions and ensure they satisfy SDK constraints
    */
+  private normalizeMulticurveCurves(
+    curves: CreateMulticurveParams['pool']['curves'],
+    tickSpacing: number
+  ): CreateMulticurveParams['pool']['curves'] {
+    if (tickSpacing <= 0) {
+      throw new Error('Tick spacing must be positive')
+    }
+    if (!curves.length) {
+      throw new Error('Multicurve pool must include at least one curve')
+    }
+
+    let totalShares = 0n
+    let mostNegativeTickUpper: number | undefined
+
+    const sanitizedCurves = curves.map(curve => {
+      const sanitized = { ...curve }
+
+      if (!Number.isFinite(sanitized.tickLower) || !Number.isFinite(sanitized.tickUpper)) {
+        throw new Error('Multicurve ticks must be finite numbers')
+      }
+      if (sanitized.tickLower >= sanitized.tickUpper) {
+        throw new Error('Multicurve curve tickLower must be less than tickUpper')
+      }
+      if (sanitized.tickLower >= 0 || sanitized.tickUpper >= 0) {
+        throw new Error('Multicurve ticks must be negative numbers')
+      }
+      if (!Number.isInteger(sanitized.numPositions) || sanitized.numPositions <= 0) {
+        throw new Error('Multicurve curve numPositions must be a positive integer')
+      }
+      if (sanitized.shares <= 0n) {
+        throw new Error('Multicurve curve shares must be positive')
+      }
+
+      totalShares += sanitized.shares
+      if (totalShares > WAD) {
+        throw new Error('Total multicurve shares cannot exceed 100% (1e18)')
+      }
+
+      if (mostNegativeTickUpper === undefined || sanitized.tickUpper < mostNegativeTickUpper) {
+        mostNegativeTickUpper = sanitized.tickUpper
+      }
+
+      return sanitized
+    })
+
+    if (totalShares === WAD) {
+      return sanitizedCurves
+    }
+
+    const missingShare = WAD - totalShares
+    if (missingShare <= 0n) {
+      return sanitizedCurves
+    }
+
+    const fallbackTickUpper = mostNegativeTickUpper
+    if (fallbackTickUpper === undefined) {
+      throw new Error('Unable to determine fallback multicurve tick range')
+    }
+
+    const fallbackTickLower = this.roundMinTickUp(tickSpacing)
+    if (fallbackTickLower >= fallbackTickUpper) {
+      throw new Error('Fallback multicurve tick range must have tickLower < tickUpper')
+    }
+
+    const fallbackCurve = {
+      tickLower: fallbackTickLower,
+      tickUpper: fallbackTickUpper,
+      numPositions: sanitizedCurves[sanitizedCurves.length - 1]?.numPositions ?? 1,
+      shares: missingShare,
+    }
+
+    return [...sanitizedCurves, fallbackCurve]
+  }
+
+  private roundMinTickUp(tickSpacing: number): number {
+    if (tickSpacing <= 0) {
+      throw new Error('Tick spacing must be positive')
+    }
+
+    const rounded = Math.ceil(MIN_TICK / tickSpacing) * tickSpacing
+    return rounded
+  }
+
   private validateStaticAuctionParams(params: CreateStaticAuctionParams): void {
     // Validate token parameters
     if (!params.token.name || params.token.name.trim().length === 0) {

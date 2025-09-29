@@ -66,8 +66,8 @@ describe('Bundler integration', () => {
         tickSpacing: 60,
         curves: [
           {
-            tickLower: -60000,
-            tickUpper: 60000,
+            tickLower: -120000,
+            tickUpper: -60000,
             numPositions: 8,
             shares: parseEther('1'),
           },

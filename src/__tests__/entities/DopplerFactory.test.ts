@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { DopplerFactory } from '../../entities/DopplerFactory'
 import { createMockPublicClient, createMockWalletClient, createMockTransactionReceipt } from '../mocks/clients'
 import { mockAddresses, mockTokenAddress, mockPoolAddress } from '../mocks/addresses'
-import type { CreateStaticAuctionParams, CreateDynamicAuctionParams } from '../../types'
-import { parseEther, keccak256, toHex, type Address } from 'viem'
+import type { CreateStaticAuctionParams, CreateDynamicAuctionParams, CreateMulticurveParams } from '../../types'
+import { parseEther, keccak256, toHex, decodeAbiParameters, type Address } from 'viem'
+import { MIN_TICK } from '../../utils'
 
 vi.mock('../../addresses', () => ({
   getAddresses: vi.fn(() => mockAddresses)
@@ -18,6 +19,106 @@ describe('DopplerFactory', () => {
     publicClient = createMockPublicClient()
     walletClient = createMockWalletClient()
     factory = new DopplerFactory(publicClient, walletClient, 1) // mainnet
+  })
+
+  describe('encodeCreateMulticurveParams', () => {
+    const multicurveParams = (): CreateMulticurveParams => ({
+      token: {
+        name: 'MC Token',
+        symbol: 'MCT',
+        tokenURI: 'https://example.com/mc-token',
+      },
+      sale: {
+        initialSupply: parseEther('1000000'),
+        numTokensToSell: parseEther('400000'),
+        numeraire: mockAddresses.weth,
+      },
+      pool: {
+        fee: 3000,
+        tickSpacing: 60,
+        curves: [
+          {
+            tickLower: -140000,
+            tickUpper: -70000,
+            numPositions: 8,
+            shares: parseEther('0.6'),
+          },
+          {
+            tickLower: -90000,
+            tickUpper: -50000,
+            numPositions: 4,
+            shares: parseEther('0.3'),
+          },
+        ],
+      },
+      governance: { type: 'default' },
+      migration: { type: 'uniswapV2' },
+      userAddress: '0x1234567890123456789012345678901234567890' as Address,
+    })
+
+    it('appends a fallback curve when shares total less than 100%', () => {
+      const params = multicurveParams()
+      const createParams = factory.encodeCreateMulticurveParams(params)
+
+      const [poolInitData] = decodeAbiParameters(
+        [
+          {
+            type: 'tuple',
+            components: [
+              { name: 'fee', type: 'uint24' },
+              { name: 'tickSpacing', type: 'int24' },
+              {
+                name: 'curves',
+                type: 'tuple[]',
+                components: [
+                  { name: 'tickLower', type: 'int24' },
+                  { name: 'tickUpper', type: 'int24' },
+                  { name: 'numPositions', type: 'uint16' },
+                  { name: 'shares', type: 'uint256' },
+                ],
+              },
+              {
+                name: 'lockableBeneficiaries',
+                type: 'tuple[]',
+                components: [
+                  { name: 'beneficiary', type: 'address' },
+                  { name: 'shares', type: 'uint96' },
+                ],
+              },
+            ],
+          },
+        ],
+        createParams.poolInitializerData,
+      ) as any
+
+      const curves = poolInitData.curves as Array<{ tickLower: bigint; tickUpper: bigint; numPositions: number | bigint; shares: bigint }>
+      const tickSpacing = Number(poolInitData.tickSpacing)
+      expect(curves).toHaveLength(params.pool.curves.length + 1)
+
+      const fallback = curves[curves.length - 1]
+      const expectedShare = parseEther('1') - params.pool.curves.reduce((acc, curve) => acc + curve.shares, 0n)
+      const expectedTickLower = Math.ceil(MIN_TICK / tickSpacing) * tickSpacing
+      const mostNegativeTickUpper = params.pool.curves.reduce((min, curve) => Math.min(min, curve.tickUpper), params.pool.curves[0]!.tickUpper)
+
+      expect(fallback.shares).toBe(expectedShare)
+      expect(Number(fallback.tickLower)).toBe(expectedTickLower)
+      expect(Number(fallback.tickUpper)).toBe(mostNegativeTickUpper)
+      expect(Number(fallback.numPositions)).toBe(params.pool.curves[params.pool.curves.length - 1]!.numPositions)
+    })
+
+    it('rejects curves with non-negative ticks', () => {
+      const params = multicurveParams()
+      params.pool.curves = [
+        {
+          tickLower: -120000,
+          tickUpper: 0,
+          numPositions: 2,
+          shares: parseEther('0.5'),
+        },
+      ]
+
+      expect(() => factory.encodeCreateMulticurveParams(params)).toThrow('Multicurve ticks must be negative numbers')
+    })
   })
 
   describe('createStaticAuction', () => {
