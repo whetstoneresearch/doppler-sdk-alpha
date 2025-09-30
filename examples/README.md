@@ -13,16 +13,19 @@ Create a gradual Dutch auction that adjusts price over time based on demand.
 ### 3. [Multicurve Initializer (V4)](./multicurve-initializer.ts)
 Create a pool seeded with multiple curves in one initializer call. Use any standard migration path (V2/V3/V4).
 
-### 4. [Multicurve Quote & Swap](./multicurve-quote-and-swap.ts)
+### 4. [Multicurve Pre-Buy with WETH](./multicurve-prebuy-weth.ts)
+Atomically create a multicurve auction and pre-buy tokens using WETH (not ETH) with Permit2 signatures. Demonstrates using `doppler-router` to build Universal Router commands for V4 swaps.
+
+### 5. [Multicurve Quote & Swap](./multicurve-quote-and-swap.ts)
 Launch a multicurve auction, get a V4 quote, and execute a swap on the new pool.
 
-### 5. [Auction Monitoring](./auction-monitoring.ts)
+### 6. [Auction Monitoring](./auction-monitoring.ts)
 Monitor an existing auction for graduation status and key metrics.
 
-### 6. [Token Interaction](./token-interaction.ts)
+### 7. [Token Interaction](./token-interaction.ts)
 Interact with launched tokens - check balances, approve spending, and release vested tokens.
 
-### 7. [Price Quoter](./price-quoter.ts)
+### 8. [Price Quoter](./price-quoter.ts)
 Get price quotes across different Uniswap versions for optimal trading.
 
 ## Prerequisites
@@ -39,6 +42,9 @@ Before running these examples, ensure you have:
 1. Install dependencies:
 ```bash
 npm install doppler-sdk viem
+
+# For multicurve pre-buy example (optional)
+npm install doppler-router
 ```
 
 2. Set up environment variables:
