@@ -99,6 +99,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v3Quoter: '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a' as Address,
     lockableV3Initializer: '0xe0dc4012ac9c868f09c6e4b20d66ed46d6f258d0' as Address,
     v4Initializer: '0x82ac010c67f70bacf7655cd8948a4ad92a173cac' as Address,
+    v4MulticurveInitializer: '0x65dE470Da664A5be139A5D812bE5FDa0d76CC951' as Address, // BASE mainnet multicurve initializer
     doppler: '0x2f2bacd46d3f5c9ee052ab392b73711db89129db' as Address,
     dopplerLens: '0x43d0d97ec9241a8f05a264f94b82a1d2e600f2b3' as Address,
     dopplerDeployer: '0x8350cAd81149A9944c2fb4276955FaAA7D61e836' as Address,
