@@ -140,6 +140,23 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       const tokenStd = params.token as StandardTokenConfig
       const vestingDuration = params.vesting?.duration ?? BigInt(0)
       const yearlyMintRate = tokenStd.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE
+
+      // Handle vesting recipients and amounts
+      let vestingRecipients: Address[] = []
+      let vestingAmounts: bigint[] = []
+
+      if (params.vesting) {
+        if (params.vesting.recipients && params.vesting.amounts) {
+          // Use provided recipients and amounts
+          vestingRecipients = params.vesting.recipients
+          vestingAmounts = params.vesting.amounts
+        } else {
+          // Default: vest all non-sold tokens to userAddress
+          vestingRecipients = [params.userAddress]
+          vestingAmounts = [params.sale.initialSupply - params.sale.numTokensToSell]
+        }
+      }
+
       tokenFactoryData = encodeAbiParameters(
         [
           { type: 'string' },
@@ -155,8 +172,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           tokenStd.symbol,
           yearlyMintRate,
           BigInt(vestingDuration),
-          params.vesting ? [params.userAddress] : [],
-          params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
+          vestingRecipients,
+          vestingAmounts,
           tokenStd.tokenURI,
         ]
       )
@@ -527,6 +544,23 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         })()
       : (() => {
           const t = params.token as StandardTokenConfig
+
+          // Handle vesting recipients and amounts
+          let vestingRecipients: Address[] = []
+          let vestingAmounts: bigint[] = []
+
+          if (params.vesting) {
+            if (params.vesting.recipients && params.vesting.amounts) {
+              // Use provided recipients and amounts
+              vestingRecipients = params.vesting.recipients
+              vestingAmounts = params.vesting.amounts
+            } else {
+              // Default: vest all non-sold tokens to userAddress
+              vestingRecipients = [params.userAddress]
+              vestingAmounts = [params.sale.initialSupply - params.sale.numTokensToSell]
+            }
+          }
+
           return {
             name: t.name,
             symbol: t.symbol,
@@ -534,8 +568,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
             airlock: addresses.airlock,
             yearlyMintRate: t.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE,
             vestingDuration: BigInt(vestingDuration),
-            recipients: params.vesting ? [params.userAddress] : [],
-            amounts: params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
+            recipients: vestingRecipients,
+            amounts: vestingAmounts,
             tokenURI: t.tokenURI,
           }
         })()
@@ -937,11 +971,26 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       const tokenStd = params.token as StandardTokenConfig
       const vestingDuration = params.vesting?.duration ?? BigInt(0)
       const yearlyMintRate = tokenStd.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
-      const recipients: Address[] = params.vesting ? [params.userAddress] : []
-      const vestingAmounts: bigint[] = params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : []
+
+      // Handle vesting recipients and amounts
+      let vestingRecipients: Address[] = []
+      let vestingAmounts: bigint[] = []
+
+      if (params.vesting) {
+        if (params.vesting.recipients && params.vesting.amounts) {
+          // Use provided recipients and amounts
+          vestingRecipients = params.vesting.recipients
+          vestingAmounts = params.vesting.amounts
+        } else {
+          // Default: vest all non-sold tokens to userAddress
+          vestingRecipients = [params.userAddress]
+          vestingAmounts = [params.sale.initialSupply - params.sale.numTokensToSell]
+        }
+      }
+
       tokenFactoryData = encodeAbiParameters(
         [ { type: 'string' }, { type: 'string' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address[]' }, { type: 'uint256[]' }, { type: 'string' } ],
-        [ tokenStd.name, tokenStd.symbol, yearlyMintRate, BigInt(vestingDuration), recipients, vestingAmounts, tokenStd.tokenURI ]
+        [ tokenStd.name, tokenStd.symbol, yearlyMintRate, BigInt(vestingDuration), vestingRecipients, vestingAmounts, tokenStd.tokenURI ]
       )
     }
 
@@ -1183,9 +1232,26 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     
     // Validate vesting if provided
     if (params.vesting) {
-      const vestedAmount = params.sale.initialSupply - params.sale.numTokensToSell
-      if (vestedAmount <= BigInt(0)) {
-        throw new Error('No tokens available for vesting')
+      // Validate recipients and amounts arrays match
+      if (params.vesting.recipients && params.vesting.amounts) {
+        if (params.vesting.recipients.length !== params.vesting.amounts.length) {
+          throw new Error('Vesting recipients and amounts arrays must have the same length')
+        }
+        if (params.vesting.recipients.length === 0) {
+          throw new Error('Vesting recipients array cannot be empty')
+        }
+        // Validate total vested amount doesn't exceed available tokens
+        const totalVested = params.vesting.amounts.reduce((sum, amt) => sum + amt, BigInt(0))
+        const availableForVesting = params.sale.initialSupply - params.sale.numTokensToSell
+        if (totalVested > availableForVesting) {
+          throw new Error(`Total vesting amount (${totalVested}) exceeds available tokens (${availableForVesting})`)
+        }
+      } else {
+        // Default case: validate there are tokens available for vesting
+        const vestedAmount = params.sale.initialSupply - params.sale.numTokensToSell
+        if (vestedAmount <= BigInt(0)) {
+          throw new Error('No tokens available for vesting')
+        }
       }
     }
     

@@ -160,7 +160,7 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
     })
   }
 
-  withVesting(params?: { duration?: bigint; cliffDuration?: number }): this {
+  withVesting(params?: { duration?: bigint; cliffDuration?: number; recipients?: Address[]; amounts?: bigint[] }): this {
     if (!params) {
       this.vesting = undefined
       return this
@@ -168,6 +168,8 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
     this.vesting = {
       duration: Number(params.duration ?? DEFAULT_V3_VESTING_DURATION),
       cliffDuration: params.cliffDuration ?? 0,
+      recipients: params.recipients,
+      amounts: params.amounts,
     }
     return this
   }
@@ -381,7 +383,7 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     })
   }
 
-  withVesting(params?: { duration?: bigint; cliffDuration?: number }): this {
+  withVesting(params?: { duration?: bigint; cliffDuration?: number; recipients?: Address[]; amounts?: bigint[] }): this {
     if (!params) {
       this.vesting = undefined
       return this
@@ -389,6 +391,8 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     this.vesting = {
       duration: Number(params.duration ?? 0n),
       cliffDuration: params.cliffDuration ?? 0,
+      recipients: params.recipients,
+      amounts: params.amounts,
     }
     return this
   }
@@ -585,9 +589,9 @@ export class MulticurveBuilder<C extends SupportedChainId> {
     return this.poolConfig(params)
   }
 
-  withVesting(params?: { duration?: bigint; cliffDuration?: number }): this {
+  withVesting(params?: { duration?: bigint; cliffDuration?: number; recipients?: Address[]; amounts?: bigint[] }): this {
     if (!params) { this.vesting = undefined; return this }
-    this.vesting = { duration: Number(params.duration ?? 0n), cliffDuration: params.cliffDuration ?? 0 }
+    this.vesting = { duration: Number(params.duration ?? 0n), cliffDuration: params.cliffDuration ?? 0, recipients: params.recipients, amounts: params.amounts }
     return this
   }
 

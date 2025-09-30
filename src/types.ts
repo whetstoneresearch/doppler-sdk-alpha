@@ -67,6 +67,8 @@ export interface DynamicAuctionConfig {
 export interface VestingConfig {
   duration: number; // in seconds
   cliffDuration: number; // in seconds
+  recipients?: Address[]; // Optional array of recipient addresses (defaults to [userAddress] if not specified)
+  amounts?: bigint[]; // Optional array of vesting amounts per recipient (must match recipients length if provided)
 }
 
 // Chains where no-op governance is enabled
