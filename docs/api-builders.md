@@ -42,8 +42,10 @@ Methods (chainable):
     - Defaults: `fee = DEFAULT_V3_FEE (10000)`, `startTick = DEFAULT_V3_START_TICK`, `endTick = DEFAULT_V3_END_TICK`, `numPositions = DEFAULT_V3_NUM_POSITIONS`, `maxShareToBeSold = DEFAULT_V3_MAX_SHARE_TO_BE_SOLD`
   - poolByPriceRange({ priceRange, fee?, numPositions?, maxShareToBeSold? })
     - Computes ticks from `priceRange` using inferred `tickSpacing` from `fee`
-- withVesting({ duration?, cliffDuration? } | undefined)
+- withVesting({ duration?, cliffDuration?, recipients?, amounts? } | undefined)
   - Omit to disable vesting. Default duration if provided but undefined is `DEFAULT_V3_VESTING_DURATION`.
+  - `recipients`: Optional array of addresses to receive vested tokens. Defaults to `[userAddress]` if not provided.
+  - `amounts`: Optional array of token amounts corresponding to each recipient. Must match `recipients` length if provided. Defaults to all unsold tokens to `userAddress` if not provided.
 - withGovernance(GovernanceConfig | { useDefaults: true } | { noOp: true } | undefined)
 - withMigration(MigrationConfig)
 - withUserAddress(address)
@@ -69,12 +71,29 @@ Validation highlights:
 
 Examples:
 ```ts
+// Example 1: Single vesting beneficiary (default behavior)
 const params = new StaticAuctionBuilder()
   .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
   .saleConfig({ initialSupply: parseEther('1_000_000_000'), numTokensToSell: parseEther('900_000_000'), numeraire: weth })
   .poolByPriceRange({ priceRange: { startPrice: 0.0001, endPrice: 0.001 }, fee: 3000 })
-  .withVesting({ duration: BigInt(365*24*60*60) })
+  .withVesting({ duration: BigInt(365*24*60*60) }) // All unsold tokens vest to userAddress
   .withGovernance() // required; no args → standard governance defaults
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress(user)
+  .build()
+
+// Example 2: Multiple vesting beneficiaries
+const paramsMultiVest = new StaticAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
+  .saleConfig({ initialSupply: parseEther('1_000_000_000'), numTokensToSell: parseEther('900_000_000'), numeraire: weth })
+  .poolByPriceRange({ priceRange: { startPrice: 0.0001, endPrice: 0.001 }, fee: 3000 })
+  .withVesting({
+    duration: BigInt(365*24*60*60),
+    cliffDuration: 0,
+    recipients: ['0xTeam...', '0xAdvisor...', '0xTreasury...'],
+    amounts: [parseEther('30_000_000'), parseEther('20_000_000'), parseEther('50_000_000')] // Total: 100M of 100M unsold
+  })
+  .withGovernance()
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress(user)
   .build()
@@ -100,8 +119,10 @@ Methods (chainable):
     - If `gamma` omitted, computed from ticks, duration, epoch length, and `tickSpacing`
   - auctionByPriceRange({ priceRange, minProceeds, maxProceeds, durationDays?, epochLength?, gamma?, tickSpacing?, numPdSlugs? })
     - Uses `pool.tickSpacing` unless `tickSpacing` is provided here
-- withVesting({ duration?, cliffDuration? } | undefined)
+- withVesting({ duration?, cliffDuration?, recipients?, amounts? } | undefined)
   - Omit to disable vesting. Default duration if provided but undefined is `0` for dynamic auctions.
+  - `recipients`: Optional array of addresses to receive vested tokens. Defaults to `[userAddress]` if not provided.
+  - `amounts`: Optional array of token amounts corresponding to each recipient. Must match `recipients` length if provided. Defaults to all unsold tokens to `userAddress` if not provided.
 - withGovernance(GovernanceConfig | { useDefaults: true } | { noOp: true } | undefined)
   - Call is required; `withGovernance()` applies standard defaults; `{ useDefaults: true }` also applies defaults; `{ noOp: true }` explicitly selects no‑op.
 - withMigration(MigrationConfig)
@@ -159,7 +180,9 @@ Methods (chainable):
   - Or use the alias `.withMulticurveAuction({...})`
   - `curves`: Array of `{ tickLower, tickUpper, numPositions, shares }` where `shares` are WAD-based weights
   - `lockableBeneficiaries` (optional): share-based beneficiaries for fee locking at initialization
-- withVesting({ duration?, cliffDuration? } | undefined)
+- withVesting({ duration?, cliffDuration?, recipients?, amounts? } | undefined)
+  - `recipients`: Optional array of addresses to receive vested tokens. Defaults to `[userAddress]` if not provided.
+  - `amounts`: Optional array of token amounts corresponding to each recipient. Must match `recipients` length if provided. Defaults to all unsold tokens to `userAddress` if not provided.
 - withGovernance(GovernanceConfig)
   - Call is required; use `{ type: 'default' }`, `{ type: 'custom', ... }`, or `{ type: 'noOp' }` where supported
 - withMigration(MigrationConfig)

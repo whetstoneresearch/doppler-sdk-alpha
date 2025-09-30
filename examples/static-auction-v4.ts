@@ -50,7 +50,13 @@ async function createStaticAuctionExample() {
       numeraire: '0x4200000000000000000000000000000000000006', // WETH on Base
     })
     .poolByTicks({ startTick: 175000, endTick: 225000, fee: 3000 })
-    .withVesting({ duration: BigInt(365 * 24 * 60 * 60), cliffDuration: 0 })
+    .withVesting({
+      duration: BigInt(365 * 24 * 60 * 60),
+      cliffDuration: 0,
+      // Optional: Specify multiple vesting beneficiaries
+      // recipients: [account.address, '0xTeamWallet...', '0xAdvisorWallet...'],
+      // amounts: [parseEther('50000000'), parseEther('30000000'), parseEther('20000000')]
+    })
     .withMigration({
       type: 'uniswapV4',
       fee: 3000,

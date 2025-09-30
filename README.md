@@ -66,7 +66,12 @@ const params = new StaticAuctionBuilder()
   .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
   .saleConfig({ initialSupply: parseEther('1000000000'), numTokensToSell: parseEther('900000000'), numeraire: '0x...' })
   .poolByTicks({ startTick: -92103, endTick: -69080, fee: 10000, numPositions: 15 })
-  .withVesting({ duration: BigInt(365 * 24 * 60 * 60) })
+  .withVesting({
+    duration: BigInt(365 * 24 * 60 * 60),
+    // Optional: specify multiple recipients and amounts
+    // recipients: ['0xTeam...', '0xAdvisor...'],
+    // amounts: [parseEther('50000000'), parseEther('50000000')]
+  })
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress('0x...')
   .build()
@@ -96,7 +101,12 @@ const params = new DynamicAuctionBuilder()
     maxProceeds: parseEther('1000'),
     numPdSlugs: 5,
   })
-  .withVesting({ duration: BigInt(365 * 24 * 60 * 60) })
+  .withVesting({
+    duration: BigInt(365 * 24 * 60 * 60),
+    // Optional: specify multiple recipients and amounts
+    // recipients: ['0xTeam...', '0xAdvisor...'],
+    // amounts: [parseEther('50000'), parseEther('50000')]
+  })
   .withMigration({
     type: 'uniswapV4',
     fee: 3000,
