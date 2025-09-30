@@ -568,7 +568,15 @@ export class MulticurveBuilder<C extends SupportedChainId> {
   }
 
   poolConfig(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; lockableBeneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
-    this.pool = { fee: params.fee, tickSpacing: params.tickSpacing, curves: params.curves, lockableBeneficiaries: params.lockableBeneficiaries }
+    const sortedLockableBeneficiaries = params.lockableBeneficiaries
+      ? [...params.lockableBeneficiaries].sort((a, b) => {
+          const aAddr = a.beneficiary.toLowerCase()
+          const bAddr = b.beneficiary.toLowerCase()
+          return aAddr < bAddr ? -1 : aAddr > bAddr ? 1 : 0
+        })
+      : undefined
+
+    this.pool = { fee: params.fee, tickSpacing: params.tickSpacing, curves: params.curves, lockableBeneficiaries: sortedLockableBeneficiaries }
     return this
   }
 
