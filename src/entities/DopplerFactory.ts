@@ -1148,7 +1148,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         throw new Error('Multicurve curve tickLower must be less than tickUpper')
       }
       if (sanitized.tickLower <= 0 || sanitized.tickUpper <= 0) {
-        throw new Error('Multicurve ticks must be positive numbers')
+        console.warn('Warning: Using negative or zero ticks in multicurve configuration. Please verify this is intentional before proceeding.')
       }
       if (!Number.isInteger(sanitized.numPositions) || sanitized.numPositions <= 0) {
         throw new Error('Multicurve curve numPositions must be a positive integer')
