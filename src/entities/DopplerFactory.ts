@@ -1019,10 +1019,27 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Multicurve initializer address not configured on this chain. Override via builder or update chain config.')
     }
 
-    const liquidityMigratorData = this.encodeMigrationData(params.migration)
-    const resolvedMigrator: Address | undefined = this.getMigratorAddress(params.migration, params.modules)
-    if (!resolvedMigrator || resolvedMigrator === ZERO_ADDRESS) {
-      throw new Error('Migrator address not configured on this chain. Override via builder or update chain config.')
+    // When lockableBeneficiaries are provided, use NoOpMigrator with empty data
+    // The lockableBeneficiaries will be handled by the multicurve initializer, not the migrator
+    const hasLockableBeneficiaries = params.pool.lockableBeneficiaries && params.pool.lockableBeneficiaries.length > 0
+
+    let liquidityMigratorData: Hex
+    let resolvedMigrator: Address | undefined
+
+    if (hasLockableBeneficiaries) {
+      // Use NoOpMigrator with empty data when beneficiaries are provided
+      liquidityMigratorData = '0x' as Hex
+      resolvedMigrator = params.modules?.noOpMigrator ?? addresses.noOpMigrator
+      if (!resolvedMigrator || resolvedMigrator === ZERO_ADDRESS) {
+        throw new Error('NoOpMigrator address not configured on this chain. Override via modules.noOpMigrator or update chain config.')
+      }
+    } else {
+      // Use standard migration flow when no beneficiaries
+      liquidityMigratorData = this.encodeMigrationData(params.migration)
+      resolvedMigrator = this.getMigratorAddress(params.migration, params.modules)
+      if (!resolvedMigrator || resolvedMigrator === ZERO_ADDRESS) {
+        throw new Error('Migrator address not configured on this chain. Override via builder or update chain config.')
+      }
     }
 
     const governanceFactoryAddress: Address = (() => {

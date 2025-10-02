@@ -464,4 +464,5 @@ export interface ModuleAddressOverrides {
   v2Migrator?: Address;
   v3Migrator?: Address;
   v4Migrator?: Address;
+  noOpMigrator?: Address;
 }

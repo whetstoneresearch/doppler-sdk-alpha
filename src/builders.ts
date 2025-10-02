@@ -236,6 +236,10 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
     return this.overrideModule('v4Migrator', address)
   }
 
+  withNoOpMigrator(address: Address): this {
+    return this.overrideModule('noOpMigrator', address)
+  }
+
   build(): CreateStaticAuctionParams<C> {
     if (!this.token) throw new Error('tokenConfig is required')
     if (!this.sale) throw new Error('saleConfig is required')
@@ -478,6 +482,10 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     return this.overrideModule('v4Migrator', address)
   }
 
+  withNoOpMigrator(address: Address): this {
+    return this.overrideModule('noOpMigrator', address)
+  }
+
   build(): CreateDynamicAuctionParams<C> {
     if (!this.token) throw new Error('tokenConfig is required')
     if (!this.sale) throw new Error('saleConfig is required')
@@ -632,6 +640,7 @@ export class MulticurveBuilder<C extends SupportedChainId> {
   withV2Migrator(address: Address): this { return this.overrideModule('v2Migrator', address) }
   withV3Migrator(address: Address): this { return this.overrideModule('v3Migrator', address) }
   withV4Migrator(address: Address): this { return this.overrideModule('v4Migrator', address) }
+  withNoOpMigrator(address: Address): this { return this.overrideModule('noOpMigrator', address) }
 
   build(): CreateMulticurveParams<C> {
     if (!this.token) throw new Error('tokenConfig is required')
