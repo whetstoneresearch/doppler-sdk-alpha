@@ -139,8 +139,9 @@ console.log('Token address:', result.tokenAddress)
 
 ### Multicurve Auction (V4 Multicurve Initializer)
 
-Multicurve auctions use a Uniswap V4-style initializer that seeds liquidity across multiple curves in a single pool. This enables richer distributions and can be combined with any supported migration path (V2, V3, or V4).
+Multicurve auctions use a Uniswap V4-style initializer that seeds liquidity across multiple curves in a single pool. This enables richer distributions and can be combined with any supported migration path (V2, V3, V4, or NoOp).
 
+**Standard Multicurve with Migration:**
 ```typescript
 import { MulticurveBuilder } from '@whetstone-research/doppler-sdk'
 import { parseEther } from 'viem'
@@ -155,27 +156,56 @@ const params = new MulticurveBuilder(base.id)
       { tickLower: 0, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
       { tickLower: 16000, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
     ],
-    // Optional: lock fee revenue to beneficiaries (shares in WAD)
-    lockableBeneficiaries: [
-      { beneficiary: '0x...', shares: parseEther('0.05') },
-    ],
   })
   .withGovernance({ type: 'default' })
-  // Choose a migration path (V2, V3, or V4). Example uses V2
+  // Choose a migration path (V2, V3, or V4)
   .withMigration({ type: 'uniswapV2' })
-  // Optional address overrides if not provided by chain config
-  // .withV4MulticurveInitializer('0xInitializer...')
   .withUserAddress('0x...')
   .build()
 
 const result = await sdk.factory.createMulticurve(params)
 console.log('Pool address:', result.poolAddress)
 console.log('Token address:', result.tokenAddress)
-
-// Or simulate to preview addresses and gas without sending a transaction
-const { asset, pool, gasEstimate } = await sdk.factory.simulateCreateMulticurve(params)
-console.log('Estimated gas:', gasEstimate?.toString() ?? 'not available')
 ```
+
+**Multicurve with Lockable Beneficiaries (NoOp Migration):**
+
+When you want fee revenue to flow to specific addresses without migrating liquidity after the auction, use lockable beneficiaries with NoOp migration:
+
+```typescript
+import { WAD } from '@whetstone-research/doppler-sdk'
+
+// Define beneficiaries with shares that sum to WAD (1e18 = 100%)
+// IMPORTANT: Protocol owner must be included with at least 5% shares
+const lockableBeneficiaries = [
+  { beneficiary: '0xProtocolOwner...', shares: WAD / 10n },      // 10% to protocol (>= 5% required)
+  { beneficiary: '0xYourAddress...', shares: (WAD * 4n) / 10n }, // 40%
+  { beneficiary: '0xOtherAddress...', shares: WAD / 2n },        // 50%
+]
+
+const params = new MulticurveBuilder(base.id)
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: '0x...' })
+  .withMulticurveAuction({
+    fee: 0,
+    tickSpacing: 8,
+    curves: [
+      { tickLower: 0, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
+      { tickLower: 16000, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
+    ],
+    lockableBeneficiaries // Add beneficiaries for fee streaming
+  })
+  .withGovernance({ type: 'default' })
+  .withMigration({ type: 'noOp' }) // Use NoOp migration with lockable beneficiaries
+  .withUserAddress('0x...')
+  .build()
+
+const result = await sdk.factory.createMulticurve(params)
+console.log('Pool address:', result.poolAddress)
+console.log('Token address:', result.tokenAddress)
+```
+
+See [examples/multicurve-lockable-beneficiaries.ts](./examples/multicurve-lockable-beneficiaries.ts) for a complete example.
 
 #### Transaction gas override
 - You can pass a gas limit to factory create calls via the `gas` field on `CreateStaticAuctionParams` / `CreateDynamicAuctionParams` / `CreateMulticurveParams`.

@@ -5,6 +5,9 @@
  * - Seeding a Uniswap V4 pool with multiple curves in a single initializer
  * - Using WAD-based shares to weight curve distributions
  * - Choosing a standard migration path (V2 in this example)
+ *
+ * For lockable beneficiaries with NoOp migration, see:
+ * - examples/multicurve-lockable-beneficiaries.ts
  */
 
 import { DopplerSDK, WAD } from '../src'
