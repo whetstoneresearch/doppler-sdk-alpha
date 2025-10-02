@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, type Address } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { DopplerSDK, getAddresses, CHAIN_IDS, airlockAbi, WAD } from '../src'
 
@@ -90,14 +90,16 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
     expect(states.noOpMigrator).toBe(4)
 
     // Define beneficiaries with shares that sum to WAD (1e18)
-    const beneficiary1 = '0x1234567890123456789012345678901234567890'
-    const beneficiary2 = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'
-    const beneficiary3 = '0x9876543210987654321098765432109876543210'
+    // IMPORTANT: Protocol owner (Airlock.owner()) must be included with at least 5% shares
+    const protocolOwner = '0x852a09C89463D236eea2f097623574f23E225769' as Address // Airlock owner on Base Sepolia
+    const beneficiary1 = protocolOwner // Protocol owner (required)
+    const beneficiary2 = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as Address
+    const beneficiary3 = '0x9876543210987654321098765432109876543210' as Address
 
     // Shares must sum to exactly WAD (1e18)
-    const share1 = WAD / 2n // 50%
-    const share2 = WAD / 4n // 25%
-    const share3 = WAD / 4n // 25%
+    const share1 = WAD / 10n // 10% for protocol (>= 5% required)
+    const share2 = WAD / 2n // 50%
+    const share3 = (WAD * 4n) / 10n // 40%
     // Total: 100%
 
     const builder = sdk
@@ -216,13 +218,14 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
     expect(states.initializer).toBe(3)
     expect(states.noOpMigrator).toBe(4)
 
-    const beneficiary1 = '0x1234567890123456789012345678901234567890'
-    const beneficiary2 = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'
+    const protocolOwner = '0x852a09C89463D236eea2f097623574f23E225769' as Address // Airlock owner on Base Sepolia
+    const beneficiary1 = protocolOwner // Protocol owner (required)
+    const beneficiary2 = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as Address
 
-    // Shares that DON'T sum to WAD (only 75%)
-    const share1 = WAD / 2n // 50%
-    const share2 = WAD / 4n // 25%
-    // Total: 75% (should fail)
+    // Shares that DON'T sum to WAD (only 60%)
+    const share1 = WAD / 10n // 10% for protocol
+    const share2 = WAD / 2n // 50%
+    // Total: 60% (should fail - missing 40%)
 
     const builder = sdk
       .buildMulticurveAuction()
@@ -278,11 +281,15 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
     expect(states.noOpMigrator).toBe(4)
 
     // Beneficiaries NOT in sorted order
-    const beneficiary1 = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' // Higher address
-    const beneficiary2 = '0x1234567890123456789012345678901234567890' // Lower address
+    // We need to include Airlock owner, so let's put it out of order with another address
+    const protocolOwner = '0x852a09C89463D236eea2f097623574f23E225769' as Address // Airlock owner on Base Sepolia
+    const beneficiary1 = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as Address // Higher address
+    const beneficiary2 = protocolOwner // Protocol owner - will be sorted by SDK
+    const beneficiary3 = '0x9876543210987654321098765432109876543210' as Address // Another address
 
-    const share1 = WAD / 2n
-    const share2 = WAD / 2n
+    const share1 = WAD / 2n // 50%
+    const share2 = WAD / 10n // 10% for protocol
+    const share3 = (WAD * 4n) / 10n // 40%
 
     const builder = sdk
       .buildMulticurveAuction()
@@ -310,6 +317,7 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
         lockableBeneficiaries: [
           { beneficiary: beneficiary1, shares: share1 },
           { beneficiary: beneficiary2, shares: share2 },
+          { beneficiary: beneficiary3, shares: share3 },
         ]
       })
       .withGovernance({ type: 'default' })
