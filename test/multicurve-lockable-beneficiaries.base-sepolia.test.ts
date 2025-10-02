@@ -132,7 +132,7 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
         ]
       })
       .withGovernance({ type: 'default' })
-      .withMigration({ type: 'uniswapV2' }) // This should be ignored when beneficiaries are present
+      .withMigration({ type: 'noOp' }) // Use NoOp migration when beneficiaries are present
       .withUserAddress(addresses.airlock)
       .withV4MulticurveInitializer(addresses.v4MulticurveInitializer!)
       .withNoOpMigrator(addresses.noOpMigrator!) // Explicitly set NoOpMigrator
@@ -255,7 +255,7 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
         ]
       })
       .withGovernance({ type: 'default' })
-      .withMigration({ type: 'uniswapV2' })
+      .withMigration({ type: 'noOp' })
       .withUserAddress(addresses.airlock)
       .withV4MulticurveInitializer(addresses.v4MulticurveInitializer!)
       .withNoOpMigrator(addresses.noOpMigrator!)
@@ -321,7 +321,7 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
         ]
       })
       .withGovernance({ type: 'default' })
-      .withMigration({ type: 'uniswapV2' })
+      .withMigration({ type: 'noOp' })
       .withUserAddress(addresses.airlock)
       .withV4MulticurveInitializer(addresses.v4MulticurveInitializer!)
       .withNoOpMigrator(addresses.noOpMigrator!)

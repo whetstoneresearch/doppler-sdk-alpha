@@ -4,11 +4,13 @@ import { baseSepolia } from 'viem/chains'
 import { DopplerSDK, getAddresses, CHAIN_IDS, airlockAbi, WAD } from '../src'
 
 /**
- * This test demonstrates using the MulticurveBuilder's withNoOpMigrator() helper
- * to explicitly configure a NoOpMigrator for lockable beneficiaries.
+ * This test demonstrates using migration type 'noOp' with the MulticurveBuilder
+ * to configure NoOpMigrator for lockable beneficiaries.
  *
  * The NoOpMigrator is used when you want the multicurve initializer to handle
  * beneficiaries directly without any post-auction migration logic.
+ *
+ * Use .withMigration({ type: 'noOp' }) when using lockable beneficiaries.
  */
 describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () => {
   const rpcUrl = process.env.BASE_SEPOLIA_RPC_URL
@@ -40,7 +42,7 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
     } catch {}
   })
 
-  it('demonstrates using withNoOpMigrator() builder helper with lockable beneficiaries', async () => {
+  it('demonstrates using migration type "noOp" with withNoOpMigrator() helper', async () => {
     if (!noOpMigratorWhitelisted) {
       console.warn('NoOpMigrator not whitelisted on Base Sepolia, skipping test')
       return
@@ -55,7 +57,7 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
     ]
     // Total: 100% (WAD)
 
-    // EXAMPLE: Using the withNoOpMigrator() builder helper
+    // EXAMPLE: Using migration type 'noOp' with withNoOpMigrator() helper
     const builder = sdk
       .buildMulticurveAuction()
       .tokenConfig({
@@ -78,14 +80,13 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
           numPositions: 10,
           shares: WAD / 10n,
         })),
-        // When lockableBeneficiaries are provided, the NoOpMigrator is automatically used
         lockableBeneficiaries: beneficiaries
       })
       .withGovernance({ type: 'default' })
-      .withMigration({ type: 'uniswapV2' }) // This migration config is ignored when beneficiaries are present
+      .withMigration({ type: 'noOp' }) // Specify NoOp migration type
       .withUserAddress(addresses.airlock)
       .withV4MulticurveInitializer(addresses.v4MulticurveInitializer!)
-      // EXPLICIT: Use the withNoOpMigrator() helper to override the NoOpMigrator address
+      // OPTIONAL: Override the NoOpMigrator address (uses chain default if not specified)
       .withNoOpMigrator(addresses.noOpMigrator!)
 
     const params = builder.build()
@@ -108,7 +109,7 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
     expect(pool).toMatch(/^0x[a-fA-F0-9]{40}$/)
   })
 
-  it('demonstrates automatic NoOpMigrator selection when beneficiaries are present (no explicit withNoOpMigrator call)', async () => {
+  it('demonstrates migration type "noOp" without explicit withNoOpMigrator() call', async () => {
     if (!noOpMigratorWhitelisted) {
       console.warn('NoOpMigrator not whitelisted on Base Sepolia, skipping test')
       return
@@ -120,8 +121,8 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
       { beneficiary: '0x9876543210987654321098765432109876543210' as Address, shares: (WAD * 95n) / 100n }, // 95%
     ]
 
-    // EXAMPLE: Without calling withNoOpMigrator(), the SDK automatically uses NoOpMigrator
-    // when lockableBeneficiaries are provided
+    // EXAMPLE: Using migration type 'noOp' without calling withNoOpMigrator()
+    // The SDK will use the default NoOpMigrator address from chain config
     const builder = sdk
       .buildMulticurveAuction()
       .tokenConfig({
@@ -147,15 +148,15 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
         lockableBeneficiaries: beneficiaries
       })
       .withGovernance({ type: 'default' })
-      .withMigration({ type: 'uniswapV2' }) // Ignored when beneficiaries present
+      .withMigration({ type: 'noOp' }) // Use NoOp migration type
       .withUserAddress(addresses.airlock)
       .withV4MulticurveInitializer(addresses.v4MulticurveInitializer!)
-      // NOTE: Not calling withNoOpMigrator() - SDK will use it automatically
+      // NOTE: Not calling withNoOpMigrator() - SDK will use default from chain addresses
 
     const params = builder.build()
     const createParams = sdk.factory.encodeCreateMulticurveParams(params)
 
-    // VERIFY: NoOpMigrator is still used automatically
+    // VERIFY: NoOpMigrator address from chain config is used
     expect(createParams.liquidityMigrator).toBe(addresses.noOpMigrator)
     expect(createParams.liquidityMigratorData).toBe('0x')
 
@@ -204,7 +205,7 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
         lockableBeneficiaries: beneficiaries
       })
       .withGovernance({ type: 'default' })
-      .withMigration({ type: 'uniswapV2' })
+      .withMigration({ type: 'noOp' })
       .withUserAddress(addresses.airlock)
       .withV4MulticurveInitializer(addresses.v4MulticurveInitializer!)
       // EXPLICIT: Override with custom NoOpMigrator address

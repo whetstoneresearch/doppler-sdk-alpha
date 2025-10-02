@@ -853,6 +853,10 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         // V2 migrator expects empty data
         return '0x' as Hex
 
+      case 'noOp':
+        // NoOp migrator expects empty data
+        return '0x' as Hex
+
       case 'uniswapV3':
         // Encode V3 migration data: fee and tick spacing
         return encodeAbiParameters(
@@ -1389,7 +1393,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
    */
   private getMigratorAddress(config: MigrationConfig, overrides?: ModuleAddressOverrides): Address {
     const addresses = getAddresses(this.chainId)
-    
+
     switch (config.type) {
       case 'uniswapV2':
         return overrides?.v2Migrator ?? addresses.v2Migrator
@@ -1397,7 +1401,14 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         return overrides?.v3Migrator ?? addresses.v3Migrator
       case 'uniswapV4':
         return overrides?.v4Migrator ?? addresses.v4Migrator
-      
+      case 'noOp': {
+        const noOpAddress = overrides?.noOpMigrator ?? addresses.noOpMigrator
+        if (!noOpAddress) {
+          throw new Error('NoOpMigrator not configured on this chain. Provide override via modules.noOpMigrator or update chain config.')
+        }
+        return noOpAddress
+      }
+
       default:
         throw new Error('Unknown migration type')
     }

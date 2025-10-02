@@ -137,7 +137,8 @@ export type MigrationConfig =
         lockDuration: number; // in seconds
         beneficiaries: BeneficiaryData[];
       };
-    };
+    }
+  | { type: 'noOp' }; // No migration - used with lockable beneficiaries
 
 // Create Static Auction parameters
 export interface CreateStaticAuctionParams<C extends SupportedChainId = SupportedChainId> {
