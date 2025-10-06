@@ -31,9 +31,10 @@ import type {
 import type { ModuleAddressOverrides } from '../types'
 import { getAddresses } from '../addresses'
 import { zeroAddress } from 'viem'
-import { 
+import {
   ZERO_ADDRESS,
   BASIS_POINTS,
+  WAD,
   DEFAULT_PD_SLUGS,
   DAY_SECONDS,
   FLAG_MASK,
@@ -48,7 +49,6 @@ import {
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
   DEFAULT_CREATE_GAS_LIMIT,
-  WAD,
 } from '../constants'
 import { MIN_TICK, MAX_TICK } from '../utils'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
@@ -1273,10 +1273,10 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         throw new Error('At least one beneficiary is required for V4 migration')
       }
       
-      // Check that percentages sum to 100%
-      const totalPercentage = beneficiaries.reduce((sum, b) => sum + b.percentage, 0)
-      if (totalPercentage !== BASIS_POINTS) {
-        throw new Error(`Beneficiary percentages must sum to ${BASIS_POINTS} (100%), but got ${totalPercentage}`)
+      // Check that shares sum to 100% (WAD)
+      const totalShares = beneficiaries.reduce((sum, b) => sum + b.shares, 0n)
+      if (totalShares !== WAD) {
+        throw new Error(`Beneficiary shares must sum to ${WAD} (100%), but got ${totalShares}`)
       }
     }
   }
@@ -1340,10 +1340,10 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         throw new Error('At least one beneficiary is required for V4 migration')
       }
       
-      // Check that percentages sum to 100%
-      const totalPercentage = beneficiaries.reduce((sum, b) => sum + b.percentage, 0)
-      if (totalPercentage !== BASIS_POINTS) {
-        throw new Error(`Beneficiary percentages must sum to ${BASIS_POINTS} (100%), but got ${totalPercentage}`)
+      // Check that shares sum to 100% (WAD)
+      const totalShares = beneficiaries.reduce((sum, b) => sum + b.shares, 0n)
+      if (totalShares !== WAD) {
+        throw new Error(`Beneficiary shares must sum to ${WAD} (100%), but got ${totalShares}`)
       }
     }
   }
