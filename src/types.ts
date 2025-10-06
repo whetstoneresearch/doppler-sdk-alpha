@@ -115,6 +115,16 @@ export interface LockablePoolState {
   status: LockablePoolStatus;
 }
 
+// Multicurve pool state (V4 initializer)
+export interface MulticurvePoolState {
+  asset: Address;
+  numeraire: Address;
+  fee: number;
+  tickSpacing: number;
+  totalTokensOnBondingCurve: bigint;
+  status: LockablePoolStatus; // Reuses the same enum
+}
+
 // Migration configuration (discriminated union)
 export type MigrationConfig =
   | { type: 'uniswapV2' } // Basic migration to a new Uniswap v2 pool

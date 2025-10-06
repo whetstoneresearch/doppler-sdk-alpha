@@ -6,7 +6,7 @@ export { DopplerSDK } from './DopplerSDK'
 // Export factory and auction classes
 export { DopplerFactory } from './entities/DopplerFactory'
 export type { MigrationEncoder } from './entities/DopplerFactory'
-export { StaticAuction, DynamicAuction } from './entities/auction'
+export { StaticAuction, DynamicAuction, MulticurvePool } from './entities/auction'
 
 // Export quoter
 export { Quoter } from './entities/quoter'
@@ -31,6 +31,7 @@ export type {
   // Lockable initializer types
   LockablePoolState,
   LockableV3InitializerParams,
+  MulticurvePoolState,
   
   // Parameter types
   CreateStaticAuctionParams,

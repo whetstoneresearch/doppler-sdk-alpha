@@ -2,7 +2,7 @@ import type { Address, WalletClient } from 'viem'
 import type { BeneficiaryData, DopplerSDKConfig, HookInfo, PoolInfo, SupportedPublicClient } from './types'
 import type { SupportedChainId } from './addresses'
 import { DopplerFactory } from './entities/DopplerFactory'
-import { StaticAuction, DynamicAuction } from './entities/auction'
+import { StaticAuction, DynamicAuction, MulticurvePool } from './entities/auction'
 import { Quoter } from './entities/quoter'
 import { Derc20 } from './entities/token'
 import { StaticAuctionBuilder, DynamicAuctionBuilder, MulticurveBuilder } from './builders'
@@ -55,6 +55,14 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
    */
   async getDynamicAuction(hookAddress: Address): Promise<DynamicAuction> {
     return new DynamicAuction(this.publicClient, hookAddress)
+  }
+
+  /**
+   * Get a MulticurvePool instance for interacting with a V4 multicurve pool
+   * @param poolAddress The address of the V4 pool
+   */
+  async getMulticurvePool(poolAddress: Address): Promise<MulticurvePool> {
+    return new MulticurvePool(this.publicClient, this.walletClient, poolAddress)
   }
 
   /**

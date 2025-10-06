@@ -1285,6 +1285,86 @@ export const lockableUniswapV3InitializerAbi = [
   { type: 'error', name: 'InvalidProtocolOwnerBeneficiary', inputs: [] },
 ] as const
 
+export const v4MulticurveInitializerAbi = [
+  {
+    type: 'function',
+    name: 'airlock',
+    inputs: [],
+    outputs: [{ name: '', type: 'address', internalType: 'contract Airlock' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'collectFees',
+    inputs: [{ name: 'pool', type: 'address', internalType: 'address' }],
+    outputs: [
+      { name: 'fees0ToDistribute', type: 'uint256', internalType: 'uint256' },
+      { name: 'fees1ToDistribute', type: 'uint256', internalType: 'uint256' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getState',
+    inputs: [{ name: 'pool', type: 'address', internalType: 'address' }],
+    outputs: [
+      { name: 'asset', type: 'address', internalType: 'address' },
+      { name: 'numeraire', type: 'address', internalType: 'address' },
+      { name: 'fee', type: 'uint24', internalType: 'uint24' },
+      { name: 'tickSpacing', type: 'int24', internalType: 'int24' },
+      { name: 'totalTokensOnBondingCurve', type: 'uint256', internalType: 'uint256' },
+      { name: 'status', type: 'uint8', internalType: 'enum PoolStatus' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'event',
+    name: 'Collect',
+    inputs: [
+      { name: 'pool', type: 'address', indexed: true, internalType: 'address' },
+      { name: 'beneficiary', type: 'address', indexed: true, internalType: 'address' },
+      { name: 'fees0', type: 'uint256', indexed: false, internalType: 'uint256' },
+      { name: 'fees1', type: 'uint256', indexed: false, internalType: 'uint256' },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'Create',
+    inputs: [
+      { name: 'poolOrHook', type: 'address', indexed: true, internalType: 'address' },
+      { name: 'asset', type: 'address', indexed: true, internalType: 'address' },
+      { name: 'numeraire', type: 'address', indexed: true, internalType: 'address' },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'Lock',
+    inputs: [
+      { name: 'pool', type: 'address', indexed: true, internalType: 'address' },
+      {
+        name: 'beneficiaries',
+        type: 'tuple[]',
+        indexed: false,
+        internalType: 'struct BeneficiaryData[]',
+        components: [
+          { name: 'beneficiary', type: 'address', internalType: 'address' },
+          { name: 'shares', type: 'uint96', internalType: 'uint96' },
+        ],
+      },
+    ],
+    anonymous: false,
+  },
+  { type: 'error', name: 'PoolLocked', inputs: [] },
+  { type: 'error', name: 'SenderNotAirlock', inputs: [] },
+  { type: 'error', name: 'UnorderedBeneficiaries', inputs: [] },
+  { type: 'error', name: 'InvalidShares', inputs: [] },
+  { type: 'error', name: 'InvalidTotalShares', inputs: [] },
+  { type: 'error', name: 'InvalidProtocolOwnerShares', inputs: [] },
+  { type: 'error', name: 'InvalidProtocolOwnerBeneficiary', inputs: [] },
+] as const
+
 export const dopplerLensAbi = [
   {
     type: 'function',
