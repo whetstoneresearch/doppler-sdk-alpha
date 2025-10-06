@@ -25,11 +25,10 @@ export type {
   StaticPoolConfig,
   DynamicAuctionConfig,
   VestingConfig,
-  BeneficiaryData,
   MigrationConfig,
-  
+  BeneficiaryData,
+
   // Lockable initializer types
-  LockableBeneficiaryData,
   LockablePoolState,
   LockableV3InitializerParams,
   

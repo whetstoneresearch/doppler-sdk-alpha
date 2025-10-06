@@ -125,7 +125,7 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
           shares: WAD / 10n,
         })),
         // Add lockable beneficiaries - these should trigger NoOpMigrator usage
-        lockableBeneficiaries: [
+        beneficiaries: [
           { beneficiary: beneficiary1, shares: share1 },
           { beneficiary: beneficiary2, shares: share2 },
           { beneficiary: beneficiary3, shares: share3 },
@@ -139,9 +139,9 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
 
     const params = builder.build()
 
-    // Verify that lockableBeneficiaries are set
-    expect(params.pool.lockableBeneficiaries).toBeDefined()
-    expect(params.pool.lockableBeneficiaries).toHaveLength(3)
+    // Verify that beneficiaries are set
+    expect(params.pool.beneficiaries).toBeDefined()
+    expect(params.pool.beneficiaries).toHaveLength(3)
 
     // Encode the params to verify NoOpMigrator is used
     const createParams = sdk.factory.encodeCreateMulticurveParams(params)
@@ -184,7 +184,7 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
           numPositions: 10,
           shares: WAD / 10n,
         })),
-        // No lockableBeneficiaries provided
+        // No beneficiaries provided
       })
       .withGovernance({ type: 'default' })
       .withMigration({ type: 'uniswapV2' })
@@ -194,8 +194,8 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
 
     const params = builder.build()
 
-    // Verify that lockableBeneficiaries are not set
-    expect(params.pool.lockableBeneficiaries).toBeUndefined()
+    // Verify that beneficiaries are not set
+    expect(params.pool.beneficiaries).toBeUndefined()
 
     // Encode the params to verify standard migrator is used
     const createParams = sdk.factory.encodeCreateMulticurveParams(params)
@@ -249,7 +249,7 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
           numPositions: 10,
           shares: WAD / 5n,
         })),
-        lockableBeneficiaries: [
+        beneficiaries: [
           { beneficiary: beneficiary1, shares: share1 },
           { beneficiary: beneficiary2, shares: share2 },
         ]
@@ -314,7 +314,7 @@ describe('Multicurve with lockable beneficiaries using NoOpMigrator (Base Sepoli
           shares: WAD / 5n,
         })),
         // Unsorted beneficiaries (SDK should sort them automatically)
-        lockableBeneficiaries: [
+        beneficiaries: [
           { beneficiary: beneficiary1, shares: share1 },
           { beneficiary: beneficiary2, shares: share2 },
           { beneficiary: beneficiary3, shares: share3 },

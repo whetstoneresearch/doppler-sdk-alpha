@@ -868,34 +868,27 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         )
 
       case 'uniswapV4':
-        // Encode V4 migration data with streamable fees config
-        // The V4 migrator expects beneficiaries with shares in WAD (1e18) format
-        const WAD = BigInt(1e18)
-        const beneficiaryData: { beneficiary: Address; shares: bigint }[] = []
+        // Encode V4 migration data with optional streamable fees config
+        // When streamableFees is omitted, we encode with 0 lock duration and empty beneficiaries
+        let beneficiaryData: { beneficiary: Address; shares: bigint }[] = []
 
-        // Convert percentage-based beneficiaries to shares-based
-        for (const b of config.streamableFees.beneficiaries) {
-          beneficiaryData.push({
-            beneficiary: b.address,
-            shares: (BigInt(b.percentage) * WAD) / BigInt(BASIS_POINTS)
+        if (config.streamableFees) {
+          // Copy beneficiaries and sort by address in ascending order (required by contract)
+          beneficiaryData = [...config.streamableFees.beneficiaries].sort((a, b) => {
+            const addrA = a.beneficiary.toLowerCase()
+            const addrB = b.beneficiary.toLowerCase()
+            return addrA < addrB ? -1 : addrA > addrB ? 1 : 0
           })
+
+          // Note: The contract will validate that the airlock owner gets at least 5%
+          // If not present, the SDK user should add it manually
         }
-
-        // Sort beneficiaries by address in ascending order (required by contract)
-        beneficiaryData.sort((a, b) => {
-          const addrA = a.beneficiary.toLowerCase()
-          const addrB = b.beneficiary.toLowerCase()
-          return addrA < addrB ? -1 : addrA > addrB ? 1 : 0
-        })
-
-        // Note: The contract will validate that the airlock owner gets at least 5%
-        // If not present, the SDK user should add it manually
 
         return encodeAbiParameters(
           [
             { type: 'uint24' },  // fee
             { type: 'int24' },   // tickSpacing
-            { type: 'uint32' },  // lockDuration
+            { type: 'uint32' },  // lockDuration (0 if no streamableFees)
             {
               type: 'tuple[]',
               components: [
@@ -907,11 +900,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           [
             config.fee,
             config.tickSpacing,
-            config.streamableFees.lockDuration,
-            beneficiaryData.map(b => ({
-              beneficiary: b.beneficiary,
-              shares: b.shares
-            }))
+            config.streamableFees?.lockDuration ?? 0,
+            beneficiaryData
           ]
         )
 
@@ -935,7 +925,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     const addresses = getAddresses(this.chainId)
 
     // Pool initializer data: (fee, tickSpacing, curves[], beneficiaries[])
-    const sortedLockBeneficiaries = (params.pool.lockableBeneficiaries ?? []).slice().sort((a: NonNullable<typeof params.pool.lockableBeneficiaries>[number], b: NonNullable<typeof params.pool.lockableBeneficiaries>[number]) => {
+    const sortedBeneficiaries = (params.pool.beneficiaries ?? []).slice().sort((a: NonNullable<typeof params.pool.beneficiaries>[number], b: NonNullable<typeof params.pool.beneficiaries>[number]) => {
       const aAddr = a.beneficiary.toLowerCase()
       const bAddr = b.beneficiary.toLowerCase()
       return aAddr < bAddr ? -1 : aAddr > bAddr ? 1 : 0
@@ -949,7 +939,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
               { name: 'fee', type: 'uint24' },
               { name: 'tickSpacing', type: 'int24' },
               { name: 'curves', type: 'tuple[]', components: [ { type: 'int24', name: 'tickLower' }, { type: 'int24', name: 'tickUpper' }, { type: 'uint16', name: 'numPositions' }, { type: 'uint256', name: 'shares' } ] },
-              { name: 'lockableBeneficiaries', type: 'tuple[]', components: [ { type: 'address', name: 'beneficiary' }, { type: 'uint96', name: 'shares' } ] },
+              { name: 'beneficiaries', type: 'tuple[]', components: [ { type: 'address', name: 'beneficiary' }, { type: 'uint96', name: 'shares' } ] },
             ]
           }
       ],
@@ -957,7 +947,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         "fee": params.pool.fee,
         "tickSpacing": params.pool.tickSpacing,
         "curves": normalizedCurves.map((c: typeof normalizedCurves[number]) => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares })),
-        "lockableBeneficiaries": sortedLockBeneficiaries.map((b: NonNullable<typeof params.pool.lockableBeneficiaries>[number]) => ({ beneficiary: b.beneficiary, shares: b.shares }))
+        "beneficiaries": sortedBeneficiaries.map((b: NonNullable<typeof params.pool.beneficiaries>[number]) => ({ beneficiary: b.beneficiary, shares: b.shares }))
       }
       ]
     )
@@ -1023,14 +1013,14 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Multicurve initializer address not configured on this chain. Override via builder or update chain config.')
     }
 
-    // When lockableBeneficiaries are provided, use NoOpMigrator with empty data
-    // The lockableBeneficiaries will be handled by the multicurve initializer, not the migrator
-    const hasLockableBeneficiaries = params.pool.lockableBeneficiaries && params.pool.lockableBeneficiaries.length > 0
+    // When beneficiaries are provided, use NoOpMigrator with empty data
+    // The beneficiaries will be handled by the multicurve initializer, not the migrator
+    const hasBeneficiaries = params.pool.beneficiaries && params.pool.beneficiaries.length > 0
 
     let liquidityMigratorData: Hex
     let resolvedMigrator: Address | undefined
 
-    if (hasLockableBeneficiaries) {
+    if (hasBeneficiaries) {
       // Use NoOpMigrator with empty data when beneficiaries are provided
       liquidityMigratorData = '0x' as Hex
       resolvedMigrator = params.modules?.noOpMigrator ?? addresses.noOpMigrator

@@ -78,7 +78,7 @@ describe('DopplerFactory', () => {
                 ],
               },
               {
-                name: 'lockableBeneficiaries',
+                name: 'beneficiaries',
                 type: 'tuple[]',
                 components: [
                   { name: 'beneficiary', type: 'address' },
@@ -342,7 +342,7 @@ describe('DopplerFactory', () => {
         streamableFees: {
           lockDuration: 365 * 24 * 60 * 60, // 1 year
           beneficiaries: [
-            { address: '0x1234567890123456789012345678901234567890' as Address, percentage: 10000 }, // 100%
+            { beneficiary: '0x1234567890123456789012345678901234567890' as Address, shares: parseEther('1') }, // 100%
           ],
         },
       },

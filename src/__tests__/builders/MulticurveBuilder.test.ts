@@ -6,7 +6,7 @@ import type { Address } from 'viem'
 
 describe('MulticurveBuilder', () => {
   it('sorts lockable beneficiaries by address during build', () => {
-    const lockableBeneficiaries = [
+    const beneficiaries = [
       { beneficiary: '0x0000000000000000000000000000000000000002' as Address, shares: WAD / 10n },
       { beneficiary: '0x0000000000000000000000000000000000000001' as Address, shares: WAD / 20n },
       { beneficiary: '0x0000000000000000000000000000000000000003' as Address, shares: WAD / 5n },
@@ -32,14 +32,14 @@ describe('MulticurveBuilder', () => {
             shares: WAD / 2n,
           },
         ],
-        lockableBeneficiaries,
+        beneficiaries,
       })
       .withGovernance({ type: 'default' })
       .withMigration({ type: 'uniswapV2' })
       .withUserAddress('0x00000000000000000000000000000000000000AA' as Address)
 
     const params = builder.build()
-    const beneficiaries = params.pool.lockableBeneficiaries ?? []
+    const beneficiaries = params.pool.beneficiaries ?? []
 
     expect(beneficiaries.map(b => b.beneficiary)).toEqual([
       '0x0000000000000000000000000000000000000001',

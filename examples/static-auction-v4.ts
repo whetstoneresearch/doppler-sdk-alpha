@@ -64,8 +64,8 @@ async function createStaticAuctionExample() {
       streamableFees: {
         lockDuration: 365 * 24 * 60 * 60, // 1 year
         beneficiaries: [
-          { address: account.address, percentage: 9500 }, // 95%
-          { address: airlockOwner, percentage: 500 }, // 5%
+          { beneficiary: account.address, shares: parseEther('0.95') }, // 95%
+          { beneficiary: airlockOwner, shares: parseEther('0.05') }, // 5%
         ],
       },
     })

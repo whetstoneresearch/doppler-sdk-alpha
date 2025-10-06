@@ -37,14 +37,14 @@ async function main() {
 
   // Define beneficiaries with shares that sum to WAD (1e18 = 100%)
   // IMPORTANT: Protocol owner must be included with at least 5% shares (WAD/20)
-  const lockableBeneficiaries = [
+  const beneficiaries = [
     { beneficiary: protocolOwner, shares: WAD / 10n },              // 10% to protocol owner (>= 5% required)
     { beneficiary: account.address, shares: (WAD * 4n) / 10n },     // 40% to deployer
     { beneficiary: '0x1234567890123456789012345678901234567890' as Address, shares: WAD / 2n }, // 50% to another address
   ]
   // Total: 100% (WAD)
 
-  // Build multicurve with lockable beneficiaries
+  // Build multicurve with beneficiaries
   const params = sdk
     .buildMulticurveAuction()
     .tokenConfig({
@@ -70,11 +70,11 @@ async function main() {
           shares: WAD / 10n, // 10% per curve
         }))
       ],
-      // Specify lockable beneficiaries for fee collection
-      lockableBeneficiaries
+      // Specify beneficiaries for fee collection
+      beneficiaries
     })
     .withGovernance({ type: 'default' })
-    // IMPORTANT: Use 'noOp' migration type when using lockable beneficiaries
+    // IMPORTANT: Use 'noOp' migration type when using beneficiaries
     // This tells the SDK to use NoOpMigrator (no post-auction migration)
     .withMigration({ type: 'noOp' })
     .withUserAddress(account.address)
@@ -85,7 +85,7 @@ async function main() {
   console.log('📋 Multicurve Configuration:')
   console.log('  Token:', params.token.name, `(${params.token.symbol})`)
   console.log('  Curves:', params.pool.curves.length)
-  console.log('  Beneficiaries:', params.pool.lockableBeneficiaries?.length)
+  console.log('  Beneficiaries:', params.pool.beneficiaries?.length)
   console.log('  Migration:', params.migration.type)
 
   // Simulate to preview addresses

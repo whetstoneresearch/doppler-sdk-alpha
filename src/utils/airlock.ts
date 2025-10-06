@@ -31,20 +31,21 @@ export const getAirlockOwner = async (publicClient: unknown): Promise<Address> =
   return owner as Address
 }
 
-export const DEFAULT_AIRLOCK_BENEFICIARY_BPS = 500
+// Default airlock beneficiary shares (5% = 0.05e18 WAD)
+export const DEFAULT_AIRLOCK_BENEFICIARY_SHARES = BigInt(5e16) // 5% in WAD
 
 export const createAirlockBeneficiary = (
   owner: Address,
-  percentage: number = DEFAULT_AIRLOCK_BENEFICIARY_BPS
+  shares: bigint = DEFAULT_AIRLOCK_BENEFICIARY_SHARES
 ): BeneficiaryData => ({
-  address: owner,
-  percentage,
+  beneficiary: owner,
+  shares,
 })
 
 export const getAirlockBeneficiary = async (
   publicClient: unknown,
-  percentage: number = DEFAULT_AIRLOCK_BENEFICIARY_BPS
+  shares: bigint = DEFAULT_AIRLOCK_BENEFICIARY_SHARES
 ): Promise<BeneficiaryData> => {
   const owner = await getAirlockOwner(publicClient)
-  return createAirlockBeneficiary(owner, percentage)
+  return createAirlockBeneficiary(owner, shares)
 }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { privateKeyToAccount } from 'viem/accounts'
+import { parseEther } from 'viem'
 import { DopplerFactory, type MigrationEncoder } from '../../entities/DopplerFactory'
 import { CHAIN_IDS } from '../../addresses'
 import type { MigrationConfig, CreateStaticAuctionParams } from '../../types'
@@ -107,7 +108,7 @@ describe('DopplerFactory Custom Migration Encoder', () => {
       streamableFees: {
         lockDuration: 86400, // 1 day
         beneficiaries: [
-          { address: mockCreateParams.userAddress, percentage: 10000 } // 100%
+          { beneficiary: mockCreateParams.userAddress, shares: parseEther('1') } // 100%
         ]
       }
     }

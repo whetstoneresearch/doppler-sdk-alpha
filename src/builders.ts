@@ -579,21 +579,21 @@ export class MulticurveBuilder<C extends SupportedChainId> {
     return this
   }
 
-  poolConfig(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; lockableBeneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
-    const sortedLockableBeneficiaries = params.lockableBeneficiaries
-      ? [...params.lockableBeneficiaries].sort((a, b) => {
+  poolConfig(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; beneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
+    const sortedBeneficiaries = params.beneficiaries
+      ? [...params.beneficiaries].sort((a, b) => {
           const aAddr = a.beneficiary.toLowerCase()
           const bAddr = b.beneficiary.toLowerCase()
           return aAddr < bAddr ? -1 : aAddr > bAddr ? 1 : 0
         })
       : undefined
 
-    this.pool = { fee: params.fee, tickSpacing: params.tickSpacing, curves: params.curves, lockableBeneficiaries: sortedLockableBeneficiaries }
+    this.pool = { fee: params.fee, tickSpacing: params.tickSpacing, curves: params.curves, beneficiaries: sortedBeneficiaries }
     return this
   }
 
   // Alias for clarity: indicate use of V4 multicurve initializer
-  withMulticurveAuction(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; lockableBeneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
+  withMulticurveAuction(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; beneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
     return this.poolConfig(params)
   }
 

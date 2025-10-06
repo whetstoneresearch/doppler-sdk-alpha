@@ -6,7 +6,7 @@ import { StaticAuction, DynamicAuction } from './entities/auction'
 import { Quoter } from './entities/quoter'
 import { Derc20 } from './entities/token'
 import { StaticAuctionBuilder, DynamicAuctionBuilder, MulticurveBuilder } from './builders'
-import { DEFAULT_AIRLOCK_BENEFICIARY_BPS, getAirlockBeneficiary, getAirlockOwner as fetchAirlockOwner } from './utils/airlock'
+import { DEFAULT_AIRLOCK_BENEFICIARY_SHARES, getAirlockBeneficiary, getAirlockOwner as fetchAirlockOwner } from './utils/airlock'
 
 export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
   private publicClient: SupportedPublicClient
@@ -129,9 +129,9 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
   }
 
   /**
-   * Convenience helper for building the airlock beneficiary entry with the default 5%
+   * Convenience helper for building the airlock beneficiary entry with the default 5% (0.05e18 WAD shares)
    */
-  async getAirlockBeneficiary(percentage: number = DEFAULT_AIRLOCK_BENEFICIARY_BPS): Promise<BeneficiaryData> {
-    return getAirlockBeneficiary(this.publicClient, percentage)
+  async getAirlockBeneficiary(shares: bigint = DEFAULT_AIRLOCK_BENEFICIARY_SHARES): Promise<BeneficiaryData> {
+    return getAirlockBeneficiary(this.publicClient, shares)
   }
 }

@@ -48,7 +48,7 @@ export interface StaticPoolConfig {
   // Optional parameters for lockable initializer
   numPositions?: number; // Number of liquidity positions (default: based on tick range)
   maxShareToBeSold?: bigint; // Maximum share of tokens to sell (in WAD, default: 1e18 = 100%)
-  lockableBeneficiaries?: LockableBeneficiaryData[]; // Optional beneficiaries for fee streaming
+  beneficiaries?: BeneficiaryData[]; // Optional beneficiaries for fee streaming
 }
 
 // Dynamic Auction configuration
@@ -89,14 +89,9 @@ export type GovernanceOption<C extends SupportedChainId> =
   | GovernanceCustom
   | (C extends NoOpEnabledChainId ? GovernanceNoOp : never);
 
-// Beneficiary data for streamable fees
+// Unified beneficiary data used for fee streaming, lockable initializers, and migration configs
+// Uses shares in WAD format (1e18 = 100%) for consistency across all beneficiary configurations
 export interface BeneficiaryData {
-  address: Address;
-  percentage: number; // basis points (e.g., 5000 = 50%)
-}
-
-// Lockable initializer beneficiary data (uses shares instead of percentage)
-export interface LockableBeneficiaryData {
   beneficiary: Address;
   shares: bigint; // shares in WAD (1e18 = 100%)
 }
@@ -132,10 +127,12 @@ export type MigrationConfig =
       type: 'uniswapV4';
       fee: number;
       tickSpacing: number;
-      // Configuration for fee streaming via StreamableFeesLocker
-      streamableFees: {
+      // Configuration for fee streaming via StreamableFeesLocker (optional)
+      // When omitted, fees are not locked and beneficiaries are not configured
+      // This is useful when using noOp governance where lock duration is not meaningful
+      streamableFees?: {
         lockDuration: number; // in seconds
-        beneficiaries: BeneficiaryData[];
+        beneficiaries: BeneficiaryData[]; // Uses shares in WAD (1e18 = 100%)
       };
     }
   | { type: 'noOp' }; // No migration - used with lockable beneficiaries
@@ -355,7 +352,7 @@ export interface LockableV3InitializerParams {
   tickUpper: number;
   numPositions: number;
   maxShareToBeSold: bigint;
-  beneficiaries: LockableBeneficiaryData[];
+  beneficiaries: BeneficiaryData[];
 }
 
 // Multicurve curve configuration (mirrors solidity struct)
@@ -402,7 +399,7 @@ export interface CreateMulticurveParams<C extends SupportedChainId = SupportedCh
     tickSpacing: number;
     curves: MulticurveCurve[];
     // Optional beneficiaries to lock the pool (fee collection only, no migration)
-    lockableBeneficiaries?: LockableBeneficiaryData[];
+    beneficiaries?: BeneficiaryData[];
   };
 
   // Vesting configuration (optional)

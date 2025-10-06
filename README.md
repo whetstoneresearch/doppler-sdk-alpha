@@ -114,8 +114,8 @@ const params = new DynamicAuctionBuilder()
     streamableFees: {
       lockDuration: 365 * 24 * 60 * 60,
       beneficiaries: [
-        { address: '0x...', percentage: 5000 },
-        { address: '0x...', percentage: 5000 },
+        { beneficiary: '0x...', shares: parseEther('0.5') }, // 50%
+        { beneficiary: '0x...', shares: parseEther('0.5') }, // 50%
       ],
     },
   })
@@ -507,7 +507,7 @@ migration: {
   streamableFees: {
     lockDuration: 365 * 24 * 60 * 60, // 1 year
     beneficiaries: [
-      { address: '0x...', percentage: 10000 }, // 100%
+      { beneficiary: '0x...', shares: parseEther('1') }, // 100%
     ],
   },
 }
@@ -518,6 +518,7 @@ airlock owner and creating the default 5% entry:
 
 ```ts
 import { DopplerSDK, createAirlockBeneficiary, getAirlockOwner } from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
 
 const sdk = new DopplerSDK({ publicClient, chainId })
 
@@ -527,7 +528,7 @@ const airlockBeneficiary = await sdk.getAirlockBeneficiary()
 // Or build the entry manually if you do not have an SDK instance handy
 // (airlockEntry will be equivalent to airlockBeneficiary above)
 const owner = await getAirlockOwner(publicClient)
-const airlockEntry = createAirlockBeneficiary(owner)
+const airlockEntry = createAirlockBeneficiary(owner) // defaults to 5% shares
 
 const migration = {
   type: 'uniswapV4' as const,
@@ -536,8 +537,8 @@ const migration = {
   streamableFees: {
     lockDuration: 365 * 24 * 60 * 60,
     beneficiaries: [
-      airlockEntry, // or airlockBeneficiary
-      { address: '0xYourDAO...', percentage: 9500 },
+      airlockEntry, // or airlockBeneficiary (5%)
+      { beneficiary: '0xYourDAO...', shares: parseEther('0.95') }, // 95%
     ],
   },
 }

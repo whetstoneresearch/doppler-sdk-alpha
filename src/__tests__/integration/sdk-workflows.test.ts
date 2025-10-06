@@ -186,7 +186,7 @@ describe('SDK Workflows Integration Tests', () => {
           streamableFees: {
             lockDuration: 365 * 24 * 60 * 60,
             beneficiaries: [
-              { address: '0x1234567890123456789012345678901234567890' as Address, percentage: 10000 },
+              { beneficiary: '0x1234567890123456789012345678901234567890' as Address, shares: parseEther('1') },
             ],
           },
         },

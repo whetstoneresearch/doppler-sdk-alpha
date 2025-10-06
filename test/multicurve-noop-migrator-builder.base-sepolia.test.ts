@@ -80,7 +80,7 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
           numPositions: 10,
           shares: WAD / 10n,
         })),
-        lockableBeneficiaries: beneficiaries
+        beneficiaries: beneficiaries
       })
       .withGovernance({ type: 'default' })
       .withMigration({ type: 'noOp' }) // Specify NoOp migration type
@@ -91,9 +91,9 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
 
     const params = builder.build()
 
-    // Verify that lockableBeneficiaries are set
-    expect(params.pool.lockableBeneficiaries).toBeDefined()
-    expect(params.pool.lockableBeneficiaries).toHaveLength(3)
+    // Verify that beneficiaries are set
+    expect(params.pool.beneficiaries).toBeDefined()
+    expect(params.pool.beneficiaries).toHaveLength(3)
 
     // Encode the params to verify NoOpMigrator is used
     const createParams = sdk.factory.encodeCreateMulticurveParams(params)
@@ -145,7 +145,7 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
           numPositions: 10,
           shares: WAD / 5n,
         })),
-        lockableBeneficiaries: beneficiaries
+        beneficiaries: beneficiaries
       })
       .withGovernance({ type: 'default' })
       .withMigration({ type: 'noOp' }) // Use NoOp migration type
@@ -202,7 +202,7 @@ describe('Multicurve Builder with NoOpMigrator helper (Base Sepolia fork)', () =
           numPositions: 10,
           shares: WAD / 3n,
         })),
-        lockableBeneficiaries: beneficiaries
+        beneficiaries: beneficiaries
       })
       .withGovernance({ type: 'default' })
       .withMigration({ type: 'noOp' })

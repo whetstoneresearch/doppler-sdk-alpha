@@ -41,7 +41,7 @@ async function main() {
         { tickLower: 16000, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
       ],
       // Optional: lock fee revenue to beneficiaries at init (shares in WAD)
-      // lockableBeneficiaries: [ { beneficiary: account.address, shares: parseEther('0.05') } ],
+      // beneficiaries: [ { beneficiary: account.address, shares: parseEther('0.05') } ],
     })
     .withGovernance({ type: 'default' })
     // Choose any supported migration (V2, V3, or V4). Using V2 for simplicity.
