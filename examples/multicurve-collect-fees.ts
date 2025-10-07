@@ -2,17 +2,25 @@
  * Example: Collect Fees from a Multicurve Auction Pool
  *
  * This example demonstrates:
- * - Getting a MulticurvePool instance from the SDK
- * - Checking pool state and fee accumulation
+ * - Getting a MulticurvePool instance from the SDK using the asset address
+ * - Checking pool state and configuration
  * - Collecting and distributing fees to beneficiaries
  * - Understanding the fee distribution mechanism
+ * - How the SDK computes the PoolId from the PoolKey
  *
  * Prerequisites:
  * - A multicurve pool with lockable beneficiaries already created
- * - Trading activity on the pool to generate fees
- * - Your wallet must be one of the configured beneficiaries
+ * - Trading activity on the pool to generate fees (pool must have fee tier > 0)
+ * - Pool must be in "Locked" status (status = 2)
  *
- * Note: This example requires an existing multicurve pool address.
+ * Important Technical Details:
+ * - The SDK uses the asset address to look up pool configuration
+ * - Internally, it computes the PoolId as keccak256(abi.encode(poolKey))
+ * - The PoolKey contains: currency0, currency1, fee, tickSpacing, hooks
+ * - Anyone can call collectFees(), but only configured beneficiaries receive distributions
+ * - Fees are split proportionally according to beneficiary shares configured at pool creation
+ *
+ * Note: This example requires an existing multicurve pool asset address (token address).
  * See multicurve-lockable-beneficiaries.ts for creating a pool with fee streaming.
  */
 
@@ -24,11 +32,12 @@ import { base } from 'viem/chains'
 const privateKey = process.env.PRIVATE_KEY as `0x${string}`
 const rpcUrl = (process.env.RPC_URL || 'https://mainnet.base.org') as string
 
-// REPLACE with your actual multicurve pool address
-const POOL_ADDRESS = process.env.POOL_ADDRESS as Address
+// REPLACE with your actual multicurve pool ASSET address (the token address)
+// This is the address returned from creating the multicurve auction
+const ASSET_ADDRESS = process.env.ASSET_ADDRESS as Address
 
 if (!privateKey) throw new Error('PRIVATE_KEY is not set')
-if (!POOL_ADDRESS) throw new Error('POOL_ADDRESS is not set. Run multicurve-lockable-beneficiaries.ts first.')
+if (!ASSET_ADDRESS) throw new Error('ASSET_ADDRESS is not set. Run multicurve-lockable-beneficiaries.ts first.')
 
 async function main() {
   const account = privateKeyToAccount(privateKey)
@@ -39,12 +48,13 @@ async function main() {
   const sdk = new DopplerSDK({ publicClient, walletClient, chainId: base.id })
 
   console.log('🔍 Fetching pool information...')
-  console.log('   Pool address:', POOL_ADDRESS)
+  console.log('   Asset address (token):', ASSET_ADDRESS)
   console.log('   Caller:', account.address)
   console.log()
 
-  // Get the multicurve pool instance
-  const pool = await sdk.getMulticurvePool(POOL_ADDRESS)
+  // Get the multicurve pool instance using the asset address
+  // The SDK will use this to look up pool state and compute the PoolId
+  const pool = await sdk.getMulticurvePool(ASSET_ADDRESS)
 
   // Fetch pool state
   const state = await pool.getState()
@@ -73,8 +83,14 @@ async function main() {
   // 3. Monitor pool activity and collect periodically
 
   console.log('💰 Collecting fees from the pool...')
-  console.log('   This will distribute fees to all configured beneficiaries')
-  console.log('   proportionally based on their shares.')
+  console.log()
+  console.log('How it works:')
+  console.log('   1. SDK retrieves pool configuration (asset, numeraire, fee, tickSpacing)')
+  console.log('   2. SDK queries the hook address from the multicurve initializer')
+  console.log('   3. SDK constructs the PoolKey: {currency0, currency1, fee, tickSpacing, hooks}')
+  console.log('   4. SDK computes PoolId = keccak256(abi.encode(poolKey))')
+  console.log('   5. SDK calls collectFees(poolId) on the contract')
+  console.log('   6. Contract collects fees and distributes to all beneficiaries proportionally')
   console.log()
 
   try {
@@ -103,11 +119,14 @@ async function main() {
     }
     console.log()
 
-    console.log('💡 Next Steps:')
+    console.log('💡 Important Points:')
     console.log('   - Fees have been distributed to beneficiaries according to their shares')
-    console.log('   - Each beneficiary can now claim their distributed fees')
-    console.log('   - Call collectFees() again after more trading activity to collect new fees')
     console.log('   - Anyone can call collectFees() - not just beneficiaries')
+    console.log('   - Only configured beneficiaries receive fee distributions')
+    console.log('   - Beneficiaries are set at pool creation and cannot be changed')
+    console.log('   - Call collectFees() again after more trading activity to collect new fees')
+    console.log('   - Pool must have a non-zero fee tier for fees to accumulate')
+    console.log('   - Pool must be in "Locked" status (status = 2) for fee collection to work')
 
   } catch (error: any) {
     if (error.message?.includes('No fees to collect') || error.message?.includes('revert')) {

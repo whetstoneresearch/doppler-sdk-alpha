@@ -1295,11 +1295,18 @@ export const v4MulticurveInitializerAbi = [
   },
   {
     type: 'function',
+    name: 'HOOK',
+    inputs: [],
+    outputs: [{ name: '', type: 'address', internalType: 'contract IHooks' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     name: 'collectFees',
-    inputs: [{ name: 'pool', type: 'address', internalType: 'address' }],
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
     outputs: [
-      { name: 'fees0ToDistribute', type: 'uint256', internalType: 'uint256' },
-      { name: 'fees1ToDistribute', type: 'uint256', internalType: 'uint256' },
+      { name: 'fees0', type: 'uint128', internalType: 'uint128' },
+      { name: 'fees1', type: 'uint128', internalType: 'uint128' },
     ],
     stateMutability: 'nonpayable',
   },

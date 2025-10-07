@@ -1,8 +1,9 @@
 import { type Address, type PublicClient, type WalletClient, type Hash } from 'viem'
-import type { MulticurvePoolState, SupportedPublicClient } from '../../types'
+import type { MulticurvePoolState, SupportedPublicClient, V4PoolKey } from '../../types'
 import { v4MulticurveInitializerAbi } from '../../abis'
 import { getAddresses } from '../../addresses'
 import type { SupportedChainId } from '../../addresses'
+import { computePoolId } from '../../utils/poolKey'
 
 /**
  * MulticurvePool class for interacting with V4 multicurve pools
@@ -92,12 +93,38 @@ export class MulticurvePool {
       throw new Error('V4 multicurve initializer address not configured for this chain')
     }
 
+    // Get pool state to retrieve pool parameters
+    const state = await this.getState()
+
+    // Get the hook address from the multicurve initializer contract
+    const hookAddress = await this.rpc.readContract({
+      address: addresses.v4MulticurveInitializer,
+      abi: v4MulticurveInitializerAbi,
+      functionName: 'HOOK',
+    })
+
+    // Construct the PoolKey
+    // In Uniswap V4, currency0 must be < currency1
+    const currency0 = state.asset.toLowerCase() < state.numeraire.toLowerCase() ? state.asset : state.numeraire
+    const currency1 = state.asset.toLowerCase() < state.numeraire.toLowerCase() ? state.numeraire : state.asset
+
+    const poolKey: V4PoolKey = {
+      currency0,
+      currency1,
+      fee: state.fee,
+      tickSpacing: state.tickSpacing,
+      hooks: hookAddress,
+    }
+
+    // Compute the poolId from the poolKey
+    const poolId = computePoolId(poolKey)
+
     // Simulate the transaction to get the return values
     const { request, result } = await this.rpc.simulateContract({
       address: addresses.v4MulticurveInitializer,
       abi: v4MulticurveInitializerAbi,
       functionName: 'collectFees',
-      args: [this.poolAddress],
+      args: [poolId],
       account: this.walletClient.account,
     })
 
@@ -107,7 +134,7 @@ export class MulticurvePool {
     // Wait for confirmation
     await this.rpc.waitForTransactionReceipt({ hash, confirmations: 1 })
 
-    // Parse the result (fees0ToDistribute, fees1ToDistribute)
+    // Parse the result (fees0, fees1)
     const [fees0, fees1] = result as readonly [bigint, bigint]
 
     return {

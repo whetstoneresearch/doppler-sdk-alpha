@@ -187,7 +187,7 @@ const params = new MulticurveBuilder(base.id)
   .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
   .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: '0x...' })
   .withMulticurveAuction({
-    fee: 0,
+    fee: 3000, // 0.3% fee tier - set > 0 to accumulate fees for beneficiaries
     tickSpacing: 8,
     curves: [
       { tickLower: 0, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
@@ -201,9 +201,21 @@ const params = new MulticurveBuilder(base.id)
   .build()
 
 const result = await sdk.factory.createMulticurve(params)
-console.log('Pool address:', result.poolAddress)
-console.log('Token address:', result.tokenAddress)
+const assetAddress = result.tokenAddress // SAVE THIS - you'll need it to collect fees!
+console.log('Asset address:', assetAddress)
+
+// Later, to collect fees:
+// const pool = await sdk.getMulticurvePool(assetAddress)
+// await pool.collectFees()
 ```
+
+**Important Notes:**
+- Set `fee` > 0 (e.g., 3000 for 0.3%) to accumulate trading fees for beneficiaries
+- **Save the asset address** (token address) returned from creation - you need it to collect fees later
+- Beneficiaries receive fees proportional to their shares when `collectFees()` is called
+- Pool enters "Locked" status (status = 2) and liquidity cannot be migrated
+- Beneficiaries are immutable and set at pool creation time
+- The SDK automatically handles PoolKey construction and PoolId computation for you
 
 See [examples/multicurve-lockable-beneficiaries.ts](./examples/multicurve-lockable-beneficiaries.ts) for a complete example.
 
@@ -326,17 +338,20 @@ const currentEpoch = await auction.getCurrentEpoch();
 Multicurve pools support fee collection and distribution to beneficiaries when configured with `lockableBeneficiaries`.
 
 ```typescript
-// Get a multicurve pool instance
-const pool = await sdk.getMulticurvePool(poolAddress);
+// Get a multicurve pool instance using the asset address (token address)
+const pool = await sdk.getMulticurvePool(assetAddress);
 
 // Get pool state
 const state = await pool.getState();
 console.log('Asset:', state.asset);
 console.log('Numeraire:', state.numeraire);
+console.log('Fee tier:', state.fee);
+console.log('Tick spacing:', state.tickSpacing);
 console.log('Tokens on bonding curve:', state.totalTokensOnBondingCurve);
+console.log('Pool status:', state.status); // 0=Uninitialized, 1=Initialized, 2=Locked, 3=Exited
 
 // Collect and distribute fees to beneficiaries
-// This can be called by any beneficiary after trading activity has generated fees
+// This can be called by anyone, but only beneficiaries receive fees
 const { fees0, fees1, transactionHash } = await pool.collectFees();
 console.log('Fees collected (token0):', fees0);
 console.log('Fees collected (token1):', fees1);
@@ -347,12 +362,28 @@ const tokenAddress = await pool.getTokenAddress();
 const numeraireAddress = await pool.getNumeraireAddress();
 ```
 
-**Fee Collection Notes:**
-- Fees accumulate from swap activity on the pool
-- Any beneficiary can call `collectFees()` to trigger distribution
+**Fee Collection Technical Details:**
+
+The SDK handles the complexity of fee collection by:
+1. **Retrieving pool configuration** from the multicurve initializer contract
+2. **Computing the PoolId** from the PoolKey using `keccak256(abi.encode(poolKey))`
+3. **Calling the contract** with the computed PoolId (not the asset address)
+4. **Distributing fees** proportionally to all configured beneficiaries
+
+**Important Notes:**
+- Fees accumulate from swap activity on the pool (only if fee tier > 0)
+- Anyone can call `collectFees()`, but fees are distributed to beneficiaries only
 - Fees are automatically split according to configured beneficiary shares
-- The function returns the total amount distributed for both tokens in the pair
-- Works with pools created using `lockableBeneficiaries` in the multicurve configuration
+- The function returns the total amount collected for both tokens in the pair
+- Works exclusively with pools created using `lockableBeneficiaries` in the multicurve configuration
+- Pool must be in "Locked" status (status = 2) for fee collection to work
+- Beneficiaries must be configured at pool creation time and cannot be changed
+
+**Common Use Cases:**
+- Set up periodic fee collection (e.g., daily or weekly)
+- Integrate with a bot that automatically collects fees when threshold is reached
+- Allow any beneficiary to trigger collection after significant trading activity
+- Monitor swap events to determine optimal collection timing
 
 See [examples/multicurve-collect-fees.ts](./examples/multicurve-collect-fees.ts) for a complete example.
 

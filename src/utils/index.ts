@@ -41,3 +41,5 @@ export {
 } from './airlock'
 
 export { decodeBalanceDelta } from './balanceDelta'
+
+export { computePoolId } from './poolKey'
