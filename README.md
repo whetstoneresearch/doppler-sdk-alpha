@@ -321,6 +321,41 @@ const hasEndedEarly = await auction.hasEndedEarly();
 const currentEpoch = await auction.getCurrentEpoch();
 ```
 
+### Multicurve Pool Interactions
+
+Multicurve pools support fee collection and distribution to beneficiaries when configured with `lockableBeneficiaries`.
+
+```typescript
+// Get a multicurve pool instance
+const pool = await sdk.getMulticurvePool(poolAddress);
+
+// Get pool state
+const state = await pool.getState();
+console.log('Asset:', state.asset);
+console.log('Numeraire:', state.numeraire);
+console.log('Tokens on bonding curve:', state.totalTokensOnBondingCurve);
+
+// Collect and distribute fees to beneficiaries
+// This can be called by any beneficiary after trading activity has generated fees
+const { fees0, fees1, transactionHash } = await pool.collectFees();
+console.log('Fees collected (token0):', fees0);
+console.log('Fees collected (token1):', fees1);
+console.log('Transaction:', transactionHash);
+
+// Get token addresses
+const tokenAddress = await pool.getTokenAddress();
+const numeraireAddress = await pool.getNumeraireAddress();
+```
+
+**Fee Collection Notes:**
+- Fees accumulate from swap activity on the pool
+- Any beneficiary can call `collectFees()` to trigger distribution
+- Fees are automatically split according to configured beneficiary shares
+- The function returns the total amount distributed for both tokens in the pair
+- Works with pools created using `lockableBeneficiaries` in the multicurve configuration
+
+See [examples/multicurve-collect-fees.ts](./examples/multicurve-collect-fees.ts) for a complete example.
+
 ## Token Management
 
 ### DERC20 Tokens

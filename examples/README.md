@@ -16,19 +16,22 @@ Create a pool seeded with multiple curves in one initializer call. Use any stand
 ### 4. [Multicurve with Lockable Beneficiaries](./multicurve-lockable-beneficiaries.ts)
 Create a multicurve auction with fee streaming to multiple beneficiaries. Uses NoOp migration (no post-auction migration) to keep liquidity locked while distributing fees.
 
-### 5. [Multicurve Pre-Buy with WETH](./multicurve-prebuy-weth.ts)
+### 5. [Multicurve Fee Collection](./multicurve-collect-fees.ts)
+Collect and distribute trading fees from a multicurve pool with lockable beneficiaries. Demonstrates how beneficiaries can claim accumulated fees from swap activity.
+
+### 6. [Multicurve Pre-Buy with WETH](./multicurve-prebuy-weth.ts)
 Atomically create a multicurve auction and pre-buy tokens using WETH (not ETH) with Permit2 signatures. Demonstrates using `doppler-router` to build Universal Router commands for V4 swaps.
 
-### 6. [Multicurve Quote & Swap](./multicurve-quote-and-swap.ts)
+### 7. [Multicurve Quote & Swap](./multicurve-quote-and-swap.ts)
 Launch a multicurve auction, get a V4 quote, and execute a swap on the new pool.
 
-### 7. [Auction Monitoring](./auction-monitoring.ts)
+### 8. [Auction Monitoring](./auction-monitoring.ts)
 Monitor an existing auction for graduation status and key metrics.
 
-### 8. [Token Interaction](./token-interaction.ts)
+### 9. [Token Interaction](./token-interaction.ts)
 Interact with launched tokens - check balances, approve spending, and release vested tokens.
 
-### 9. [Price Quoter](./price-quoter.ts)
+### 10. [Price Quoter](./price-quoter.ts)
 Get price quotes across different Uniswap versions for optimal trading.
 
 ## Prerequisites
