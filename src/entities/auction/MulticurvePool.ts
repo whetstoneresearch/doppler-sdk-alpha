@@ -52,23 +52,37 @@ export class MulticurvePool {
       args: [this.poolAddress],
     })
 
-    // Parse the returned tuple
-    const [asset, numeraire, fee, tickSpacing, totalTokensOnBondingCurve, status] = stateData as readonly [
-      Address,
+    // Parse the returned tuple into a strongly typed PoolKey
+    const [numeraire, status, rawPoolKey, farTick] = stateData as readonly [
       Address,
       number,
-      number,
-      bigint,
+      {
+        currency0: Address
+        currency1: Address
+        fee: number
+        tickSpacing: number
+        hooks: Address
+      } & readonly [Address, Address, number, number, Address],
       number
     ]
 
+    const poolKeyStruct = rawPoolKey as typeof rawPoolKey
+    const poolKey: V4PoolKey = {
+      currency0: ((poolKeyStruct as any).currency0 ?? (poolKeyStruct as any)[0]) as Address,
+      currency1: ((poolKeyStruct as any).currency1 ?? (poolKeyStruct as any)[1]) as Address,
+      fee: Number((poolKeyStruct as any).fee ?? (poolKeyStruct as any)[2]),
+      tickSpacing: Number((poolKeyStruct as any).tickSpacing ?? (poolKeyStruct as any)[3]),
+      hooks: ((poolKeyStruct as any).hooks ?? (poolKeyStruct as any)[4]) as Address,
+    }
+
     return {
-      asset,
+      asset: this.poolAddress,
       numeraire,
-      fee,
-      tickSpacing,
-      totalTokensOnBondingCurve,
+      fee: poolKey.fee,
+      tickSpacing: poolKey.tickSpacing,
       status,
+      poolKey,
+      farTick: Number(farTick),
     }
   }
 
@@ -96,28 +110,8 @@ export class MulticurvePool {
     // Get pool state to retrieve pool parameters
     const state = await this.getState()
 
-    // Get the hook address from the multicurve initializer contract
-    const hookAddress = await this.rpc.readContract({
-      address: addresses.v4MulticurveInitializer,
-      abi: v4MulticurveInitializerAbi,
-      functionName: 'HOOK',
-    })
-
-    // Construct the PoolKey
-    // In Uniswap V4, currency0 must be < currency1
-    const currency0 = state.asset.toLowerCase() < state.numeraire.toLowerCase() ? state.asset : state.numeraire
-    const currency1 = state.asset.toLowerCase() < state.numeraire.toLowerCase() ? state.numeraire : state.asset
-
-    const poolKey: V4PoolKey = {
-      currency0,
-      currency1,
-      fee: state.fee,
-      tickSpacing: state.tickSpacing,
-      hooks: hookAddress,
-    }
-
     // Compute the poolId from the poolKey
-    const poolId = computePoolId(poolKey)
+    const poolId = computePoolId(state.poolKey)
 
     // Simulate the transaction to get the return values
     const { request, result } = await this.rpc.simulateContract({

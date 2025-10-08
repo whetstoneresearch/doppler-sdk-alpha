@@ -63,7 +63,8 @@ async function main() {
   console.log('   Numeraire:', state.numeraire)
   console.log('   Fee tier:', state.fee)
   console.log('   Tick spacing:', state.tickSpacing)
-  console.log('   Tokens on curve:', formatUnits(state.totalTokensOnBondingCurve, 18))
+  console.log('   Hook address:', state.poolKey.hooks)
+  console.log('   Far tick threshold:', state.farTick)
   console.log('   Status:', state.status)
   console.log()
 
@@ -85,12 +86,11 @@ async function main() {
   console.log('💰 Collecting fees from the pool...')
   console.log()
   console.log('How it works:')
-  console.log('   1. SDK retrieves pool configuration (asset, numeraire, fee, tickSpacing)')
-  console.log('   2. SDK queries the hook address from the multicurve initializer')
-  console.log('   3. SDK constructs the PoolKey: {currency0, currency1, fee, tickSpacing, hooks}')
-  console.log('   4. SDK computes PoolId = keccak256(abi.encode(poolKey))')
-  console.log('   5. SDK calls collectFees(poolId) on the contract')
-  console.log('   6. Contract collects fees and distributes to all beneficiaries proportionally')
+  console.log('   1. SDK retrieves pool configuration (numeraire, lock status, PoolKey, farTick)')
+  console.log('   2. PoolKey already includes the hook address and canonical token ordering')
+  console.log('   3. SDK computes PoolId = keccak256(abi.encode(poolKey))')
+  console.log('   4. SDK calls collectFees(poolId) on the contract')
+  console.log('   5. Contract collects fees and distributes to all beneficiaries proportionally')
   console.log()
 
   try {

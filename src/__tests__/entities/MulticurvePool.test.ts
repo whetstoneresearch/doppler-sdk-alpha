@@ -4,6 +4,7 @@ import { createMockPublicClient, createMockWalletClient } from '../mocks/clients
 import { mockAddresses } from '../mocks/addresses'
 import type { Address } from 'viem'
 import { LockablePoolStatus } from '../../types'
+import { computePoolId } from '../../utils/poolKey'
 
 vi.mock('../../addresses', () => ({
   getAddresses: vi.fn(() => mockAddresses)
@@ -11,8 +12,16 @@ vi.mock('../../addresses', () => ({
 
 describe('MulticurvePool', () => {
   const mockPoolAddress = '0x1234567890123456789012345678901234567890' as Address
-  const mockAsset = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as Address
   const mockNumeraire = '0x4200000000000000000000000000000000000006' as Address
+  const mockHook = '0xcccccccccccccccccccccccccccccccccccccccc' as Address
+  const mockPoolKey = {
+    currency0: mockPoolAddress,
+    currency1: mockNumeraire,
+    fee: 3000,
+    tickSpacing: 60,
+    hooks: mockHook,
+  }
+  const mockFarTick = 120
 
   let publicClient: ReturnType<typeof createMockPublicClient>
   let walletClient: ReturnType<typeof createMockWalletClient>
@@ -34,21 +43,20 @@ describe('MulticurvePool', () => {
   describe('getState', () => {
     it('should fetch and return pool state', async () => {
       const mockState = {
-        asset: mockAsset,
+        asset: mockPoolAddress,
         numeraire: mockNumeraire,
         fee: 3000,
         tickSpacing: 60,
-        totalTokensOnBondingCurve: 1000000n,
         status: LockablePoolStatus.Initialized,
+        poolKey: mockPoolKey,
+        farTick: mockFarTick,
       }
 
       vi.mocked(publicClient.readContract).mockResolvedValueOnce([
-        mockAsset,
         mockNumeraire,
-        3000,
-        60,
-        1000000n,
         LockablePoolStatus.Initialized,
+        mockPoolKey,
+        mockFarTick,
       ] as any)
 
       const state = await multicurvePool.getState()
@@ -81,9 +89,21 @@ describe('MulticurvePool', () => {
       const mockFees0 = 1000n
       const mockFees1 = 2000n
       const mockTxHash = '0xabcdef1234567890'
+      const expectedPoolId = computePoolId(mockPoolKey)
+
+      vi.mocked(publicClient.readContract).mockResolvedValueOnce([
+        mockNumeraire,
+        LockablePoolStatus.Locked,
+        mockPoolKey,
+        mockFarTick,
+      ] as any)
 
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
-        request: { address: mockAddresses.v4MulticurveInitializer, functionName: 'collectFees', args: [mockPoolAddress] },
+        request: {
+          address: mockAddresses.v4MulticurveInitializer,
+          functionName: 'collectFees',
+          args: [expectedPoolId],
+        },
         result: [mockFees0, mockFees1],
       } as any)
 
@@ -102,7 +122,7 @@ describe('MulticurvePool', () => {
         expect.objectContaining({
           address: mockAddresses.v4MulticurveInitializer,
           functionName: 'collectFees',
-          args: [mockPoolAddress],
+          args: [expectedPoolId],
         })
       )
 
@@ -139,29 +159,25 @@ describe('MulticurvePool', () => {
   describe('getTokenAddress', () => {
     it('should return the asset address from state', async () => {
       vi.mocked(publicClient.readContract).mockResolvedValueOnce([
-        mockAsset,
         mockNumeraire,
-        3000,
-        60,
-        1000000n,
         LockablePoolStatus.Initialized,
+        mockPoolKey,
+        mockFarTick,
       ] as any)
 
       const tokenAddress = await multicurvePool.getTokenAddress()
 
-      expect(tokenAddress).toBe(mockAsset)
+      expect(tokenAddress).toBe(mockPoolAddress)
     })
   })
 
   describe('getNumeraireAddress', () => {
     it('should return the numeraire address from state', async () => {
       vi.mocked(publicClient.readContract).mockResolvedValueOnce([
-        mockAsset,
         mockNumeraire,
-        3000,
-        60,
-        1000000n,
         LockablePoolStatus.Initialized,
+        mockPoolKey,
+        mockFarTick,
       ] as any)
 
       const numeraireAddress = await multicurvePool.getNumeraireAddress()

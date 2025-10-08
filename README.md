@@ -347,7 +347,8 @@ console.log('Asset:', state.asset);
 console.log('Numeraire:', state.numeraire);
 console.log('Fee tier:', state.fee);
 console.log('Tick spacing:', state.tickSpacing);
-console.log('Tokens on bonding curve:', state.totalTokensOnBondingCurve);
+console.log('Hook address:', state.poolKey.hooks);
+console.log('Far tick threshold:', state.farTick);
 console.log('Pool status:', state.status); // 0=Uninitialized, 1=Initialized, 2=Locked, 3=Exited
 
 // Collect and distribute fees to beneficiaries

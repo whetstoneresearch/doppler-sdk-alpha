@@ -121,8 +121,9 @@ export interface MulticurvePoolState {
   numeraire: Address;
   fee: number;
   tickSpacing: number;
-  totalTokensOnBondingCurve: bigint;
   status: LockablePoolStatus; // Reuses the same enum
+  poolKey: V4PoolKey;
+  farTick: number;
 }
 
 // Migration configuration (discriminated union)

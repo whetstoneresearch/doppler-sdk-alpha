@@ -1313,14 +1313,23 @@ export const v4MulticurveInitializerAbi = [
   {
     type: 'function',
     name: 'getState',
-    inputs: [{ name: 'pool', type: 'address', internalType: 'address' }],
+    inputs: [{ name: 'asset', type: 'address', internalType: 'address' }],
     outputs: [
-      { name: 'asset', type: 'address', internalType: 'address' },
       { name: 'numeraire', type: 'address', internalType: 'address' },
-      { name: 'fee', type: 'uint24', internalType: 'uint24' },
-      { name: 'tickSpacing', type: 'int24', internalType: 'int24' },
-      { name: 'totalTokensOnBondingCurve', type: 'uint256', internalType: 'uint256' },
       { name: 'status', type: 'uint8', internalType: 'enum PoolStatus' },
+      {
+        name: 'poolKey',
+        type: 'tuple',
+        internalType: 'struct PoolKey',
+        components: [
+          { name: 'currency0', type: 'address', internalType: 'Currency' },
+          { name: 'currency1', type: 'address', internalType: 'Currency' },
+          { name: 'fee', type: 'uint24', internalType: 'uint24' },
+          { name: 'tickSpacing', type: 'int24', internalType: 'int24' },
+          { name: 'hooks', type: 'address', internalType: 'contract IHooks' },
+        ],
+      },
+      { name: 'farTick', type: 'int24', internalType: 'int24' },
     ],
     stateMutability: 'view',
   },
