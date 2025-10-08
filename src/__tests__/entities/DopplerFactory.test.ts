@@ -4,7 +4,7 @@ import { createMockPublicClient, createMockWalletClient, createMockTransactionRe
 import { mockAddresses, mockTokenAddress, mockPoolAddress } from '../mocks/addresses'
 import type { CreateStaticAuctionParams, CreateDynamicAuctionParams, CreateMulticurveParams } from '../../types'
 import { parseEther, keccak256, toHex, decodeAbiParameters, type Address } from 'viem'
-import { MIN_TICK } from '../../utils'
+import { MIN_TICK, MAX_TICK } from '../../utils'
 
 vi.mock('../../addresses', () => ({
   getAddresses: vi.fn(() => mockAddresses)
@@ -97,11 +97,11 @@ describe('DopplerFactory', () => {
 
       const fallback = curves[curves.length - 1]
       const expectedShare = parseEther('1') - params.pool.curves.reduce((acc, curve) => acc + curve.shares, 0n)
-      const expectedTickUpper = Math.ceil(MIN_TICK / tickSpacing) * tickSpacing
-      const mostNegativeTickUpper = params.pool.curves.reduce((min, curve) => Math.min(min, curve.tickUpper), params.pool.curves[0]!.tickUpper)
+      const expectedTickUpper = Math.floor(MAX_TICK / tickSpacing) * tickSpacing
+      const mostPositiveTickUpper = params.pool.curves.reduce((max, curve) => Math.max(max, curve.tickUpper), params.pool.curves[0]!.tickUpper)
 
       expect(fallback.shares).toBe(expectedShare)
-      expect(Number(fallback.tickLower)).toBe(mostNegativeTickUpper)
+      expect(Number(fallback.tickLower)).toBe(mostPositiveTickUpper)
       expect(Number(fallback.tickUpper)).toBe(expectedTickUpper)
       expect(Number(fallback.numPositions)).toBe(params.pool.curves[params.pool.curves.length - 1]!.numPositions)
     })

@@ -39,9 +39,9 @@ describe('MulticurveBuilder', () => {
       .withUserAddress('0x00000000000000000000000000000000000000AA' as Address)
 
     const params = builder.build()
-    const beneficiaries = params.pool.beneficiaries ?? []
+    const builtBeneficiaries = params.pool.beneficiaries ?? []
 
-    expect(beneficiaries.map(b => b.beneficiary)).toEqual([
+    expect(builtBeneficiaries.map(b => b.beneficiary)).toEqual([
       '0x0000000000000000000000000000000000000001',
       '0x0000000000000000000000000000000000000002',
       '0x0000000000000000000000000000000000000003',

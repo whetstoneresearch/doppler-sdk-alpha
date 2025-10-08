@@ -107,9 +107,12 @@ describe('Bundler integration', () => {
       expect(amountIn).toBe(expectedAmountIn)
 
       // Verify simulate called with Bundler
-      const callArgs = vi.mocked(publicClient.simulateContract).mock.calls[1][0]
-      expect(callArgs.address).toBe(mockAddresses.bundler)
-      expect(callArgs.functionName).toBe('simulateBundleExactOut')
+      const bundlerCall = vi.mocked(publicClient.simulateContract).mock.calls.find(
+        ([config]) => config?.functionName === 'simulateBundleExactOut'
+      )?.[0]
+
+      expect(bundlerCall?.address).toBe(mockAddresses.bundler)
+      expect(bundlerCall?.functionName).toBe('simulateBundleExactOut')
     })
 
     it('bundles create + pre-buy using Universal Router commands', async () => {
@@ -134,9 +137,12 @@ describe('Bundler integration', () => {
       expect(tx).toBe('0xabc')
 
       // Verify simulate called for Bundler.bundle
-      const bundlerCall = vi.mocked(publicClient.simulateContract).mock.calls[1][0]
-      expect(bundlerCall.address).toBe(mockAddresses.bundler)
-      expect(bundlerCall.functionName).toBe('bundle')
+      const bundlerCall = vi.mocked(publicClient.simulateContract).mock.calls.find(
+        ([config]) => config?.functionName === 'bundle'
+      )?.[0]
+
+      expect(bundlerCall?.address).toBe(mockAddresses.bundler)
+      expect(bundlerCall?.functionName).toBe('bundle')
 
       // Sanity: ensure we used the predicted token as output path in a real flow
       expect(asset).toBe(mockTokenAddress)
