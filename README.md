@@ -545,6 +545,35 @@ High‑level flow:
 
 See docs/quotes-and-swaps.md for a full example.
 
+### Multicurve Bundler Helpers
+
+Multicurve auctions expose similar helpers that work with the Doppler Bundler once it has been upgraded
+with multicurve support (selector check added in `0.0.1-alpha.47`). The SDK now verifies the bundler bytecode
+before attempting these flows; if you see
+`Bundler at <address> does not support multicurve bundling`, deploy or point at the latest bundler release.
+
+```ts
+// Prepare multicurve CreateParams up front
+const createParams = sdk.factory.encodeCreateMulticurveParams(multicurveConfig)
+
+// Quote an exact-out bundle
+const exactOutQuote = await sdk.factory.simulateMulticurveBundleExactOut(createParams, {
+  exactAmountOut: parseEther('100'),
+})
+
+// Quote an exact-in bundle
+const exactInQuote = await sdk.factory.simulateMulticurveBundleExactIn(createParams, {
+  exactAmountIn: parseEther('25'),
+})
+
+console.log('Predicted asset:', exactOutQuote.asset)
+console.log('PoolKey:', exactOutQuote.poolKey)
+console.log('Input required:', exactOutQuote.amountIn)
+```
+
+The multicurve helpers automatically normalise the returned PoolKey to maintain canonical token ordering and
+hash the result when collecting fees, so consumers no longer need to manually assemble the PoolId.
+
 ## Migration Configuration
 
 The SDK supports flexible migration paths after auction completion:
