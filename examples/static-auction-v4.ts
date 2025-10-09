@@ -50,7 +50,13 @@ async function createStaticAuctionExample() {
       numeraire: '0x4200000000000000000000000000000000000006', // WETH on Base
     })
     .poolByTicks({ startTick: 175000, endTick: 225000, fee: 3000 })
-    .withVesting({ duration: BigInt(365 * 24 * 60 * 60), cliffDuration: 0 })
+    .withVesting({
+      duration: BigInt(365 * 24 * 60 * 60),
+      cliffDuration: 0,
+      // Optional: Specify multiple vesting beneficiaries
+      // recipients: [account.address, '0xTeamWallet...', '0xAdvisorWallet...'],
+      // amounts: [parseEther('50000000'), parseEther('30000000'), parseEther('20000000')]
+    })
     .withMigration({
       type: 'uniswapV4',
       fee: 3000,
@@ -58,8 +64,8 @@ async function createStaticAuctionExample() {
       streamableFees: {
         lockDuration: 365 * 24 * 60 * 60, // 1 year
         beneficiaries: [
-          { address: account.address, percentage: 9500 }, // 95%
-          { address: airlockOwner, percentage: 500 }, // 5%
+          { beneficiary: account.address, shares: parseEther('0.95') }, // 95%
+          { beneficiary: airlockOwner, shares: parseEther('0.05') }, // 5%
         ],
       },
     })

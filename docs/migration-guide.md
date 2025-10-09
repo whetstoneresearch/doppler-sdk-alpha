@@ -131,7 +131,12 @@ const params = new StaticAuctionBuilder()
     tickSpacing: 60,
     streamableFees: { lockDuration: 365 * 24 * 60 * 60, beneficiaries: sortedBeneficiaries },
   })
-  .withVesting({ duration: 0n })
+  .withVesting({
+    duration: 0n,
+    // Optional: specify multiple vesting beneficiaries
+    // recipients: ['0xTeam...', '0xAdvisor...'],
+    // amounts: [parseEther('50000000'), parseEther('50000000')]
+  })
   .withIntegrator(integratorAddress)
   .withUserAddress(governorAddress)
   .build()

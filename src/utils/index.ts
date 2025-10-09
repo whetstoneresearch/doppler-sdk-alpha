@@ -37,7 +37,9 @@ export {
   getAirlockOwner,
   getAirlockBeneficiary,
   createAirlockBeneficiary,
-  DEFAULT_AIRLOCK_BENEFICIARY_BPS,
+  DEFAULT_AIRLOCK_BENEFICIARY_SHARES,
 } from './airlock'
 
 export { decodeBalanceDelta } from './balanceDelta'
+
+export { computePoolId } from './poolKey'

@@ -44,6 +44,7 @@ export interface ChainAddresses {
   v3Migrator: Address
   v4Migrator: Address
   v4MigratorHook?: Address
+  noOpMigrator?: Address
   
   // Governance contracts
   governanceFactory: Address
@@ -99,6 +100,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v3Quoter: '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a' as Address,
     lockableV3Initializer: '0xe0dc4012ac9c868f09c6e4b20d66ed46d6f258d0' as Address,
     v4Initializer: '0x82ac010c67f70bacf7655cd8948a4ad92a173cac' as Address,
+    v4MulticurveInitializer: '0x65dE470Da664A5be139A5D812bE5FDa0d76CC951' as Address, // From Doppler multicurve deployments (Base mainnet)
     doppler: '0x2f2bacd46d3f5c9ee052ab392b73711db89129db' as Address,
     dopplerLens: '0x43d0d97ec9241a8f05a264f94b82a1d2e600f2b3' as Address,
     dopplerDeployer: '0x8350cAd81149A9944c2fb4276955FaAA7D61e836' as Address,
@@ -107,6 +109,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v2Migrator: '0x5F3bA43D44375286296Cb85F1EA2EBfa25dde731' as Address,
     v3Migrator: '0x5F3bA43D44375286296Cb85F1EA2EBfa25dde731' as Address,
     v4Migrator: '0xa24e35a5d71d02a59b41e7c93567626302da1958' as Address,
+    noOpMigrator: '0x6ddfed58d238ca3195e49d8ac3d4cea6386e5c33' as Address,
     governanceFactory: '0xb4deE32EB70A5E55f3D2d861F49Fb3D79f7a14d9' as Address,
     noOpGovernanceFactory: '0xe7dfbd5b0a2c3b4464653a9becdc489229ef090e' as Address,
     streamableFeesLocker: '0x0a00775d71a42cd33d62780003035e7f5b47bd3a' as Address,
@@ -135,6 +138,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v3Migrator: '0xb2ec6559704467306d04322a5dc082b2af4562dd' as Address,
     v4Migrator: '0xb2ec6559704467306d04322a5dc082b2af4562dd' as Address,
     v4MigratorHook: '0x508812fcdd4972a59b66eb2cad3772279c052000' as Address,
+    noOpMigrator: '0xf11066abbd329ac4bba39455340539322c222eb0' as Address,
     governanceFactory: '0x9dbfaadc8c0cb2c34ba698dd9426555336992e20' as Address,
     noOpGovernanceFactory: '0x916b8987e4ad325c10d58ed8dc2036a6ff5eb228' as Address,
     streamableFeesLocker: '0x4da7d7a8034510c0ffd38a9252237ae8dba3cb61' as Address,
@@ -183,6 +187,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v2Migrator: '0xf6023127f6E937091D5B605680056A6D27524bad' as Address,
     v3Migrator: '0xf6023127f6E937091D5B605680056A6D27524bad' as Address,
     v4Migrator: '0xf6023127f6E937091D5B605680056A6D27524bad' as Address, // Same as v2/v3 migrator
+    noOpMigrator: '0x917da361072ce968acd810bbfc9b64079426ebf0' as Address,
     governanceFactory: '0x99C94B9Df930E1E21a4E4a2c105dBff21bF5c5aE' as Address,
     noOpGovernanceFactory: ZERO_ADDRESS, // Not yet deployed
     streamableFeesLocker: ZERO_ADDRESS, // Not yet deployed
@@ -207,6 +212,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v2Migrator: '0x44C448E38A2C3D206c9132E7f645510dFbBC946b' as Address,
     v3Migrator: '0x44C448E38A2C3D206c9132E7f645510dFbBC946b' as Address,
     v4Migrator: '0x44C448E38A2C3D206c9132E7f645510dFbBC946b' as Address, // Same as v2/v3 migrator
+    noOpMigrator: '0x193f48a45b6025dded10bc4baeef65c833696387' as Address,
     governanceFactory: '0x1E4332EEfAE9e4967C2D186f7b2d439D778e81cC' as Address,
     noOpGovernanceFactory: ZERO_ADDRESS, // Not yet deployed
     streamableFeesLocker: ZERO_ADDRESS, // Not yet deployed

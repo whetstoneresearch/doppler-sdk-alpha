@@ -66,7 +66,12 @@ const params = new StaticAuctionBuilder()
   .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
   .saleConfig({ initialSupply: parseEther('1000000000'), numTokensToSell: parseEther('900000000'), numeraire: '0x...' })
   .poolByTicks({ startTick: -92103, endTick: -69080, fee: 10000, numPositions: 15 })
-  .withVesting({ duration: BigInt(365 * 24 * 60 * 60) })
+  .withVesting({
+    duration: BigInt(365 * 24 * 60 * 60),
+    // Optional: specify multiple recipients and amounts
+    // recipients: ['0xTeam...', '0xAdvisor...'],
+    // amounts: [parseEther('50000000'), parseEther('50000000')]
+  })
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress('0x...')
   .build()
@@ -96,7 +101,12 @@ const params = new DynamicAuctionBuilder()
     maxProceeds: parseEther('1000'),
     numPdSlugs: 5,
   })
-  .withVesting({ duration: BigInt(365 * 24 * 60 * 60) })
+  .withVesting({
+    duration: BigInt(365 * 24 * 60 * 60),
+    // Optional: specify multiple recipients and amounts
+    // recipients: ['0xTeam...', '0xAdvisor...'],
+    // amounts: [parseEther('50000'), parseEther('50000')]
+  })
   .withMigration({
     type: 'uniswapV4',
     fee: 3000,
@@ -104,8 +114,8 @@ const params = new DynamicAuctionBuilder()
     streamableFees: {
       lockDuration: 365 * 24 * 60 * 60,
       beneficiaries: [
-        { address: '0x...', percentage: 5000 },
-        { address: '0x...', percentage: 5000 },
+        { beneficiary: '0x...', shares: parseEther('0.5') }, // 50%
+        { beneficiary: '0x...', shares: parseEther('0.5') }, // 50%
       ],
     },
   })
@@ -129,8 +139,9 @@ console.log('Token address:', result.tokenAddress)
 
 ### Multicurve Auction (V4 Multicurve Initializer)
 
-Multicurve auctions use a Uniswap V4-style initializer that seeds liquidity across multiple curves in a single pool. This enables richer distributions and can be combined with any supported migration path (V2, V3, or V4).
+Multicurve auctions use a Uniswap V4-style initializer that seeds liquidity across multiple curves in a single pool. This enables richer distributions and can be combined with any supported migration path (V2, V3, V4, or NoOp).
 
+**Standard Multicurve with Migration:**
 ```typescript
 import { MulticurveBuilder } from '@whetstone-research/doppler-sdk'
 import { parseEther } from 'viem'
@@ -145,27 +156,68 @@ const params = new MulticurveBuilder(base.id)
       { tickLower: 0, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
       { tickLower: 16000, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
     ],
-    // Optional: lock fee revenue to beneficiaries (shares in WAD)
-    lockableBeneficiaries: [
-      { beneficiary: '0x...', shares: parseEther('0.05') },
-    ],
   })
   .withGovernance({ type: 'default' })
-  // Choose a migration path (V2, V3, or V4). Example uses V2
+  // Choose a migration path (V2, V3, or V4)
   .withMigration({ type: 'uniswapV2' })
-  // Optional address overrides if not provided by chain config
-  // .withV4MulticurveInitializer('0xInitializer...')
   .withUserAddress('0x...')
   .build()
 
 const result = await sdk.factory.createMulticurve(params)
 console.log('Pool address:', result.poolAddress)
 console.log('Token address:', result.tokenAddress)
-
-// Or simulate to preview addresses and gas without sending a transaction
-const { asset, pool, gasEstimate } = await sdk.factory.simulateCreateMulticurve(params)
-console.log('Estimated gas:', gasEstimate?.toString() ?? 'not available')
 ```
+
+**Multicurve with Lockable Beneficiaries (NoOp Migration):**
+
+When you want fee revenue to flow to specific addresses without migrating liquidity after the auction, use lockable beneficiaries with NoOp migration:
+
+```typescript
+import { WAD } from '@whetstone-research/doppler-sdk'
+
+// Define beneficiaries with shares that sum to WAD (1e18 = 100%)
+// IMPORTANT: Protocol owner must be included with at least 5% shares
+const lockableBeneficiaries = [
+  { beneficiary: '0xProtocolOwner...', shares: WAD / 10n },      // 10% to protocol (>= 5% required)
+  { beneficiary: '0xYourAddress...', shares: (WAD * 4n) / 10n }, // 40%
+  { beneficiary: '0xOtherAddress...', shares: WAD / 2n },        // 50%
+]
+
+const params = new MulticurveBuilder(base.id)
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: '0x...' })
+  .withMulticurveAuction({
+    fee: 3000, // 0.3% fee tier - set > 0 to accumulate fees for beneficiaries
+    tickSpacing: 8,
+    curves: [
+      { tickLower: 0, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
+      { tickLower: 16000, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
+    ],
+    lockableBeneficiaries // Add beneficiaries for fee streaming
+  })
+  .withGovernance({ type: 'default' })
+  .withMigration({ type: 'noOp' }) // Use NoOp migration with lockable beneficiaries
+  .withUserAddress('0x...')
+  .build()
+
+const result = await sdk.factory.createMulticurve(params)
+const assetAddress = result.tokenAddress // SAVE THIS - you'll need it to collect fees!
+console.log('Asset address:', assetAddress)
+
+// Later, to collect fees:
+// const pool = await sdk.getMulticurvePool(assetAddress)
+// await pool.collectFees()
+```
+
+**Important Notes:**
+- Set `fee` > 0 (e.g., 3000 for 0.3%) to accumulate trading fees for beneficiaries
+- **Save the asset address** (token address) returned from creation - you need it to collect fees later
+- Beneficiaries receive fees proportional to their shares when `collectFees()` is called
+- Pool enters "Locked" status (status = 2) and liquidity cannot be migrated
+- Beneficiaries are immutable and set at pool creation time
+- The SDK automatically handles PoolKey construction and PoolId computation for you
+
+See [examples/multicurve-lockable-beneficiaries.ts](./examples/multicurve-lockable-beneficiaries.ts) for a complete example.
 
 #### Transaction gas override
 - You can pass a gas limit to factory create calls via the `gas` field on `CreateStaticAuctionParams` / `CreateDynamicAuctionParams` / `CreateMulticurveParams`.
@@ -280,6 +332,61 @@ console.log('Tokens sold:', hookInfo.state.totalTokensSold);
 const hasEndedEarly = await auction.hasEndedEarly();
 const currentEpoch = await auction.getCurrentEpoch();
 ```
+
+### Multicurve Pool Interactions
+
+Multicurve pools support fee collection and distribution to beneficiaries when configured with `lockableBeneficiaries`.
+
+```typescript
+// Get a multicurve pool instance using the asset address (token address)
+const pool = await sdk.getMulticurvePool(assetAddress);
+
+// Get pool state
+const state = await pool.getState();
+console.log('Asset:', state.asset);
+console.log('Numeraire:', state.numeraire);
+console.log('Fee tier:', state.fee);
+console.log('Tick spacing:', state.tickSpacing);
+console.log('Hook address:', state.poolKey.hooks);
+console.log('Far tick threshold:', state.farTick);
+console.log('Pool status:', state.status); // 0=Uninitialized, 1=Initialized, 2=Locked, 3=Exited
+
+// Collect and distribute fees to beneficiaries
+// This can be called by anyone, but only beneficiaries receive fees
+const { fees0, fees1, transactionHash } = await pool.collectFees();
+console.log('Fees collected (token0):', fees0);
+console.log('Fees collected (token1):', fees1);
+console.log('Transaction:', transactionHash);
+
+// Get token addresses
+const tokenAddress = await pool.getTokenAddress();
+const numeraireAddress = await pool.getNumeraireAddress();
+```
+
+**Fee Collection Technical Details:**
+
+The SDK handles the complexity of fee collection by:
+1. **Retrieving pool configuration** from the multicurve initializer contract
+2. **Computing the PoolId** from the PoolKey using `keccak256(abi.encode(poolKey))`
+3. **Calling the contract** with the computed PoolId (not the asset address)
+4. **Distributing fees** proportionally to all configured beneficiaries
+
+**Important Notes:**
+- Fees accumulate from swap activity on the pool (only if fee tier > 0)
+- Anyone can call `collectFees()`, but fees are distributed to beneficiaries only
+- Fees are automatically split according to configured beneficiary shares
+- The function returns the total amount collected for both tokens in the pair
+- Works exclusively with pools created using `lockableBeneficiaries` in the multicurve configuration
+- Pool must be in "Locked" status (status = 2) for fee collection to work
+- Beneficiaries must be configured at pool creation time and cannot be changed
+
+**Common Use Cases:**
+- Set up periodic fee collection (e.g., daily or weekly)
+- Integrate with a bot that automatically collects fees when threshold is reached
+- Allow any beneficiary to trigger collection after significant trading activity
+- Monitor swap events to determine optimal collection timing
+
+See [examples/multicurve-collect-fees.ts](./examples/multicurve-collect-fees.ts) for a complete example.
 
 ## Token Management
 
@@ -438,6 +545,35 @@ High‑level flow:
 
 See docs/quotes-and-swaps.md for a full example.
 
+### Multicurve Bundler Helpers
+
+Multicurve auctions expose similar helpers that work with the Doppler Bundler once it has been upgraded
+with multicurve support (selector check added in `0.0.1-alpha.47`). The SDK now verifies the bundler bytecode
+before attempting these flows; if you see
+`Bundler at <address> does not support multicurve bundling`, deploy or point at the latest bundler release.
+
+```ts
+// Prepare multicurve CreateParams up front
+const createParams = sdk.factory.encodeCreateMulticurveParams(multicurveConfig)
+
+// Quote an exact-out bundle
+const exactOutQuote = await sdk.factory.simulateMulticurveBundleExactOut(createParams, {
+  exactAmountOut: parseEther('100'),
+})
+
+// Quote an exact-in bundle
+const exactInQuote = await sdk.factory.simulateMulticurveBundleExactIn(createParams, {
+  exactAmountIn: parseEther('25'),
+})
+
+console.log('Predicted asset:', exactOutQuote.asset)
+console.log('PoolKey:', exactOutQuote.poolKey)
+console.log('Input required:', exactOutQuote.amountIn)
+```
+
+The multicurve helpers automatically normalise the returned PoolKey to maintain canonical token ordering and
+hash the result when collecting fees, so consumers no longer need to manually assemble the PoolId.
+
 ## Migration Configuration
 
 The SDK supports flexible migration paths after auction completion:
@@ -467,7 +603,7 @@ migration: {
   streamableFees: {
     lockDuration: 365 * 24 * 60 * 60, // 1 year
     beneficiaries: [
-      { address: '0x...', percentage: 10000 }, // 100%
+      { beneficiary: '0x...', shares: parseEther('1') }, // 100%
     ],
   },
 }
@@ -478,6 +614,7 @@ airlock owner and creating the default 5% entry:
 
 ```ts
 import { DopplerSDK, createAirlockBeneficiary, getAirlockOwner } from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
 
 const sdk = new DopplerSDK({ publicClient, chainId })
 
@@ -487,7 +624,7 @@ const airlockBeneficiary = await sdk.getAirlockBeneficiary()
 // Or build the entry manually if you do not have an SDK instance handy
 // (airlockEntry will be equivalent to airlockBeneficiary above)
 const owner = await getAirlockOwner(publicClient)
-const airlockEntry = createAirlockBeneficiary(owner)
+const airlockEntry = createAirlockBeneficiary(owner) // defaults to 5% shares
 
 const migration = {
   type: 'uniswapV4' as const,
@@ -496,8 +633,8 @@ const migration = {
   streamableFees: {
     lockDuration: 365 * 24 * 60 * 60,
     beneficiaries: [
-      airlockEntry, // or airlockBeneficiary
-      { address: '0xYourDAO...', percentage: 9500 },
+      airlockEntry, // or airlockBeneficiary (5%)
+      { beneficiary: '0xYourDAO...', shares: parseEther('0.95') }, // 95%
     ],
   },
 }

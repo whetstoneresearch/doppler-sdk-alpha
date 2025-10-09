@@ -1,8 +1,14 @@
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { mainnet } from 'viem/chains';
 import { vi } from 'vitest';
-import type { WalletClient } from 'viem';
+import type { Address, WalletClient } from 'viem';
 import { SupportedPublicClient } from '../../types';
+import {
+  mockAddresses,
+  mockHookAddress,
+  mockPoolAddress,
+  mockTokenAddress,
+} from './addresses';
 
 // Mock viem clients for testing
 export const createMockPublicClient = (): SupportedPublicClient => {
@@ -13,11 +19,79 @@ export const createMockPublicClient = (): SupportedPublicClient => {
 
   // Mock the readContract method
   client.readContract = vi.fn();
-  client.simulateContract = vi.fn();
   client.getTransactionReceipt = vi.fn();
   client.waitForTransactionReceipt = vi.fn();
   client.getBalance = vi.fn();
   client.estimateContractGas = vi.fn();
+  client.getBytecode = vi.fn().mockResolvedValue('0x6000e2e9faa107087b0600');
+  client.getBlock = vi.fn().mockResolvedValue({ timestamp: 1_700_000_000n });
+  client.getChainId = vi.fn().mockResolvedValue(1);
+
+  const defaultCreateResult: readonly Address[] = [
+    mockTokenAddress,
+    mockPoolAddress,
+    mockAddresses.governance,
+    mockAddresses.timelock,
+    mockAddresses.v2Pool,
+  ];
+
+  client.simulateContract = vi.fn(async (call: any) => {
+    const { address, abi, functionName, args } = call ?? {};
+
+    switch (functionName) {
+      case 'create':
+        return {
+          request: { address, abi, functionName, args },
+          result: defaultCreateResult,
+        };
+      case 'simulateBundleExactOut':
+        return {
+          request: { address, abi, functionName, args },
+          result: 0n,
+        };
+      case 'simulateMulticurveBundleExactOut':
+        return {
+          request: { address, abi, functionName, args },
+          result: [
+            mockTokenAddress,
+            [
+              mockAddresses.weth,
+              mockTokenAddress,
+              3000,
+              60,
+              mockHookAddress,
+            ],
+            0n,
+            0n,
+          ],
+        };
+      case 'simulateMulticurveBundleExactIn':
+        return {
+          request: { address, abi, functionName, args },
+          result: [
+            mockTokenAddress,
+            {
+              currency0: mockAddresses.weth,
+              currency1: mockTokenAddress,
+              fee: 3000n,
+              tickSpacing: 60n,
+              hooks: mockHookAddress,
+            },
+            0n,
+            0n,
+          ],
+        };
+      case 'bundle':
+        return {
+          request: { address, abi, functionName, args },
+        };
+      default:
+        return {
+          request: { address, abi, functionName, args },
+          result: undefined,
+        };
+    }
+  });
 
   return client;
 };

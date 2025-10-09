@@ -28,7 +28,7 @@ export const mockAddresses: ChainAddresses = {
   bundler: '0x1800000000000000000000000000000000000023' as Address,
 }
 
-export const mockTokenAddress = '0xaaaa000000000000000000000000000000000001' as Address
+export const mockTokenAddress = '0xfaaa000000000000000000000000000000000001' as Address
 export const mockPoolAddress = '0xbbbb000000000000000000000000000000000002' as Address
 export const mockHookAddress = '0xcccc000000000000000000000000000000000003' as Address
 export const mockGovernanceAddress = '0xdddd000000000000000000000000000000000004' as Address

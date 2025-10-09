@@ -78,11 +78,11 @@ async function main() {
       streamableFees: {
         lockDuration: 365 * 24 * 60 * 60,
         beneficiaries: [
-          { address: account.address, percentage: 10000 }, // 100%
-          // Modify beneficiaries as needed
-          // { address: '0xBeneficiary1...', percentage: 5000 }, // 50%
-          // { address: '0xBeneficiary2...', percentage: 3000 }, // 30%
-          // { address: '0xBeneficiary3...', percentage: 2000 }, // 20%
+          { beneficiary: account.address, shares: parseEther('1') }, // 100% (1e18 WAD)
+          // Modify beneficiaries as needed - shares must sum to 1e18 (100%)
+          // { beneficiary: '0xBeneficiary1...', shares: parseEther('0.5') }, // 50%
+          // { beneficiary: '0xBeneficiary2...', shares: parseEther('0.3') }, // 30%
+          // { beneficiary: '0xBeneficiary3...', shares: parseEther('0.2') }, // 20%
         ],
       },
     })

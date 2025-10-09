@@ -105,6 +105,102 @@ describe('Multicurve (Base Sepolia fork) smoke test', () => {
     expect(pool).toMatch(/^0x[a-fA-F0-9]{40}$/)
   })
 
+  it('can simulate create() for multicurve with a non-zero fee', async () => {
+    expect(states.tokenFactory).toBe(1)
+    expect(states.governanceFactory).toBe(2)
+    expect(states.initializer).toBe(3)
+    expect(states.migrator).toBe(4)
+
+    const zeroFeeBuilder = sdk
+      .buildMulticurveAuction()
+      .tokenConfig({ type: 'standard', name: 'MultiCurveFeeZero', symbol: 'MC0', tokenURI: 'ipfs://fee-zero' })
+      .saleConfig({ initialSupply: 1_000_000n * WAD, numTokensToSell: 1_000_000n * WAD, numeraire: addresses.weth })
+      .withMulticurveAuction({
+        fee: 0,
+        tickSpacing: 8,
+        curves: Array.from({ length: 10 }, (_, i) => ({
+          tickLower: i * 16_000,
+          tickUpper: 240_000,
+          numPositions: 10,
+          shares: WAD / 10n,
+        })),
+      })
+      .withGovernance({ type: 'default' })
+      .withMigration({ type: 'uniswapV2' })
+      .withUserAddress(addresses.airlock)
+      .withV4MulticurveInitializer(addresses.v4MulticurveInitializer!)
+      .withV2Migrator(addresses.v2Migrator)
+
+    const zeroFeeParams = zeroFeeBuilder.build()
+    const zeroFeeResult = await sdk.factory.simulateCreateMulticurve(zeroFeeParams)
+    console.info('zero-fee gas estimate', zeroFeeResult.gasEstimate?.toString() ?? 'undefined')
+
+    const builder = sdk
+      .buildMulticurveAuction()
+      .tokenConfig({ type: 'standard', name: 'MultiCurveFee', symbol: 'MCF', tokenURI: 'ipfs://fee-test' })
+      .saleConfig({ initialSupply: 1_000_000n * WAD, numTokensToSell: 1_000_000n * WAD, numeraire: addresses.weth })
+      .withMulticurveAuction({
+        fee: 500,
+        tickSpacing: 8,
+        curves: Array.from({ length: 10 }, (_, i) => ({
+          tickLower: i * 16_000,
+          tickUpper: 240_000,
+          numPositions: 10,
+          shares: WAD / 10n,
+        })),
+      })
+      .withGovernance({ type: 'default' })
+      .withMigration({ type: 'uniswapV2' })
+      .withUserAddress(addresses.airlock)
+      .withV4MulticurveInitializer(addresses.v4MulticurveInitializer!)
+      .withV2Migrator(addresses.v2Migrator)
+      .withGasLimit(18_000_000n)
+
+    const params = builder.build()
+    try {
+      const result = await sdk.factory.simulateCreateMulticurve(params)
+      console.info('non-zero fee gas estimate', result.gasEstimate?.toString() ?? 'undefined')
+      expect(result.asset).toMatch(/^0x[a-fA-F0-9]{40}$/)
+      expect(result.pool).toMatch(/^0x[a-fA-F0-9]{40}$/)
+    } catch (err) {
+      console.info('non-zero fee simulation reverted', err instanceof Error ? err.message : err)
+      throw err
+    }
+  })
+
+  it('matches doppler multicurve initializer non-zero fee parameters', async () => {
+    expect(states.tokenFactory).toBe(1)
+    expect(states.governanceFactory).toBe(2)
+    expect(states.initializer).toBe(3)
+    expect(states.migrator).toBe(4)
+
+    const builder = sdk
+      .buildMulticurveAuction()
+      .tokenConfig({ type: 'standard', name: 'MultiCurveFee3000', symbol: 'MCF3', tokenURI: 'ipfs://fee-3000' })
+      .saleConfig({ initialSupply: 1_000_000n * WAD, numTokensToSell: 1_000_000n * WAD, numeraire: addresses.weth })
+      .withMulticurveAuction({
+        fee: 3_000,
+        tickSpacing: 8,
+        curves: Array.from({ length: 10 }, (_, i) => ({
+          tickLower: 160_000 + i * 8,
+          tickUpper: 240_000,
+          numPositions: 10,
+          shares: WAD / 10n,
+        })),
+      })
+      .withGovernance({ type: 'default' })
+      .withMigration({ type: 'uniswapV2' })
+      .withUserAddress(addresses.airlock)
+      .withV4MulticurveInitializer(addresses.v4MulticurveInitializer!)
+      .withV2Migrator(addresses.v2Migrator)
+      .withGasLimit(18_000_000n)
+
+    const params = builder.build()
+    const result = await sdk.factory.simulateCreateMulticurve(params)
+    expect(result.asset).toMatch(/^0x[a-fA-F0-9]{40}$/)
+    expect(result.pool).toMatch(/^0x[a-fA-F0-9]{40}$/)
+  })
+
   it('quotes multicurve bundle via the Bundler helpers', async () => {
     // Reuse whitelisting assertions to ensure modules are available
     expect(initializerWhitelisted && migratorWhitelisted && tokenFactoryWhitelisted && governanceFactoryWhitelisted).toBe(true)

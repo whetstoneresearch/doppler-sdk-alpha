@@ -1,11 +1,12 @@
-export const VERSION = '0.0.1-alpha.31'
+export const VERSION = '0.0.1-alpha.47'
 
 // Export the main SDK class
 export { DopplerSDK } from './DopplerSDK'
 
 // Export factory and auction classes
 export { DopplerFactory } from './entities/DopplerFactory'
-export { StaticAuction, DynamicAuction } from './entities/auction'
+export type { MigrationEncoder } from './entities/DopplerFactory'
+export { StaticAuction, DynamicAuction, MulticurvePool } from './entities/auction'
 
 // Export quoter
 export { Quoter } from './entities/quoter'
@@ -24,13 +25,13 @@ export type {
   StaticPoolConfig,
   DynamicAuctionConfig,
   VestingConfig,
-  BeneficiaryData,
   MigrationConfig,
-  
+  BeneficiaryData,
+
   // Lockable initializer types
-  LockableBeneficiaryData,
   LockablePoolState,
   LockableV3InitializerParams,
+  MulticurvePoolState,
   
   // Parameter types
   CreateStaticAuctionParams,

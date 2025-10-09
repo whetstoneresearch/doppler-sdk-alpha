@@ -1,18 +1,19 @@
-import { 
-  type Address, 
-  type Hex, 
+import {
+  type Address,
+  type Hex,
   type Hash,
-  type PublicClient, 
+  type PublicClient,
   type WalletClient,
   type Account,
-  encodeAbiParameters, 
+  encodeAbiParameters,
   encodePacked,
   keccak256,
   getAddress,
-  decodeEventLog
+  decodeEventLog,
+  toHex,
 } from 'viem'
-import type { 
-  CreateStaticAuctionParams, 
+import type {
+  CreateStaticAuctionParams,
   CreateDynamicAuctionParams,
   CreateMulticurveParams,
   MigrationConfig,
@@ -30,9 +31,10 @@ import type {
 import type { ModuleAddressOverrides } from '../types'
 import { getAddresses } from '../addresses'
 import { zeroAddress } from 'viem'
-import { 
+import {
   ZERO_ADDRESS,
   BASIS_POINTS,
+  WAD,
   DEFAULT_PD_SLUGS,
   DAY_SECONDS,
   FLAG_MASK,
@@ -46,9 +48,13 @@ import {
   DEFAULT_V4_INITIAL_VOTING_DELAY,
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
-  DEFAULT_CREATE_GAS_LIMIT
+  DEFAULT_CREATE_GAS_LIMIT,
 } from '../constants'
+import { MIN_TICK, MAX_TICK } from '../utils'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
+
+// Type definition for the custom migration encoder function
+export type MigrationEncoder = (config: MigrationConfig) => Hex
 
 const MAX_UINT128 = (1n << 128n) - 1n
 
@@ -56,16 +62,27 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   private publicClient: SupportedPublicClient
   private walletClient?: WalletClient
   private chainId: C
+  private customMigrationEncoder?: MigrationEncoder
 
   private multicurveBundlerSupport = new Map<Address, boolean>()
-  
+
   constructor(publicClient: SupportedPublicClient, walletClient: WalletClient | undefined, chainId: C) {
     this.publicClient = publicClient
     this.walletClient = walletClient
     this.chainId = chainId
   }
 
-  encodeCreateStaticAuctionParams(params: CreateStaticAuctionParams<C>): CreateParams {
+  /**
+   * Set a custom migration data encoder function
+   * @param encoder Custom function to encode migration data
+   * @returns The factory instance for method chaining
+   */
+  withCustomMigrationEncoder(encoder: MigrationEncoder): this {
+    this.customMigrationEncoder = encoder
+    return this
+  }
+
+  async encodeCreateStaticAuctionParams(params: CreateStaticAuctionParams<C>): Promise<CreateParams> {
     // Validate parameters
     this.validateStaticAuctionParams(params)
 
@@ -123,6 +140,23 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       const tokenStd = params.token as StandardTokenConfig
       const vestingDuration = params.vesting?.duration ?? BigInt(0)
       const yearlyMintRate = tokenStd.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE
+
+      // Handle vesting recipients and amounts
+      let vestingRecipients: Address[] = []
+      let vestingAmounts: bigint[] = []
+
+      if (params.vesting) {
+        if (params.vesting.recipients && params.vesting.amounts) {
+          // Use provided recipients and amounts
+          vestingRecipients = params.vesting.recipients
+          vestingAmounts = params.vesting.amounts
+        } else {
+          // Default: vest all non-sold tokens to userAddress
+          vestingRecipients = [params.userAddress]
+          vestingAmounts = [params.sale.initialSupply - params.sale.numTokensToSell]
+        }
+      }
+
       tokenFactoryData = encodeAbiParameters(
         [
           { type: 'string' },
@@ -138,8 +172,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           tokenStd.symbol,
           yearlyMintRate,
           BigInt(vestingDuration),
-          params.vesting ? [params.userAddress] : [],
-          params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
+          vestingRecipients,
+          vestingAmounts,
           tokenStd.tokenURI,
         ]
       )
@@ -181,8 +215,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     })()
 
     // 5. Generate a unique salt
-    const salt = this.generateRandomSalt(params.userAddress)
-
     // Resolve token factory with override priority
     const resolvedTokenFactory: Address | undefined =
       params.modules?.tokenFactory ?? (
@@ -195,8 +227,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Token factory address not configured. Provide an explicit address via builder.withTokenFactory(...) or ensure chain config includes a valid factory.')
     }
 
-    // Build the complete CreateParams for the V3-style ABI
-    const createParams = {
+    // Build the base CreateParams for the V3-style ABI; salt will be mined below
+    const baseCreateParams = {
       initialSupply: params.sale.initialSupply,
       numTokensToSell: params.sale.numTokensToSell,
       numeraire: params.sale.numeraire,
@@ -209,10 +241,15 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       liquidityMigrator: this.getMigratorAddress(params.migration, params.modules),
       liquidityMigratorData: liquidityMigratorData,
       integrator: params.integrator ?? ZERO_ADDRESS,
-      salt: salt,
     }
 
-    return createParams;
+    const minedCreateParams = await this.mineTokenOrder({
+      params,
+      baseCreateParams,
+      addresses,
+    })
+
+    return minedCreateParams
   }
 
   /**
@@ -225,7 +262,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     pool: Address
     gasEstimate?: bigint
   }> {
-    const createParams = this.encodeCreateStaticAuctionParams(params)
+    const createParams = await this.encodeCreateStaticAuctionParams(params)
     const addresses = getAddresses(this.chainId)
 
     const airlockAddress = params.modules?.airlock ?? addresses.airlock
@@ -266,7 +303,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     tokenAddress: Address
     transactionHash: string
   }> {
-    const createParams = this.encodeCreateStaticAuctionParams(params);
+    const createParams = await this.encodeCreateStaticAuctionParams(params);
 
     const addresses = getAddresses(this.chainId)
 
@@ -385,6 +422,58 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       .join('')}` as Hex
   }
 
+  /**
+   * Iteratively mine a salt that ensures the newly created token sorts after the numeraire.
+   * This mirrors the legacy SDK behaviour so tick configuration can assume the numeraire is token0.
+   */
+  private async mineTokenOrder(args: {
+    params: CreateStaticAuctionParams<C>
+    baseCreateParams: Omit<CreateParams, 'salt'>
+    addresses: ReturnType<typeof getAddresses>
+  }): Promise<CreateParams> {
+    const { params, baseCreateParams, addresses } = args
+
+    const airlockAddress = params.modules?.airlock ?? addresses.airlock
+    if (!airlockAddress || airlockAddress === ZERO_ADDRESS) {
+      throw new Error('Airlock address not configured. Provide an explicit address via modules.airlock or ensure chain config includes a valid airlock.')
+    }
+
+    const accountForSimulation = this.walletClient?.account ?? params.userAddress
+    const numeraireBigInt = BigInt(params.sale.numeraire)
+
+    let attempt = 0n
+    const maxAttempts = 256n
+    let salt = this.generateRandomSalt(params.userAddress)
+
+    while (attempt < maxAttempts) {
+      const createParams = { ...baseCreateParams, salt } as CreateParams
+
+      const { result } = await (this.publicClient as PublicClient).simulateContract({
+        address: airlockAddress,
+        abi: airlockAbi,
+        functionName: 'create',
+        args: [{ ...createParams }],
+        account: accountForSimulation,
+      })
+
+      const simResult = result as readonly unknown[] | undefined
+      if (!simResult || !Array.isArray(simResult) || simResult.length < 2) {
+        throw new Error('Failed to simulate static auction create while mining token ordering')
+      }
+
+      const tokenAddress = simResult[0] as Address
+      if (BigInt(tokenAddress) > numeraireBigInt) {
+        return createParams
+      }
+
+      attempt += 1n
+      const incrementedAccount = toHex(BigInt(params.userAddress) + attempt) as Address
+      salt = this.generateRandomSalt(incrementedAccount)
+    }
+
+    throw new Error('Token mining exceeded iteration limit while trying to force token order. Try again or provide a different user address.')
+  }
+
   async encodeCreateDynamicAuctionParams(params: CreateDynamicAuctionParams<C>): Promise<{
     createParams: CreateParams,
     hookAddress: Address,
@@ -455,6 +544,23 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         })()
       : (() => {
           const t = params.token as StandardTokenConfig
+
+          // Handle vesting recipients and amounts
+          let vestingRecipients: Address[] = []
+          let vestingAmounts: bigint[] = []
+
+          if (params.vesting) {
+            if (params.vesting.recipients && params.vesting.amounts) {
+              // Use provided recipients and amounts
+              vestingRecipients = params.vesting.recipients
+              vestingAmounts = params.vesting.amounts
+            } else {
+              // Default: vest all non-sold tokens to userAddress
+              vestingRecipients = [params.userAddress]
+              vestingAmounts = [params.sale.initialSupply - params.sale.numTokensToSell]
+            }
+          }
+
           return {
             name: t.name,
             symbol: t.symbol,
@@ -462,8 +568,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
             airlock: addresses.airlock,
             yearlyMintRate: t.yearlyMintRate ?? DEFAULT_V4_YEARLY_MINT_RATE,
             vestingDuration: BigInt(vestingDuration),
-            recipients: params.vesting ? [params.userAddress] : [],
-            amounts: params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : [],
+            recipients: vestingRecipients,
+            amounts: vestingAmounts,
             tokenURI: t.tokenURI,
           }
         })()
@@ -737,11 +843,20 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
    * This replaces the manual encoding methods from the old SDKs
    */
   private encodeMigrationData(config: MigrationConfig): Hex {
+    // Use custom encoder if available
+    if (this.customMigrationEncoder) {
+      return this.customMigrationEncoder(config)
+    }
+
     switch (config.type) {
       case 'uniswapV2':
         // V2 migrator expects empty data
         return '0x' as Hex
-        
+
+      case 'noOp':
+        // NoOp migrator expects empty data
+        return '0x' as Hex
+
       case 'uniswapV3':
         // Encode V3 migration data: fee and tick spacing
         return encodeAbiParameters(
@@ -751,38 +866,31 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           ],
           [config.fee, config.tickSpacing]
         )
-        
+
       case 'uniswapV4':
-        // Encode V4 migration data with streamable fees config
-        // The V4 migrator expects beneficiaries with shares in WAD (1e18) format
-        const WAD = BigInt(1e18)
-        const beneficiaryData: { beneficiary: Address; shares: bigint }[] = []
-        
-        // Convert percentage-based beneficiaries to shares-based
-        for (const b of config.streamableFees.beneficiaries) {
-          beneficiaryData.push({
-            beneficiary: b.address,
-            shares: (BigInt(b.percentage) * WAD) / BigInt(BASIS_POINTS)
+        // Encode V4 migration data with optional streamable fees config
+        // When streamableFees is omitted, we encode with 0 lock duration and empty beneficiaries
+        let beneficiaryData: { beneficiary: Address; shares: bigint }[] = []
+
+        if (config.streamableFees) {
+          // Copy beneficiaries and sort by address in ascending order (required by contract)
+          beneficiaryData = [...config.streamableFees.beneficiaries].sort((a, b) => {
+            const addrA = a.beneficiary.toLowerCase()
+            const addrB = b.beneficiary.toLowerCase()
+            return addrA < addrB ? -1 : addrA > addrB ? 1 : 0
           })
+
+          // Note: The contract will validate that the airlock owner gets at least 5%
+          // If not present, the SDK user should add it manually
         }
-        
-        // Sort beneficiaries by address in ascending order (required by contract)
-        beneficiaryData.sort((a, b) => {
-          const addrA = a.beneficiary.toLowerCase()
-          const addrB = b.beneficiary.toLowerCase()
-          return addrA < addrB ? -1 : addrA > addrB ? 1 : 0
-        })
-        
-        // Note: The contract will validate that the airlock owner gets at least 5%
-        // If not present, the SDK user should add it manually
-        
+
         return encodeAbiParameters(
           [
             { type: 'uint24' },  // fee
             { type: 'int24' },   // tickSpacing
-            { type: 'uint32' },  // lockDuration
+            { type: 'uint32' },  // lockDuration (0 if no streamableFees)
             {
-              type: 'tuple[]', 
+              type: 'tuple[]',
               components: [
                 { type: 'address', name: 'beneficiary' },
                 { type: 'uint96', name: 'shares' }
@@ -792,15 +900,12 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           [
             config.fee,
             config.tickSpacing,
-            config.streamableFees.lockDuration,
-            beneficiaryData.map(b => ({
-              beneficiary: b.beneficiary,
-              shares: b.shares
-            }))
+            config.streamableFees?.lockDuration ?? 0,
+            beneficiaryData
           ]
         )
-      
-      
+
+
       default:
         throw new Error('Unknown migration type')
     }
@@ -815,10 +920,12 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Multicurve pool must include at least one curve')
     }
 
+    const normalizedCurves = this.normalizeMulticurveCurves(params.pool.curves, params.pool.tickSpacing)
+
     const addresses = getAddresses(this.chainId)
 
     // Pool initializer data: (fee, tickSpacing, curves[], beneficiaries[])
-    const sortedLockBeneficiaries = (params.pool.lockableBeneficiaries ?? []).slice().sort((a: NonNullable<typeof params.pool.lockableBeneficiaries>[number], b: NonNullable<typeof params.pool.lockableBeneficiaries>[number]) => {
+    const sortedBeneficiaries = (params.pool.beneficiaries ?? []).slice().sort((a: NonNullable<typeof params.pool.beneficiaries>[number], b: NonNullable<typeof params.pool.beneficiaries>[number]) => {
       const aAddr = a.beneficiary.toLowerCase()
       const bAddr = b.beneficiary.toLowerCase()
       return aAddr < bAddr ? -1 : aAddr > bAddr ? 1 : 0
@@ -826,16 +933,22 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
 
     const poolInitializerData = encodeAbiParameters(
       [
-        { type: 'uint24' },
-        { type: 'int24' },
-        { type: 'tuple[]', components: [ { type: 'int24', name: 'tickLower' }, { type: 'int24', name: 'tickUpper' }, { type: 'uint16', name: 'numPositions' }, { type: 'uint256', name: 'shares' } ] },
-        { type: 'tuple[]', components: [ { type: 'address', name: 'beneficiary' }, { type: 'uint96', name: 'shares' } ] },
+{
+            type: "tuple",
+            components: [
+              { name: 'fee', type: 'uint24' },
+              { name: 'tickSpacing', type: 'int24' },
+              { name: 'curves', type: 'tuple[]', components: [ { type: 'int24', name: 'tickLower' }, { type: 'int24', name: 'tickUpper' }, { type: 'uint16', name: 'numPositions' }, { type: 'uint256', name: 'shares' } ] },
+              { name: 'beneficiaries', type: 'tuple[]', components: [ { type: 'address', name: 'beneficiary' }, { type: 'uint96', name: 'shares' } ] },
+            ]
+          }
       ],
-      [
-        params.pool.fee,
-        params.pool.tickSpacing,
-        params.pool.curves.map((c: typeof params.pool.curves[number]) => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares })),
-        sortedLockBeneficiaries.map((b: NonNullable<typeof params.pool.lockableBeneficiaries>[number]) => ({ beneficiary: b.beneficiary, shares: b.shares }))
+      [{
+        "fee": params.pool.fee,
+        "tickSpacing": params.pool.tickSpacing,
+        "curves": normalizedCurves.map((c: typeof normalizedCurves[number]) => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares })),
+        "beneficiaries": sortedBeneficiaries.map((b: NonNullable<typeof params.pool.beneficiaries>[number]) => ({ beneficiary: b.beneficiary, shares: b.shares }))
+      }
       ]
     )
 
@@ -852,11 +965,26 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       const tokenStd = params.token as StandardTokenConfig
       const vestingDuration = params.vesting?.duration ?? BigInt(0)
       const yearlyMintRate = tokenStd.yearlyMintRate ?? DEFAULT_V3_YEARLY_MINT_RATE
-      const recipients: Address[] = params.vesting ? [params.userAddress] : []
-      const vestingAmounts: bigint[] = params.vesting ? [params.sale.initialSupply - params.sale.numTokensToSell] : []
+
+      // Handle vesting recipients and amounts
+      let vestingRecipients: Address[] = []
+      let vestingAmounts: bigint[] = []
+
+      if (params.vesting) {
+        if (params.vesting.recipients && params.vesting.amounts) {
+          // Use provided recipients and amounts
+          vestingRecipients = params.vesting.recipients
+          vestingAmounts = params.vesting.amounts
+        } else {
+          // Default: vest all non-sold tokens to userAddress
+          vestingRecipients = [params.userAddress]
+          vestingAmounts = [params.sale.initialSupply - params.sale.numTokensToSell]
+        }
+      }
+
       tokenFactoryData = encodeAbiParameters(
         [ { type: 'string' }, { type: 'string' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address[]' }, { type: 'uint256[]' }, { type: 'string' } ],
-        [ tokenStd.name, tokenStd.symbol, yearlyMintRate, BigInt(vestingDuration), recipients, vestingAmounts, tokenStd.tokenURI ]
+        [ tokenStd.name, tokenStd.symbol, yearlyMintRate, BigInt(vestingDuration), vestingRecipients, vestingAmounts, tokenStd.tokenURI ]
       )
     }
 
@@ -885,10 +1013,27 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Multicurve initializer address not configured on this chain. Override via builder or update chain config.')
     }
 
-    const liquidityMigratorData = this.encodeMigrationData(params.migration)
-    const resolvedMigrator: Address | undefined = this.getMigratorAddress(params.migration, params.modules)
-    if (!resolvedMigrator || resolvedMigrator === ZERO_ADDRESS) {
-      throw new Error('Migrator address not configured on this chain. Override via builder or update chain config.')
+    // When beneficiaries are provided, use NoOpMigrator with empty data
+    // The beneficiaries will be handled by the multicurve initializer, not the migrator
+    const hasBeneficiaries = params.pool.beneficiaries && params.pool.beneficiaries.length > 0
+
+    let liquidityMigratorData: Hex
+    let resolvedMigrator: Address | undefined
+
+    if (hasBeneficiaries) {
+      // Use NoOpMigrator with empty data when beneficiaries are provided
+      liquidityMigratorData = '0x' as Hex
+      resolvedMigrator = params.modules?.noOpMigrator ?? addresses.noOpMigrator
+      if (!resolvedMigrator || resolvedMigrator === ZERO_ADDRESS) {
+        throw new Error('NoOpMigrator address not configured on this chain. Override via modules.noOpMigrator or update chain config.')
+      }
+    } else {
+      // Use standard migration flow when no beneficiaries
+      liquidityMigratorData = this.encodeMigrationData(params.migration)
+      resolvedMigrator = this.getMigratorAddress(params.migration, params.modules)
+      if (!resolvedMigrator || resolvedMigrator === ZERO_ADDRESS) {
+        throw new Error('Migrator address not configured on this chain. Override via builder or update chain config.')
+      }
     }
 
     const governanceFactoryAddress: Address = (() => {
@@ -988,8 +1133,89 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   }
 
   /**
-   * Validate static auction parameters
+   * Normalize user-provided multicurve positions and ensure they satisfy SDK constraints
    */
+  private normalizeMulticurveCurves(
+    curves: CreateMulticurveParams['pool']['curves'],
+    tickSpacing: number
+  ): CreateMulticurveParams['pool']['curves'] {
+    if (tickSpacing <= 0) {
+      throw new Error('Tick spacing must be positive')
+    }
+    if (!curves.length) {
+      throw new Error('Multicurve pool must include at least one curve')
+    }
+
+    let totalShares = 0n
+    let mostPositiveTickUpper: number | undefined
+
+    const sanitizedCurves = curves.map(curve => {
+      const sanitized = { ...curve }
+
+      if (!Number.isFinite(sanitized.tickLower) || !Number.isFinite(sanitized.tickUpper)) {
+        throw new Error('Multicurve ticks must be finite numbers')
+      }
+      if (sanitized.tickLower >= sanitized.tickUpper) {
+        throw new Error('Multicurve curve tickLower must be less than tickUpper')
+      }
+      if (sanitized.tickLower <= 0 || sanitized.tickUpper <= 0) {
+        console.warn('Warning: Using negative or zero ticks in multicurve configuration. Please verify this is intentional before proceeding.')
+      }
+      if (!Number.isInteger(sanitized.numPositions) || sanitized.numPositions <= 0) {
+        throw new Error('Multicurve curve numPositions must be a positive integer')
+      }
+      if (sanitized.shares <= 0n) {
+        throw new Error('Multicurve curve shares must be positive')
+      }
+
+      totalShares += sanitized.shares
+      if (totalShares > WAD) {
+        throw new Error('Total multicurve shares cannot exceed 100% (1e18)')
+      }
+
+      if (mostPositiveTickUpper === undefined || sanitized.tickUpper > mostPositiveTickUpper) {
+        mostPositiveTickUpper = sanitized.tickUpper
+      }
+
+      return sanitized
+    })
+
+    if (totalShares === WAD) {
+      return sanitizedCurves
+    }
+
+    const missingShare = WAD - totalShares
+    if (missingShare <= 0n) {
+      return sanitizedCurves
+    }
+
+    const fallbackTickLower = mostPositiveTickUpper
+    if (fallbackTickLower === undefined) {
+      throw new Error('Unable to determine fallback multicurve tick range')
+    }
+
+    const fallbackTickUpper = this.roundMaxTickDown(tickSpacing)
+
+    const fallbackCurve = {
+      // Extend from the most positive user tick out to the maximum supported tick bucket
+      tickLower: fallbackTickLower,
+      tickUpper: fallbackTickUpper,
+      numPositions: sanitizedCurves[sanitizedCurves.length - 1]?.numPositions ?? 1,
+      shares: missingShare,
+    }
+
+    return [...sanitizedCurves, fallbackCurve]
+  }
+
+  private roundMaxTickDown(tickSpacing: number): number {
+    if (tickSpacing <= 0) {
+      throw new Error('Tick spacing must be positive')
+    }
+
+    const rounded = Math.floor(MAX_TICK / tickSpacing) * tickSpacing
+    return rounded
+  }
+
   private validateStaticAuctionParams(params: CreateStaticAuctionParams): void {
     // Validate token parameters
     if (!params.token.name || params.token.name.trim().length === 0) {
@@ -1017,9 +1243,26 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     
     // Validate vesting if provided
     if (params.vesting) {
-      const vestedAmount = params.sale.initialSupply - params.sale.numTokensToSell
-      if (vestedAmount <= BigInt(0)) {
-        throw new Error('No tokens available for vesting')
+      // Validate recipients and amounts arrays match
+      if (params.vesting.recipients && params.vesting.amounts) {
+        if (params.vesting.recipients.length !== params.vesting.amounts.length) {
+          throw new Error('Vesting recipients and amounts arrays must have the same length')
+        }
+        if (params.vesting.recipients.length === 0) {
+          throw new Error('Vesting recipients array cannot be empty')
+        }
+        // Validate total vested amount doesn't exceed available tokens
+        const totalVested = params.vesting.amounts.reduce((sum, amt) => sum + amt, BigInt(0))
+        const availableForVesting = params.sale.initialSupply - params.sale.numTokensToSell
+        if (totalVested > availableForVesting) {
+          throw new Error(`Total vesting amount (${totalVested}) exceeds available tokens (${availableForVesting})`)
+        }
+      } else {
+        // Default case: validate there are tokens available for vesting
+        const vestedAmount = params.sale.initialSupply - params.sale.numTokensToSell
+        if (vestedAmount <= BigInt(0)) {
+          throw new Error('No tokens available for vesting')
+        }
       }
     }
     
@@ -1030,10 +1273,10 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         throw new Error('At least one beneficiary is required for V4 migration')
       }
       
-      // Check that percentages sum to 100%
-      const totalPercentage = beneficiaries.reduce((sum, b) => sum + b.percentage, 0)
-      if (totalPercentage !== BASIS_POINTS) {
-        throw new Error(`Beneficiary percentages must sum to ${BASIS_POINTS} (100%), but got ${totalPercentage}`)
+      // Check that shares sum to 100% (WAD)
+      const totalShares = beneficiaries.reduce((sum, b) => sum + b.shares, 0n)
+      if (totalShares !== WAD) {
+        throw new Error(`Beneficiary shares must sum to ${WAD} (100%), but got ${totalShares}`)
       }
     }
   }
@@ -1097,10 +1340,10 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         throw new Error('At least one beneficiary is required for V4 migration')
       }
       
-      // Check that percentages sum to 100%
-      const totalPercentage = beneficiaries.reduce((sum, b) => sum + b.percentage, 0)
-      if (totalPercentage !== BASIS_POINTS) {
-        throw new Error(`Beneficiary percentages must sum to ${BASIS_POINTS} (100%), but got ${totalPercentage}`)
+      // Check that shares sum to 100% (WAD)
+      const totalShares = beneficiaries.reduce((sum, b) => sum + b.shares, 0n)
+      if (totalShares !== WAD) {
+        throw new Error(`Beneficiary shares must sum to ${WAD} (100%), but got ${totalShares}`)
       }
     }
   }
@@ -1140,7 +1383,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
    */
   private getMigratorAddress(config: MigrationConfig, overrides?: ModuleAddressOverrides): Address {
     const addresses = getAddresses(this.chainId)
-    
+
     switch (config.type) {
       case 'uniswapV2':
         return overrides?.v2Migrator ?? addresses.v2Migrator
@@ -1148,7 +1391,14 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         return overrides?.v3Migrator ?? addresses.v3Migrator
       case 'uniswapV4':
         return overrides?.v4Migrator ?? addresses.v4Migrator
-      
+      case 'noOp': {
+        const noOpAddress = overrides?.noOpMigrator ?? addresses.noOpMigrator
+        if (!noOpAddress) {
+          throw new Error('NoOpMigrator not configured on this chain. Provide override via modules.noOpMigrator or update chain config.')
+        }
+        return noOpAddress
+      }
+
       default:
         throw new Error('Unknown migration type')
     }
@@ -1484,15 +1734,19 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     tokenVariant?: 'standard' | 'doppler404'
   }): [Hash, Address, Address, Hex, Hex] {
     const numeraireBigInt = BigInt(params.numeraire)
-    const halfMaxUint256 = (2n ** 255n) - 1n
+    const halfMaxUint160 = (2n ** 159n) - 1n
 
+    // Determine token ordering based on numeraire address.
+    // Mining will find a salt such that token address is correctly ordered relative to numeraire.
+    // For numeraires > halfMaxUint160, token must be token0 (smaller address)
+    // For all other cases, token should be token1 (larger address)
     let isToken0: boolean
     if (numeraireBigInt === 0n) {
-      isToken0 = false
-    } else if (numeraireBigInt > halfMaxUint256) {
-      isToken0 = true
+      isToken0 = false  // ETH paired, token will be > 0x0
+    } else if (numeraireBigInt > halfMaxUint160) {
+      isToken0 = true   // Large numeraire, token will be < numeraire
     } else {
-      isToken0 = false
+      isToken0 = false  // Normal case, token will be > numeraire
     }
 
     const {

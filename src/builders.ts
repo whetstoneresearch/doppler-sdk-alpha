@@ -160,7 +160,7 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
     })
   }
 
-  withVesting(params?: { duration?: bigint; cliffDuration?: number }): this {
+  withVesting(params?: { duration?: bigint; cliffDuration?: number; recipients?: Address[]; amounts?: bigint[] }): this {
     if (!params) {
       this.vesting = undefined
       return this
@@ -168,6 +168,8 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
     this.vesting = {
       duration: Number(params.duration ?? DEFAULT_V3_VESTING_DURATION),
       cliffDuration: params.cliffDuration ?? 0,
+      recipients: params.recipients,
+      amounts: params.amounts,
     }
     return this
   }
@@ -232,6 +234,10 @@ export class StaticAuctionBuilder<C extends SupportedChainId> {
 
   withV4Migrator(address: Address): this {
     return this.overrideModule('v4Migrator', address)
+  }
+
+  withNoOpMigrator(address: Address): this {
+    return this.overrideModule('noOpMigrator', address)
   }
 
   build(): CreateStaticAuctionParams<C> {
@@ -381,7 +387,7 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     })
   }
 
-  withVesting(params?: { duration?: bigint; cliffDuration?: number }): this {
+  withVesting(params?: { duration?: bigint; cliffDuration?: number; recipients?: Address[]; amounts?: bigint[] }): this {
     if (!params) {
       this.vesting = undefined
       return this
@@ -389,6 +395,8 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     this.vesting = {
       duration: Number(params.duration ?? 0n),
       cliffDuration: params.cliffDuration ?? 0,
+      recipients: params.recipients,
+      amounts: params.amounts,
     }
     return this
   }
@@ -472,6 +480,10 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
 
   withV4Migrator(address: Address): this {
     return this.overrideModule('v4Migrator', address)
+  }
+
+  withNoOpMigrator(address: Address): this {
+    return this.overrideModule('noOpMigrator', address)
   }
 
   build(): CreateDynamicAuctionParams<C> {
@@ -567,19 +579,27 @@ export class MulticurveBuilder<C extends SupportedChainId> {
     return this
   }
 
-  poolConfig(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; lockableBeneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
-    this.pool = { fee: params.fee, tickSpacing: params.tickSpacing, curves: params.curves, lockableBeneficiaries: params.lockableBeneficiaries }
+  poolConfig(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; beneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
+    const sortedBeneficiaries = params.beneficiaries
+      ? [...params.beneficiaries].sort((a, b) => {
+          const aAddr = a.beneficiary.toLowerCase()
+          const bAddr = b.beneficiary.toLowerCase()
+          return aAddr < bAddr ? -1 : aAddr > bAddr ? 1 : 0
+        })
+      : undefined
+
+    this.pool = { fee: params.fee, tickSpacing: params.tickSpacing, curves: params.curves, beneficiaries: sortedBeneficiaries }
     return this
   }
 
   // Alias for clarity: indicate use of V4 multicurve initializer
-  withMulticurveAuction(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; lockableBeneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
+  withMulticurveAuction(params: { fee: number; tickSpacing: number; curves: { tickLower: number; tickUpper: number; numPositions: number; shares: bigint }[]; beneficiaries?: { beneficiary: Address; shares: bigint }[] }): this {
     return this.poolConfig(params)
   }
 
-  withVesting(params?: { duration?: bigint; cliffDuration?: number }): this {
+  withVesting(params?: { duration?: bigint; cliffDuration?: number; recipients?: Address[]; amounts?: bigint[] }): this {
     if (!params) { this.vesting = undefined; return this }
-    this.vesting = { duration: Number(params.duration ?? 0n), cliffDuration: params.cliffDuration ?? 0 }
+    this.vesting = { duration: Number(params.duration ?? 0n), cliffDuration: params.cliffDuration ?? 0, recipients: params.recipients, amounts: params.amounts }
     return this
   }
 
@@ -620,6 +640,7 @@ export class MulticurveBuilder<C extends SupportedChainId> {
   withV2Migrator(address: Address): this { return this.overrideModule('v2Migrator', address) }
   withV3Migrator(address: Address): this { return this.overrideModule('v3Migrator', address) }
   withV4Migrator(address: Address): this { return this.overrideModule('v4Migrator', address) }
+  withNoOpMigrator(address: Address): this { return this.overrideModule('noOpMigrator', address) }
 
   build(): CreateMulticurveParams<C> {
     if (!this.token) throw new Error('tokenConfig is required')

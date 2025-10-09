@@ -48,7 +48,7 @@ export interface StaticPoolConfig {
   // Optional parameters for lockable initializer
   numPositions?: number; // Number of liquidity positions (default: based on tick range)
   maxShareToBeSold?: bigint; // Maximum share of tokens to sell (in WAD, default: 1e18 = 100%)
-  lockableBeneficiaries?: LockableBeneficiaryData[]; // Optional beneficiaries for fee streaming
+  beneficiaries?: BeneficiaryData[]; // Optional beneficiaries for fee streaming
 }
 
 // Dynamic Auction configuration
@@ -67,6 +67,8 @@ export interface DynamicAuctionConfig {
 export interface VestingConfig {
   duration: number; // in seconds
   cliffDuration: number; // in seconds
+  recipients?: Address[]; // Optional array of recipient addresses (defaults to [userAddress] if not specified)
+  amounts?: bigint[]; // Optional array of vesting amounts per recipient (must match recipients length if provided)
 }
 
 // Chains where no-op governance is enabled
@@ -87,14 +89,9 @@ export type GovernanceOption<C extends SupportedChainId> =
   | GovernanceCustom
   | (C extends NoOpEnabledChainId ? GovernanceNoOp : never);
 
-// Beneficiary data for streamable fees
+// Unified beneficiary data used for fee streaming, lockable initializers, and migration configs
+// Uses shares in WAD format (1e18 = 100%) for consistency across all beneficiary configurations
 export interface BeneficiaryData {
-  address: Address;
-  percentage: number; // basis points (e.g., 5000 = 50%)
-}
-
-// Lockable initializer beneficiary data (uses shares instead of percentage)
-export interface LockableBeneficiaryData {
   beneficiary: Address;
   shares: bigint; // shares in WAD (1e18 = 100%)
 }
@@ -118,6 +115,17 @@ export interface LockablePoolState {
   status: LockablePoolStatus;
 }
 
+// Multicurve pool state (V4 initializer)
+export interface MulticurvePoolState {
+  asset: Address;
+  numeraire: Address;
+  fee: number;
+  tickSpacing: number;
+  status: LockablePoolStatus; // Reuses the same enum
+  poolKey: V4PoolKey;
+  farTick: number;
+}
+
 // Migration configuration (discriminated union)
 export type MigrationConfig =
   | { type: 'uniswapV2' } // Basic migration to a new Uniswap v2 pool
@@ -130,12 +138,15 @@ export type MigrationConfig =
       type: 'uniswapV4';
       fee: number;
       tickSpacing: number;
-      // Configuration for fee streaming via StreamableFeesLocker
-      streamableFees: {
+      // Configuration for fee streaming via StreamableFeesLocker (optional)
+      // When omitted, fees are not locked and beneficiaries are not configured
+      // This is useful when using noOp governance where lock duration is not meaningful
+      streamableFees?: {
         lockDuration: number; // in seconds
-        beneficiaries: BeneficiaryData[];
+        beneficiaries: BeneficiaryData[]; // Uses shares in WAD (1e18 = 100%)
       };
-    };
+    }
+  | { type: 'noOp' }; // No migration - used with lockable beneficiaries
 
 // Create Static Auction parameters
 export interface CreateStaticAuctionParams<C extends SupportedChainId = SupportedChainId> {
@@ -352,7 +363,7 @@ export interface LockableV3InitializerParams {
   tickUpper: number;
   numPositions: number;
   maxShareToBeSold: bigint;
-  beneficiaries: LockableBeneficiaryData[];
+  beneficiaries: BeneficiaryData[];
 }
 
 // Multicurve curve configuration (mirrors solidity struct)
@@ -399,7 +410,7 @@ export interface CreateMulticurveParams<C extends SupportedChainId = SupportedCh
     tickSpacing: number;
     curves: MulticurveCurve[];
     // Optional beneficiaries to lock the pool (fee collection only, no migration)
-    lockableBeneficiaries?: LockableBeneficiaryData[];
+    beneficiaries?: BeneficiaryData[];
   };
 
   // Vesting configuration (optional)
@@ -462,4 +473,5 @@ export interface ModuleAddressOverrides {
   v2Migrator?: Address;
   v3Migrator?: Address;
   v4Migrator?: Address;
+  noOpMigrator?: Address;
 }
