@@ -95,7 +95,7 @@ async function main() {
 `
 
     const sorted = sortKeysDeep(lowerAddressesOnly(deployments))
-    const tsBody = `export type GeneratedDopplerDeployments = Record<string, Record<string, string>>\n\nexport const GENERATED_DOPPLER_DEPLOYMENTS = ${JSON.stringify(
+    const tsBody = `/** @internal */\nexport type GeneratedDopplerDeployments = Record<string, Record<string, string>>\n\n/** @internal */\nexport const GENERATED_DOPPLER_DEPLOYMENTS = ${JSON.stringify(
       sorted,
       null,
       2
