@@ -77,7 +77,7 @@ jobs:
           path: doppler-sdk-alpha
           base: main
           title: "chore: update generated addresses"
-          body-path: PR_BODY.md
+          body-path: doppler-sdk-alpha/PR_BODY.md
           commit-message: "chore: update generated addresses"
           branch: chore/update-addresses
           branch-suffix: timestamp
