@@ -30,8 +30,14 @@ export {
   estimateSlippage
 } from './priceHelpers'
 
-// Re-export the existing address miner
-// export { getHookAddress } from './getHookAddress' // File doesn't exist yet
+// Re-export token address mining utilities
+export { mineTokenAddress } from './tokenAddressMiner'
+export type {
+  TokenAddressHookConfig,
+  TokenAddressMiningParams,
+  TokenAddressMiningResult,
+  TokenVariant,
+} from './tokenAddressMiner'
 
 export {
   getAirlockOwner,
