@@ -25,6 +25,14 @@ jobs:
           sparse-checkout: |
             Deployments.json
           sparse-checkout-cone: true
+
+      - uses: actions/create-github-app-token@v2
+        id: generate-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: whetstoneresearch
+          repositories: doppler-sdk-alpha
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -76,6 +84,7 @@ jobs:
         with:
           path: doppler-sdk-alpha
           base: main
+          token: ${{ steps.generate-token.outputs.token }}
           title: "chore: update generated addresses"
           body-path: doppler-sdk-alpha/PR_BODY.md
           commit-message: "chore: update generated addresses"
