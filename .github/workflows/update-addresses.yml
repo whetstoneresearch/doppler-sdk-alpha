@@ -42,13 +42,13 @@ jobs:
         run: mkdir -p snapshots
         working-directory: doppler-sdk-alpha
       - name: Snapshot pre-generation used addresses
-        run: pnpm run generate-snapshot > snapshots/addresses.pre.json
+        run: pnpx tsx ./scripts/snapshot-addresses.ts > snapshots/addresses.pre.json
         working-directory: doppler-sdk-alpha
       - name: Generate deployments.generated.ts from Deployments.json
         run: pnpm run generate:addresses -- --source ../doppler/Deployments.json --out src/deployments.generated.ts
         working-directory: doppler-sdk-alpha
       - name: Snapshot post-generation used addresses
-        run: pnpm run generate-snapshot > snapshots/addresses.post.json
+        run: pnpx tsx ./scripts/snapshot-addresses.ts > snapshots/addresses.post.json
         working-directory: doppler-sdk-alpha
       - name: Create human-readable diff
         run: |
