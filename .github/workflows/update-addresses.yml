@@ -14,11 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           path: doppler-sdk-alpha
       - name: Checkout Doppler Deployments.json
         uses: actions/checkout@v4
         with:
           repository: whetstoneresearch/doppler
+          ref: main
           path: doppler
           sparse-checkout: |
             Deployments.json
@@ -35,6 +37,9 @@ jobs:
           cache-dependency-path: doppler-sdk-alpha/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: doppler-sdk-alpha
+      - name: Create snapshots directory
+        run: mkdir -p snapshots
         working-directory: doppler-sdk-alpha
       - name: Snapshot pre-generation used addresses
         run: pnpm run generate-snapshot > snapshots/addresses.pre.json
@@ -58,7 +63,6 @@ jobs:
         run: |
           stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
           echo "stamp=$stamp" >> $GITHUB_OUTPUT
-          mkdir -p snapshots
           cp snapshots/addresses.post.json "snapshots/addresses-${stamp}.json"
         working-directory: doppler-sdk-alpha
       - name: Upload dated snapshot artifact (365 days)
@@ -71,6 +75,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           path: doppler-sdk-alpha
+          base: main
           title: "chore: update generated addresses"
           body-path: PR_BODY.md
           commit-message: "chore: update generated addresses"
