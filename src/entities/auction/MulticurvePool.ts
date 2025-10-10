@@ -1,6 +1,6 @@
-import { type Address, type PublicClient, type WalletClient, type Hash } from 'viem'
-import type { MulticurvePoolState, SupportedPublicClient, V4PoolKey } from '../../types'
-import { v4MulticurveInitializerAbi } from '../../abis'
+import { type Address, type PublicClient, type WalletClient, type Hash, type Hex } from 'viem'
+import { LockablePoolStatus, type MulticurvePoolState, type SupportedPublicClient, type V4PoolKey } from '../../types'
+import { v4MulticurveInitializerAbi, v4MulticurveMigratorAbi, streamableFeesLockerAbi } from '../../abis'
 import { getAddresses } from '../../addresses'
 import type { SupportedChainId } from '../../addresses'
 import { computePoolId } from '../../utils/poolKey'
@@ -66,14 +66,7 @@ export class MulticurvePool {
       number
     ]
 
-    const poolKeyStruct = rawPoolKey as typeof rawPoolKey
-    const poolKey: V4PoolKey = {
-      currency0: ((poolKeyStruct as any).currency0 ?? (poolKeyStruct as any)[0]) as Address,
-      currency1: ((poolKeyStruct as any).currency1 ?? (poolKeyStruct as any)[1]) as Address,
-      fee: Number((poolKeyStruct as any).fee ?? (poolKeyStruct as any)[2]),
-      tickSpacing: Number((poolKeyStruct as any).tickSpacing ?? (poolKeyStruct as any)[3]),
-      hooks: ((poolKeyStruct as any).hooks ?? (poolKeyStruct as any)[4]) as Address,
-    }
+    const poolKey = this.parsePoolKey(rawPoolKey)
 
     return {
       asset: this.poolAddress,
@@ -110,32 +103,50 @@ export class MulticurvePool {
     // Get pool state to retrieve pool parameters
     const state = await this.getState()
 
-    // Compute the poolId from the poolKey
-    const poolId = computePoolId(state.poolKey)
-
-    // Simulate the transaction to get the return values
-    const { request, result } = await this.rpc.simulateContract({
-      address: addresses.v4MulticurveInitializer,
-      abi: v4MulticurveInitializerAbi,
-      functionName: 'collectFees',
-      args: [poolId],
-      account: this.walletClient.account,
-    })
-
-    // Execute the transaction
-    const hash = await this.walletClient.writeContract(request)
-
-    // Wait for confirmation
-    await this.rpc.waitForTransactionReceipt({ hash, confirmations: 1 })
-
-    // Parse the result (fees0, fees1)
-    const [fees0, fees1] = result as readonly [bigint, bigint]
-
-    return {
-      fees0,
-      fees1,
-      transactionHash: hash,
+    if (state.status === LockablePoolStatus.Locked) {
+      const poolId = computePoolId(state.poolKey)
+      return this.collectFeesFromContract(addresses.v4MulticurveInitializer, v4MulticurveInitializerAbi, poolId)
     }
+
+    if (state.status === LockablePoolStatus.Exited) {
+      if (!addresses.v4Migrator) {
+        throw new Error('V4 multicurve migrator address not configured for this chain')
+      }
+
+      const assetData = await this.rpc.readContract({
+        address: addresses.v4Migrator,
+        abi: v4MulticurveMigratorAbi,
+        functionName: 'getAssetData',
+        args: [state.poolKey.currency0, state.poolKey.currency1],
+      })
+
+      const migratorPoolKey = this.parsePoolKey((assetData as any).poolKey ?? (assetData as any)[1])
+      const poolId = computePoolId(migratorPoolKey)
+
+      const beneficiaries =
+        (assetData as any).beneficiaries ?? (assetData as any)[4] ?? []
+      if (!Array.isArray(beneficiaries) || beneficiaries.length === 0) {
+        throw new Error('Migrated multicurve pool has no beneficiaries configured')
+      }
+
+      const lockerAddress = await this.resolveLockerAddress(addresses.v4Migrator, addresses.streamableFeesLocker)
+
+      const streamData = await this.rpc.readContract({
+        address: lockerAddress,
+        abi: streamableFeesLockerAbi,
+        functionName: 'streams',
+        args: [poolId],
+      })
+
+      const startDate = Number((streamData as any).startDate ?? (streamData as any)[2] ?? 0)
+      if (startDate === 0) {
+        throw new Error('Migrated multicurve stream not initialized')
+      }
+
+      return this.collectFeesFromContract(lockerAddress, streamableFeesLockerAbi, poolId)
+    }
+
+    throw new Error('Multicurve pool is not locked or migrated')
   }
 
   /**
@@ -152,5 +163,57 @@ export class MulticurvePool {
   async getNumeraireAddress(): Promise<Address> {
     const state = await this.getState()
     return state.numeraire
+  }
+
+  private parsePoolKey(rawPoolKey: unknown): V4PoolKey {
+    const poolKeyStruct = rawPoolKey as any
+    return {
+      currency0: (poolKeyStruct.currency0 ?? poolKeyStruct[0]) as Address,
+      currency1: (poolKeyStruct.currency1 ?? poolKeyStruct[1]) as Address,
+      fee: Number(poolKeyStruct.fee ?? poolKeyStruct[2]),
+      tickSpacing: Number(poolKeyStruct.tickSpacing ?? poolKeyStruct[3]),
+      hooks: (poolKeyStruct.hooks ?? poolKeyStruct[4]) as Address,
+    }
+  }
+
+  private async resolveLockerAddress(migratorAddress: Address, configuredLocker?: Address): Promise<Address> {
+    if (configuredLocker) {
+      return configuredLocker
+    }
+
+    const lockerAddress = await this.rpc.readContract({
+      address: migratorAddress,
+      abi: v4MulticurveMigratorAbi,
+      functionName: 'locker',
+      args: [],
+    })
+
+    return lockerAddress as Address
+  }
+
+  private async collectFeesFromContract(
+    contractAddress: Address,
+    abi: typeof v4MulticurveInitializerAbi | typeof streamableFeesLockerAbi,
+    poolId: Hex
+  ): Promise<{ fees0: bigint; fees1: bigint; transactionHash: Hash }> {
+    const { request, result } = await this.rpc.simulateContract({
+      address: contractAddress,
+      abi,
+      functionName: 'collectFees',
+      args: [poolId],
+      account: this.walletClient!.account,
+    })
+
+    const hash = await this.walletClient!.writeContract(request)
+
+    await this.rpc.waitForTransactionReceipt({ hash, confirmations: 1 })
+
+    const [fees0, fees1] = result as readonly [bigint, bigint]
+
+    return {
+      fees0,
+      fees1,
+      transactionHash: hash,
+    }
   }
 }
