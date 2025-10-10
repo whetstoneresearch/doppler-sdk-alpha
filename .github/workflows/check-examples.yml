@@ -1,5 +1,5 @@
 name: Run Examples
-on: [workflow_dispatch, push]
+on: [workflow_dispatch]
 
 jobs:
   run-examples:

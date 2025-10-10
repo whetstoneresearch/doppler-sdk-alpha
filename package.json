@@ -30,7 +30,9 @@
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build",
     "size": "size-limit",
-    "analyze": "size-limit --why"
+    "analyze": "size-limit --why",
+    "generate:addresses": "node ./scripts/generate-addresses.mjs --source ../doppler/Deployments.json --out src/deployments.generated.ts",
+    "generate-snapshot": "tsx ./scripts/snapshot-addresses.ts"
   },
   "prettier": {
     "printWidth": 80,
@@ -46,6 +48,7 @@
     "size-limit": "^11.2.0",
     "tslib": "^2.8.1",
     "tsup": "^8.4.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.8.3",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^2.1.9"
