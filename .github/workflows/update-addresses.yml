@@ -14,15 +14,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           path: doppler-sdk-alpha
       - name: Checkout Doppler Deployments.json
         uses: actions/checkout@v4
         with:
           repository: whetstoneresearch/doppler
+          ref: main
           path: doppler
           sparse-checkout: |
             Deployments.json
           sparse-checkout-cone: true
+
+      - uses: actions/create-github-app-token@v2
+        id: generate-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: whetstoneresearch
+          repositories: doppler-sdk-alpha
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -36,14 +46,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         working-directory: doppler-sdk-alpha
+      - name: Create snapshots directory
+        run: mkdir -p snapshots
+        working-directory: doppler-sdk-alpha
       - name: Snapshot pre-generation used addresses
-        run: pnpm run generate-snapshot > snapshots/addresses.pre.json
+        run: pnpx tsx ./scripts/snapshot-addresses.ts > snapshots/addresses.pre.json
         working-directory: doppler-sdk-alpha
       - name: Generate deployments.generated.ts from Deployments.json
         run: pnpm run generate:addresses -- --source ../doppler/Deployments.json --out src/deployments.generated.ts
         working-directory: doppler-sdk-alpha
       - name: Snapshot post-generation used addresses
-        run: pnpm run generate-snapshot > snapshots/addresses.post.json
+        run: pnpx tsx ./scripts/snapshot-addresses.ts > snapshots/addresses.post.json
         working-directory: doppler-sdk-alpha
       - name: Create human-readable diff
         run: |
@@ -58,7 +71,6 @@ jobs:
         run: |
           stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
           echo "stamp=$stamp" >> $GITHUB_OUTPUT
-          mkdir -p snapshots
           cp snapshots/addresses.post.json "snapshots/addresses-${stamp}.json"
         working-directory: doppler-sdk-alpha
       - name: Upload dated snapshot artifact (365 days)
@@ -71,8 +83,10 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           path: doppler-sdk-alpha
+          base: main
+          token: ${{ steps.generate-token.outputs.token }}
           title: "chore: update generated addresses"
-          body-path: PR_BODY.md
+          body-path: doppler-sdk-alpha/PR_BODY.md
           commit-message: "chore: update generated addresses"
           branch: chore/update-addresses
           branch-suffix: timestamp
