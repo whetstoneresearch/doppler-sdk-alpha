@@ -204,7 +204,7 @@ const result = await sdk.factory.createMulticurve(params)
 const assetAddress = result.tokenAddress // SAVE THIS - you'll need it to collect fees!
 console.log('Asset address:', assetAddress)
 
-// Later, to collect fees:
+// Later, to collect fees (works before and after migration):
 // const pool = await sdk.getMulticurvePool(assetAddress)
 // await pool.collectFees()
 ```
@@ -367,9 +367,11 @@ const numeraireAddress = await pool.getNumeraireAddress();
 
 The SDK handles the complexity of fee collection by:
 1. **Retrieving pool configuration** from the multicurve initializer contract
-2. **Computing the PoolId** from the PoolKey using `keccak256(abi.encode(poolKey))`
-3. **Calling the contract** with the computed PoolId (not the asset address)
-4. **Distributing fees** proportionally to all configured beneficiaries
+2. **Detecting migration status** and, if the pool has migrated, resolving the shared `StreamableFeesLockerV2`
+   address via the multicurve migrator (no manual lookup required)
+3. **Computing the PoolId** from the PoolKey using `keccak256(abi.encode(poolKey))`
+4. **Calling the correct contract** (initializer while locked, locker after migration) with the computed PoolId
+5. **Distributing fees** proportionally to all configured beneficiaries
 
 **Important Notes:**
 - Fees accumulate from swap activity on the pool (only if fee tier > 0)
@@ -377,7 +379,9 @@ The SDK handles the complexity of fee collection by:
 - Fees are automatically split according to configured beneficiary shares
 - The function returns the total amount collected for both tokens in the pair
 - Works exclusively with pools created using `lockableBeneficiaries` in the multicurve configuration
-- Pool must be in "Locked" status (status = 2) for fee collection to work
+- Pools in "Locked" status (status = 2) use the multicurve initializer for collection
+- Pools in "Exited" status (status = 3) automatically stream fees through `StreamableFeesLockerV2`; the SDK
+  resolves the locker address and stream data for you
 - Beneficiaries must be configured at pool creation time and cannot be changed
 
 **Common Use Cases:**
