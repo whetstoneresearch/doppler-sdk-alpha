@@ -690,17 +690,153 @@ vesting: {
 }
 ```
 
-### Hook Address Mining (V4)
+### Vanity Address Mining
 
-For optimal gas efficiency with Uniswap V4, you can mine hook addresses:
+The Doppler protocol uses CREATE2 for deterministic deployments, enabling you to find vanity addresses for both tokens and hooks before submitting transactions. The SDK provides a `mineTokenAddress` utility that mirrors on-chain calculations.
+
+#### Mining Token Addresses (Static Auctions)
+
+For static auctions (V3 pools), you can mine vanity token addresses:
 
 ```typescript
-// This feature is coming soon
-const minedAddress = await sdk.mineHookAddress({
-  prefix: '0x00', // Target prefix for gas optimization
-  deployer: '0x...', // Doppler deployer address
-});
+import {
+  StaticAuctionBuilder,
+  mineTokenAddress,
+  getAddresses,
+} from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
+import { base } from 'viem/chains'
+
+const builder = new StaticAuctionBuilder(base.id)
+  .tokenConfig({ name: 'Vanity Token', symbol: 'VNY', tokenURI: 'https://example.com/token.json' })
+  .saleConfig({
+    initialSupply: parseEther('1000000'),
+    numTokensToSell: parseEther('750000'),
+    numeraire: '0x...',
+  })
+  .poolByTicks({ startTick: -92103, endTick: -69080, fee: 3000 })
+  .withGovernance({ type: 'default' })
+  .withMigration({ type: 'uniswapV3', fee: 3000, tickSpacing: 60 })
+  .withUserAddress('0x...')
+
+const staticParams = builder.build()
+// Fetch the encoded create() payload without sending the transaction
+const createParams = await sdk.factory.encodeCreateStaticAuctionParams(staticParams)
+const addresses = getAddresses(base.id)
+
+const { salt, tokenAddress, iterations } = mineTokenAddress({
+  prefix: 'dead', // omit 0x prefix
+  tokenFactory: createParams.tokenFactory,
+  initialSupply: createParams.initialSupply,
+  recipient: addresses.airlock,
+  owner: addresses.airlock,
+  tokenData: createParams.tokenFactoryData,
+  maxIterations: 1_000_000, // optional safety cap
+})
+
+console.log(`Vanity token ${tokenAddress} found after ${iterations} iterations`)
+// Now submit airlock.create({ ...createParams, salt }) when ready to deploy
 ```
+
+#### Mining Hook and Token Addresses (Dynamic Auctions)
+
+For dynamic auctions (V4 pools), you can mine both hook and token addresses simultaneously. The miner ensures proper Uniswap V4 hook flags and correct token ordering relative to the numeraire:
+
+```typescript
+import {
+  DynamicAuctionBuilder,
+  mineTokenAddress,
+  getAddresses,
+  DopplerBytecode,
+} from '@whetstone-research/doppler-sdk'
+import { parseEther, keccak256, encodePacked, encodeAbiParameters } from 'viem'
+import { base } from 'viem/chains'
+
+const builder = new DynamicAuctionBuilder()
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/token.json' })
+  .saleConfig({
+    initialSupply: parseEther('1000000'),
+    numTokensToSell: parseEther('900000'),
+    numeraire: '0x...',
+  })
+  .poolConfig({ fee: 3000, tickSpacing: 60 })
+  .auctionByTicks({
+    durationDays: 7,
+    epochLength: 3600,
+    startTick: -92103,
+    endTick: -69080,
+    minProceeds: parseEther('100'),
+    maxProceeds: parseEther('1000'),
+  })
+  .withMigration({ type: 'uniswapV4', fee: 3000, tickSpacing: 60 })
+  .withUserAddress('0x...')
+
+const dynamicParams = builder.build()
+const { createParams } = await sdk.factory.encodeCreateDynamicAuctionParams(dynamicParams)
+const addresses = getAddresses(base.id)
+
+// Compute hook init code hash (required for hook mining)
+const hookInitHashData = encodeAbiParameters(
+  [
+    { type: 'address' }, { type: 'uint256' }, { type: 'uint256' },
+    { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' },
+    { type: 'int24' }, { type: 'int24' }, { type: 'uint256' },
+    { type: 'int24' }, { type: 'bool' }, { type: 'uint256' },
+    { type: 'address' }, { type: 'uint24' },
+  ],
+  [
+    addresses.poolManager,
+    dynamicParams.sale.numTokensToSell,
+    dynamicParams.auction.minProceeds,
+    dynamicParams.auction.maxProceeds,
+    /* startingTime, endingTime, startTick, endTick, epochLength, gamma, isToken0, numPDSlugs */
+    /* poolInitializer, fee - extract from createParams */
+  ]
+)
+
+const hookInitHash = keccak256(
+  encodePacked(['bytes', 'bytes'], [DopplerBytecode, hookInitHashData])
+)
+
+const result = mineTokenAddress({
+  prefix: 'cafe',        // Token prefix
+  tokenFactory: createParams.tokenFactory,
+  initialSupply: createParams.initialSupply,
+  recipient: addresses.airlock,
+  owner: addresses.airlock,
+  tokenData: createParams.tokenFactoryData,
+  tokenVariant: 'standard', // or 'doppler404'
+  maxIterations: 1_000_000,
+  // Optional: mine hook address with specific prefix too
+  hook: {
+    deployer: addresses.dopplerDeployer,
+    initCodeHash: hookInitHash,
+    prefix: '00', // Hook prefix for gas optimization
+  },
+})
+
+console.log('Token address:', result.tokenAddress)
+console.log('Hook address:', result.hookAddress) // only if hook config provided
+console.log(`Found after ${result.iterations} iterations`)
+```
+
+#### Dual-Prefix Mining
+
+When you provide both a token prefix AND a hook configuration with its own prefix, the miner will search for a salt that satisfies **both** requirements simultaneously. This is useful for V4 deployments where you want:
+
+- A vanity token address (e.g., starting with `cafe`)
+- An optimized hook address (e.g., starting with `00` for gas savings)
+
+Note: Dual-prefix mining takes significantly longer than single-prefix mining. Consider using shorter prefixes or higher iteration limits.
+
+#### Mining Notes
+
+- **Prefix format**: Omit the `0x` prefix (e.g., use `'dead'` not `'0x dead'`)
+- **Case insensitive**: `'DEAD'`, `'dead'`, and `'DeAd'` are equivalent
+- **Iteration limit**: Longer prefixes require more iterations. A 4-character hex prefix takes ~65,000 attempts on average.
+- **Token variants**: Set `tokenVariant: 'doppler404'` for DN404-style tokens
+- **Salt preservation**: High-level helpers like `createStaticAuction` and `createDynamicAuction` recompute salts internally to ensure proper token ordering. To use a mined salt, call `encodeCreate*Params` and submit the transaction manually via `publicClient.writeContract`
+- **Hook flags**: The miner automatically ensures V4 hooks have the correct permission flags for Doppler operations
 
 ## API Reference
 
