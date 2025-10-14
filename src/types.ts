@@ -413,6 +413,11 @@ export interface CreateMulticurveParams<C extends SupportedChainId = SupportedCh
     beneficiaries?: BeneficiaryData[];
   };
 
+  // Optional scheduled launch configuration
+  schedule?: {
+    startTime: number;
+  };
+
   // Vesting configuration (optional)
   vesting?: VestingConfig;
 
@@ -461,6 +466,7 @@ export interface ModuleAddressOverrides {
   v3Initializer?: Address;
   v4Initializer?: Address;
   v4MulticurveInitializer?: Address;
+  v4ScheduledMulticurveInitializer?: Address;
 
   // Governance
   governanceFactory?: Address;

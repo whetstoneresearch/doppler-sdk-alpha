@@ -532,6 +532,7 @@ export class MulticurveBuilder<C extends SupportedChainId> {
   private token?: TokenConfig
   private sale?: CreateMulticurveParams<C>['sale']
   private pool?: CreateMulticurveParams<C>['pool']
+  private schedule?: CreateMulticurveParams<C>['schedule']
   private vesting?: VestingConfig
   private governance?: GovernanceOption<C>
   private migration?: MigrationConfig
@@ -603,6 +604,40 @@ export class MulticurveBuilder<C extends SupportedChainId> {
     return this
   }
 
+  withSchedule(params?: { startTime: number | bigint | Date }): this {
+    if (!params) {
+      this.schedule = undefined
+      return this
+    }
+
+    let startTimeSeconds: number
+    const { startTime } = params
+
+    if (startTime instanceof Date) {
+      startTimeSeconds = Math.floor(startTime.getTime() / 1000)
+    } else if (typeof startTime === 'bigint') {
+      startTimeSeconds = Number(startTime)
+    } else {
+      startTimeSeconds = Number(startTime)
+    }
+
+    if (!Number.isFinite(startTimeSeconds) || !Number.isInteger(startTimeSeconds)) {
+      throw new Error('Schedule startTime must be an integer number of seconds since Unix epoch')
+    }
+
+    if (startTimeSeconds < 0) {
+      throw new Error('Schedule startTime cannot be negative')
+    }
+
+    const UINT32_MAX = 0xffffffff
+    if (startTimeSeconds > UINT32_MAX) {
+      throw new Error('Schedule startTime must fit within uint32 (seconds since Unix epoch up to year 2106)')
+    }
+
+    this.schedule = { startTime: startTimeSeconds }
+    return this
+  }
+
   withGovernance(params: GovernanceOption<C>): this {
     this.governance = params
     return this
@@ -636,6 +671,7 @@ export class MulticurveBuilder<C extends SupportedChainId> {
   withTokenFactory(address: Address): this { return this.overrideModule('tokenFactory', address) }
   withAirlock(address: Address): this { return this.overrideModule('airlock', address) }
   withV4MulticurveInitializer(address: Address): this { return this.overrideModule('v4MulticurveInitializer', address) }
+  withV4ScheduledMulticurveInitializer(address: Address): this { return this.overrideModule('v4ScheduledMulticurveInitializer', address) }
   withGovernanceFactory(address: Address): this { return this.overrideModule('governanceFactory', address) }
   withV2Migrator(address: Address): this { return this.overrideModule('v2Migrator', address) }
   withV3Migrator(address: Address): this { return this.overrideModule('v3Migrator', address) }
@@ -654,6 +690,7 @@ export class MulticurveBuilder<C extends SupportedChainId> {
       token: this.token,
       sale: this.sale,
       pool: this.pool,
+      schedule: this.schedule,
       vesting: this.vesting,
       governance: this.governance,
       migration: this.migration,

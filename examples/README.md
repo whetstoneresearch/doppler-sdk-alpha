@@ -34,6 +34,9 @@ Interact with launched tokens - check balances, approve spending, and release ve
 ### 10. [Price Quoter](./price-quoter.ts)
 Get price quotes across different Uniswap versions for optimal trading.
 
+### 11. [Scheduled Multicurve Launch](./multicurve-scheduled-launch.ts)
+Create a multicurve auction that queues until a future start time using the scheduled initializer on Base.
+
 ## Prerequisites
 
 Before running these examples, ensure you have:

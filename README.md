@@ -145,6 +145,7 @@ Multicurve auctions use a Uniswap V4-style initializer that seeds liquidity acro
 ```typescript
 import { MulticurveBuilder } from '@whetstone-research/doppler-sdk'
 import { parseEther } from 'viem'
+import { base } from 'viem/chains'
 
 const params = new MulticurveBuilder(base.id)
   .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
@@ -167,6 +168,38 @@ const result = await sdk.factory.createMulticurve(params)
 console.log('Pool address:', result.poolAddress)
 console.log('Token address:', result.tokenAddress)
 ```
+
+**Scheduled Multicurve Launch:**
+```typescript
+import { MulticurveBuilder } from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
+import { base } from 'viem/chains'
+
+const startTime = Math.floor(Date.now() / 1000) + 3600 // one hour from now
+
+const scheduled = new MulticurveBuilder(base.id)
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'ipfs://scheduled.json' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: '0x4200000000000000000000000000000000000006' })
+  .withMulticurveAuction({
+    fee: 0,
+    tickSpacing: 8,
+    curves: [
+      { tickLower: 0, tickUpper: 240000, numPositions: 12, shares: parseEther('0.5') },
+      { tickLower: 16000, tickUpper: 240000, numPositions: 12, shares: parseEther('0.5') },
+    ],
+  })
+  .withSchedule({ startTime })
+  .withGovernance({ type: 'default' })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress('0x...')
+  .build()
+
+const scheduledResult = await sdk.factory.createMulticurve(scheduled)
+console.log('Pool address:', scheduledResult.poolAddress)
+console.log('Token address:', scheduledResult.tokenAddress)
+```
+
+Ensure the target chain has the scheduled multicurve initializer whitelisted. If you are targeting a custom deployment, override it via `.withV4ScheduledMulticurveInitializer('0x...')`.
 
 **Multicurve with Lockable Beneficiaries (NoOp Migration):**
 

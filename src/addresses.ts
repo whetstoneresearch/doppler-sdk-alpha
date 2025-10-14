@@ -30,6 +30,7 @@ export interface ChainAddresses {
   v4Initializer: Address
   // Multicurve initializer (V4) — optional per chain
   v4MulticurveInitializer?: Address
+  v4ScheduledMulticurveInitializer?: Address
   doppler: Address
   dopplerLens: Address
   dopplerDeployer: Address
@@ -101,6 +102,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     lockableV3Initializer: '0xe0dc4012ac9c868f09c6e4b20d66ed46d6f258d0' as Address,
     v4Initializer: '0x82ac010c67f70bacf7655cd8948a4ad92a173cac' as Address,
     v4MulticurveInitializer: '0x65dE470Da664A5be139A5D812bE5FDa0d76CC951' as Address, // From Doppler multicurve deployments (Base mainnet)
+    v4ScheduledMulticurveInitializer: '0xa36715Da46DdF4A769F3290f49aF58Bf8132Ed8e' as Address, // From Doppler scheduled multicurve deployments (Base mainnet)
     doppler: '0x2f2bacd46d3f5c9ee052ab392b73711db89129db' as Address,
     dopplerLens: '0x43d0d97ec9241a8f05a264f94b82a1d2e600f2b3' as Address,
     dopplerDeployer: '0x8350cAd81149A9944c2fb4276955FaAA7D61e836' as Address,
@@ -129,6 +131,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     lockableV3Initializer: '0x16ada5be50c3c2d94af5feae6b539c40a78ad53c' as Address,
     v4Initializer: '0x8e891d249f1ecbffa6143c03eb1b12843aef09d3' as Address,
     v4MulticurveInitializer: '0x359b5952a254baaa0105381825daedb8986bb55c' as Address, // From doppler multicurve deployments (Base Sepolia)
+    v4ScheduledMulticurveInitializer: '0x5C10D3e14Aae2Ef95619B25E907E013260E832E4' as Address, // From Doppler scheduled multicurve deployments (Base Sepolia)
     doppler: '0x60a039e4add40ca95e0475c11e8a4182d06c9aa0' as Address,
     dopplerLens: '0x4a8d81db741248a36d9eb3bc6ef648bf798b47a7' as Address,
     dopplerDeployer: '0x60a039e4add40ca95e0475c11e8a4182d06c9aa0' as Address,

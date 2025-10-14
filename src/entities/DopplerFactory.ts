@@ -931,25 +931,72 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       return aAddr < bAddr ? -1 : aAddr > bAddr ? 1 : 0
     })
 
-    const poolInitializerData = encodeAbiParameters(
-      [
-{
-            type: "tuple",
-            components: [
-              { name: 'fee', type: 'uint24' },
-              { name: 'tickSpacing', type: 'int24' },
-              { name: 'curves', type: 'tuple[]', components: [ { type: 'int24', name: 'tickLower' }, { type: 'int24', name: 'tickUpper' }, { type: 'uint16', name: 'numPositions' }, { type: 'uint256', name: 'shares' } ] },
-              { name: 'beneficiaries', type: 'tuple[]', components: [ { type: 'address', name: 'beneficiary' }, { type: 'uint96', name: 'shares' } ] },
-            ]
-          }
-      ],
-      [{
-        "fee": params.pool.fee,
-        "tickSpacing": params.pool.tickSpacing,
-        "curves": normalizedCurves.map((c: typeof normalizedCurves[number]) => ({ tickLower: c.tickLower, tickUpper: c.tickUpper, numPositions: c.numPositions, shares: c.shares })),
-        "beneficiaries": sortedBeneficiaries.map((b: NonNullable<typeof params.pool.beneficiaries>[number]) => ({ beneficiary: b.beneficiary, shares: b.shares }))
+    const useScheduledInitializer = params.schedule !== undefined
+
+    let scheduleStartTime: number | undefined
+    if (useScheduledInitializer) {
+      scheduleStartTime = Number(params.schedule!.startTime)
+      if (!Number.isFinite(scheduleStartTime) || !Number.isInteger(scheduleStartTime)) {
+        throw new Error('Scheduled multicurve startTime must be an integer number of seconds since Unix epoch')
       }
-      ]
+      if (scheduleStartTime < 0) {
+        throw new Error('Scheduled multicurve startTime cannot be negative')
+      }
+      const UINT32_MAX = 0xffffffff
+      if (scheduleStartTime > UINT32_MAX) {
+        throw new Error('Scheduled multicurve startTime must fit within uint32 (seconds since Unix epoch up to year 2106)')
+      }
+    }
+
+    const poolInitializerTupleComponents = [
+      { name: 'fee', type: 'uint24' },
+      { name: 'tickSpacing', type: 'int24' },
+      {
+        name: 'curves',
+        type: 'tuple[]',
+        components: [
+          { type: 'int24', name: 'tickLower' },
+          { type: 'int24', name: 'tickUpper' },
+          { type: 'uint16', name: 'numPositions' },
+          { type: 'uint256', name: 'shares' }
+        ]
+      },
+      {
+        name: 'beneficiaries',
+        type: 'tuple[]',
+        components: [
+          { type: 'address', name: 'beneficiary' },
+          { type: 'uint96', name: 'shares' }
+        ]
+      }
+    ]
+
+    if (useScheduledInitializer) {
+      poolInitializerTupleComponents.push({ name: 'startingTime', type: 'uint32' })
+    }
+
+    const baseInitializerParams = {
+      fee: params.pool.fee,
+      tickSpacing: params.pool.tickSpacing,
+      curves: normalizedCurves.map((c: typeof normalizedCurves[number]) => ({
+        tickLower: c.tickLower,
+        tickUpper: c.tickUpper,
+        numPositions: c.numPositions,
+        shares: c.shares
+      })),
+      beneficiaries: sortedBeneficiaries.map((b: NonNullable<typeof params.pool.beneficiaries>[number]) => ({
+        beneficiary: b.beneficiary,
+        shares: b.shares
+      }))
+    }
+
+    const poolInitializerValue = useScheduledInitializer
+      ? { ...baseInitializerParams, startingTime: scheduleStartTime! }
+      : baseInitializerParams
+
+    const poolInitializerData = encodeAbiParameters(
+      [{ type: 'tuple', components: poolInitializerTupleComponents }],
+      [poolInitializerValue]
     )
 
     // Token factory data (standard vs 404)
@@ -1008,9 +1055,18 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Token factory address not configured. Provide an explicit address or ensure chain config includes a valid factory.')
     }
 
-    const resolvedInitializer: Address | undefined = params.modules?.v4MulticurveInitializer ?? addresses.v4MulticurveInitializer
+    const resolvedInitializer: Address | undefined = (() => {
+      if (useScheduledInitializer) {
+        return params.modules?.v4ScheduledMulticurveInitializer ?? addresses.v4ScheduledMulticurveInitializer
+      }
+      return params.modules?.v4MulticurveInitializer ?? addresses.v4MulticurveInitializer
+    })()
     if (!resolvedInitializer || resolvedInitializer === ZERO_ADDRESS) {
-      throw new Error('Multicurve initializer address not configured on this chain. Override via builder or update chain config.')
+      throw new Error(
+        useScheduledInitializer
+          ? 'Scheduled multicurve initializer address not configured on this chain. Override via builder or update chain config.'
+          : 'Multicurve initializer address not configured on this chain. Override via builder or update chain config.'
+      )
     }
 
     // When beneficiaries are provided, use NoOpMigrator with empty data
