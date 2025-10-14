@@ -820,6 +820,72 @@ console.log('Hook address:', result.hookAddress) // only if hook config provided
 console.log(`Found after ${result.iterations} iterations`)
 ```
 
+#### Mining Token Addresses (Multicurve Auctions)
+
+For multicurve auctions, you can mine vanity token addresses by computing the `CreateParams` manually with your mined salt. Unlike static and dynamic auctions, multicurve doesn't automatically mine token addresses:
+
+```typescript
+import {
+  MulticurveBuilder,
+  mineTokenAddress,
+  getAddresses,
+} from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
+import { base } from 'viem/chains'
+
+const builder = new MulticurveBuilder(base.id)
+  .tokenConfig({ name: 'Vanity Multicurve', symbol: 'VMC', tokenURI: 'https://example.com/token.json' })
+  .saleConfig({
+    initialSupply: parseEther('1000000'),
+    numTokensToSell: parseEther('900000'),
+    numeraire: '0x...',
+  })
+  .withMulticurveAuction({
+    fee: 3000,
+    tickSpacing: 60,
+    curves: [
+      { tickLower: 0, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
+      { tickLower: 16000, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
+    ],
+  })
+  .withGovernance({ type: 'default' })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress('0x...')
+
+const multicurveParams = builder.build()
+const addresses = getAddresses(base.id)
+
+// Get CreateParams without calling create
+const createParams = sdk.factory.encodeCreateMulticurveParams(multicurveParams)
+
+// Mine a vanity token address
+const { salt, tokenAddress, iterations } = mineTokenAddress({
+  prefix: 'feed',
+  tokenFactory: createParams.tokenFactory,
+  initialSupply: createParams.initialSupply,
+  recipient: addresses.airlock,
+  owner: addresses.airlock,
+  tokenData: createParams.tokenFactoryData,
+  maxIterations: 500_000,
+})
+
+console.log(`Vanity token ${tokenAddress} found after ${iterations} iterations`)
+
+// Use the mined salt in createParams
+const vanityCreateParams = { ...createParams, salt }
+
+// Now submit the transaction manually with the vanity salt
+await publicClient.writeContract({
+  address: addresses.airlock,
+  abi: airlockAbi,
+  functionName: 'create',
+  args: [vanityCreateParams],
+  account: walletClient.account,
+})
+```
+
+**Important**: Since `encodeCreateMulticurveParams` generates a random salt internally, you must construct the final `CreateParams` manually with your mined salt. The high-level `createMulticurve` method will replace any provided salt.
+
 #### Dual-Prefix Mining
 
 When you provide both a token prefix AND a hook configuration with its own prefix, the miner will search for a salt that satisfies **both** requirements simultaneously. This is useful for V4 deployments where you want:
