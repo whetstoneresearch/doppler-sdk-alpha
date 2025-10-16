@@ -78,8 +78,19 @@ jobs:
         with:
           name: addresses-snapshot-${{ steps.stamp.outputs.stamp }}
           path: doppler-sdk-alpha/snapshots/addresses-${{ steps.stamp.outputs.stamp }}.json
-          retention-days: 365
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet src/deployments.generated.ts; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected in generated addresses"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in generated addresses"
+          fi
+        working-directory: doppler-sdk-alpha
       - name: Create Pull Request
+        if: steps.changes.outputs.has_changes == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           path: doppler-sdk-alpha
@@ -89,7 +100,6 @@ jobs:
           body-path: doppler-sdk-alpha/PR_BODY.md
           commit-message: "chore: update generated addresses"
           branch: chore/update-addresses
-          branch-suffix: timestamp
           delete-branch: true
           add-paths: |
             src/deployments.generated.ts
