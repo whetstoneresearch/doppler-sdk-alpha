@@ -32,7 +32,7 @@ jobs:
           message: |
             ## 🔄⏳ Checking Address Changes...
             
-            Currently comparing utilized addresses between base and PR branch. This comment will update automatically when the check completes.
+            Currently comparing `${{ github.event.pull_request.head.ref }}` with `${{ github.event.pull_request.base.ref }}`. This comment will update automatically when the check completes.
             
             ---
             *Started: ${{ steps.timestamp.outputs.started }}*
@@ -74,6 +74,9 @@ jobs:
       
       - name: Generate diff
         id: diff
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           # Get human-readable timestamp
           timestamp=$(date -u '+%B %d, %Y at %H:%M:%S UTC')
@@ -86,6 +89,8 @@ jobs:
             {
               echo 'COMMENT_BODY<<EOF'
               echo '## ✅ No Address Changes'
+              echo ''
+              echo "Compared \`${HEAD_REF}\` with \`${BASE_REF}\`"
               echo ''
               echo 'This PR does not modify any addresses currently used by the SDK.'
               echo ''
@@ -106,6 +111,8 @@ jobs:
             {
               echo 'COMMENT_BODY<<EOF'
               echo '## 🔄 Address Changes Detected'
+              echo ''
+              echo "Compared \`${HEAD_REF}\` with \`${BASE_REF}\`"
               echo ''
               echo 'The following addresses used by the SDK have changed:'
               echo ''
