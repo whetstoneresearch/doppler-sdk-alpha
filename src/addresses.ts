@@ -103,6 +103,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     lockableV3Initializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.BASE].LockableUniswapV3Initializer as Address,
     v4Initializer: '0x82ac010c67f70bacf7655cd8948a4ad92a173cac' as Address,
     v4MulticurveInitializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.BASE].UniswapV4MulticurveInitializer as Address, // From Doppler multicurve deployments (Base mainnet)
+    v4ScheduledMulticurveInitializer: '0xa36715Da46DdF4A769F3290f49aF58Bf8132Ed8e' as Address, // From Doppler scheduled multicurve deployments (Base mainnet)
     doppler: '0x2f2bacd46d3f5c9ee052ab392b73711db89129db' as Address,
     dopplerLens: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.BASE].DopplerLensQuoter as Address,
     dopplerDeployer: '0x8350cAd81149A9944c2fb4276955FaAA7D61e836' as Address,
@@ -131,6 +132,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     lockableV3Initializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.BASE_SEPOLIA].LockableUniswapV3Initializer as Address,
     v4Initializer: '0x8e891d249f1ecbffa6143c03eb1b12843aef09d3' as Address,
     v4MulticurveInitializer: '0x359b5952a254baaa0105381825daedb8986bb55c' as Address, // From doppler multicurve deployments (Base Sepolia)
+    v4ScheduledMulticurveInitializer: '0x5C10D3e14Aae2Ef95619B25E907E013260E832E4' as Address, // From Doppler scheduled multicurve deployments (Base Sepolia)
     doppler: '0x60a039e4add40ca95e0475c11e8a4182d06c9aa0' as Address,
     dopplerLens: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.BASE_SEPOLIA].DopplerLensQuoter as Address,
     dopplerDeployer: '0x60a039e4add40ca95e0475c11e8a4182d06c9aa0' as Address,
