@@ -21,6 +21,16 @@ jobs:
           owner: whetstoneresearch
           repositories: doppler-sdk-alpha
       
+      - name: Post initial comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: address-diff
+          message: |
+            ## ⏳ Checking Address Changes...
+            
+            Comparing utilized addresses between base and PR branch. This will update when complete.
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+      
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -58,6 +68,9 @@ jobs:
       - name: Generate diff
         id: diff
         run: |
+          # Get human-readable timestamp
+          timestamp=$(date -u '+%B %d, %Y at %H:%M:%S UTC')
+          
           if npx --yes json-diff snapshots/addresses.base.json snapshots/addresses.pr.json > diff_output.txt 2>&1; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "No address changes detected"
@@ -65,13 +78,17 @@ jobs:
             # Create comment for no utilized address changes
             {
               echo 'COMMENT_BODY<<EOF'
-              echo '## ✅ Generated Addresses Updated'
+              echo '## ✅ No Address Changes'
               echo ''
-              echo '`deployments.generated.ts` was regenerated with new deployment data.'
+              echo 'This PR does not modify any addresses currently used by the SDK.'
               echo ''
-              echo '**No changes to utilized addresses** — The addresses actually used by the SDK (in `ADDRESSES` constant) remain the same.'
+              echo 'While `deployments.generated.ts` or `addresses.ts` may have been updated, the runtime addresses referenced by `ADDRESSES` remain unchanged. This typically means:'
+              echo '- New contracts were deployed but are not yet integrated into the SDK'
+              echo '- Code formatting or comments were updated'
+              echo '- Unused addresses in the generated file changed'
               echo ''
-              echo '> This means new contracts may have been deployed, but the SDK is not yet using them.'
+              echo "---"
+              echo "*Last checked: ${timestamp}*"
               echo EOF
             } >> $GITHUB_ENV
           else
@@ -90,6 +107,9 @@ jobs:
               echo '```diff'
               cat diff_output.txt
               echo '```'
+              echo ''
+              echo "---"
+              echo "*Last checked: ${timestamp}*"
               echo EOF
             } >> $GITHUB_ENV
           fi
