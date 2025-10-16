@@ -22,13 +22,20 @@ jobs:
           repositories: doppler-sdk-alpha
       
       - name: Post initial comment
+        id: timestamp
+        run: echo "started=$(date -u '+%B %d, %Y at %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+      
+      - name: Post in-progress comment
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: address-diff
           message: |
-            ## ⏳ Checking Address Changes...
+            ## 🔄⏳ Checking Address Changes...
             
-            Comparing utilized addresses between base and PR branch. This will update when complete.
+            Currently comparing utilized addresses between base and PR branch. This comment will update automatically when the check completes.
+            
+            ---
+            *Started: ${{ steps.timestamp.outputs.started }}*
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
       
       - uses: actions/checkout@v4
