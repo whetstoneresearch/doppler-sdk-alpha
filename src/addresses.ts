@@ -182,7 +182,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     tokenFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.UNICHAIN].TokenFactory as Address,
     v3Initializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.UNICHAIN].UniswapV3Initializer as Address,
     v3Quoter: '0x385A5cf5F83e99f7BB2852b6A19C3538b9FA7658' as Address,
-    v4Initializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.UNICHAIN].UniswapV4Initializer as Address,
+    v4Initializer: '0x2F2BAcd46d3F5c9EE052Ab392b73711dB89129DB' as Address,
     doppler: '0x06FEFD02F0b6d9f57F52cfacFc113665Dfa20F0f' as Address,
     dopplerLens: '0x333e3c607b141b18ff6de9f258db6e77fe7491e0' as Address,
     dopplerDeployer: '0x06FEFD02F0b6d9f57F52cfacFc113665Dfa20F0f' as Address,
