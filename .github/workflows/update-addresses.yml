@@ -1,5 +1,9 @@
 name: Update Addresses
-on: [workflow_dispatch]
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -60,11 +64,30 @@ jobs:
         working-directory: doppler-sdk-alpha
       - name: Create human-readable diff
         run: |
-          echo '### Address diff' > PR_BODY.md
+          echo '## Automated Address Update' > PR_BODY.md
           echo '' >> PR_BODY.md
-          echo '```diff' >> PR_BODY.md
-          npx --yes json-diff snapshots/addresses.pre.json snapshots/addresses.post.json >> PR_BODY.md || true
-          echo '```' >> PR_BODY.md
+          echo 'This PR updates `deployments.generated.ts` from the latest `Deployments.json` in the doppler repo.' >> PR_BODY.md
+          echo '' >> PR_BODY.md
+          
+          # Check if there are actual differences in utilized addresses
+          if npx --yes json-diff snapshots/addresses.pre.json snapshots/addresses.post.json > diff_output.txt 2>&1; then
+            echo '### Address Changes' >> PR_BODY.md
+            echo '' >> PR_BODY.md
+            echo 'No changes to utilized addresses. The generated file may have formatting or metadata updates.' >> PR_BODY.md
+          else
+            echo '### Address Changes' >> PR_BODY.md
+            echo '' >> PR_BODY.md
+            echo 'The following addresses are utilized by the SDK and have changed:' >> PR_BODY.md
+            echo '' >> PR_BODY.md
+            echo '> **Note:** `deployments.generated.ts` contains all deployed contracts, but the SDK only uses a subset.' >> PR_BODY.md
+            echo '> This diff shows **only** the addresses actually referenced in the codebase.' >> PR_BODY.md
+            echo '' >> PR_BODY.md
+            echo '```diff' >> PR_BODY.md
+            cat diff_output.txt >> PR_BODY.md
+            echo '```' >> PR_BODY.md
+          fi
+          
+          rm -f diff_output.txt
         working-directory: doppler-sdk-alpha
       - name: Prepare dated snapshot
         id: stamp
