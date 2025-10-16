@@ -50,57 +50,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         working-directory: doppler-sdk-alpha
-      - name: Create snapshots directory
-        run: mkdir -p snapshots
-        working-directory: doppler-sdk-alpha
-      - name: Snapshot pre-generation used addresses
-        run: pnpx tsx ./scripts/snapshot-addresses.ts > snapshots/addresses.pre.json
-        working-directory: doppler-sdk-alpha
       - name: Generate deployments.generated.ts from Deployments.json
         run: pnpm run generate:addresses -- --source ../doppler/Deployments.json --out src/deployments.generated.ts
         working-directory: doppler-sdk-alpha
-      - name: Snapshot post-generation used addresses
-        run: pnpx tsx ./scripts/snapshot-addresses.ts > snapshots/addresses.post.json
-        working-directory: doppler-sdk-alpha
-      - name: Create human-readable diff
-        run: |
-          echo '## Automated Address Update' > PR_BODY.md
-          echo '' >> PR_BODY.md
-          echo 'This PR updates `deployments.generated.ts` from the latest `Deployments.json` in the doppler repo.' >> PR_BODY.md
-          echo '' >> PR_BODY.md
-          
-          # Check if there are actual differences in utilized addresses
-          if npx --yes json-diff snapshots/addresses.pre.json snapshots/addresses.post.json > diff_output.txt 2>&1; then
-            echo '### Address Changes' >> PR_BODY.md
-            echo '' >> PR_BODY.md
-            echo 'No changes to utilized addresses. The generated file may have formatting or metadata updates.' >> PR_BODY.md
-          else
-            echo '### Address Changes' >> PR_BODY.md
-            echo '' >> PR_BODY.md
-            echo 'The following addresses are utilized by the SDK and have changed:' >> PR_BODY.md
-            echo '' >> PR_BODY.md
-            echo '> **Note:** `deployments.generated.ts` contains all deployed contracts, but the SDK only uses a subset.' >> PR_BODY.md
-            echo '> This diff shows **only** the addresses actually referenced in the codebase.' >> PR_BODY.md
-            echo '' >> PR_BODY.md
-            echo '```diff' >> PR_BODY.md
-            cat diff_output.txt >> PR_BODY.md
-            echo '```' >> PR_BODY.md
-          fi
-          
-          rm -f diff_output.txt
-        working-directory: doppler-sdk-alpha
-      - name: Prepare dated snapshot
-        id: stamp
-        run: |
-          stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
-          echo "stamp=$stamp" >> $GITHUB_OUTPUT
-          cp snapshots/addresses.post.json "snapshots/addresses-${stamp}.json"
-        working-directory: doppler-sdk-alpha
-      - name: Upload dated snapshot artifact (365 days)
-        uses: actions/upload-artifact@v4
-        with:
-          name: addresses-snapshot-${{ steps.stamp.outputs.stamp }}
-          path: doppler-sdk-alpha/snapshots/addresses-${{ steps.stamp.outputs.stamp }}.json
       - name: Check for changes
         id: changes
         run: |
@@ -120,7 +72,12 @@ jobs:
           base: main
           token: ${{ steps.generate-token.outputs.token }}
           title: "chore: update generated addresses"
-          body-path: doppler-sdk-alpha/PR_BODY.md
+          body: |
+            ## Automated Address Update
+            
+            This PR updates `deployments.generated.ts` from the latest `Deployments.json` in the doppler repo.
+            
+            See the automated comment below for detailed address changes.
           commit-message: "chore: update generated addresses"
           branch: chore/update-addresses
           delete-branch: true
