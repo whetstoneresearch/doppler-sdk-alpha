@@ -707,9 +707,9 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     let actualTokenAddress: Address = tokenAddress
     
     if (simResult && Array.isArray(simResult) && simResult.length >= 2) {
-      // Tests expect [poolOrHook, asset]
-      actualHookAddress = simResult[0] as Address
-      actualTokenAddress = simResult[1] as Address
+      // Tests expect [asset, poolOrHook]
+      actualTokenAddress = simResult[0] as Address
+      actualHookAddress = simResult[1] as Address
     } else {
       // Fallback: Parse the Create event from logs
       const createEvent = (receipt.logs as readonly unknown[]).find((log: unknown) => {
@@ -790,8 +790,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Failed to simulate dynamic auction create')
     }
 
-    const hookAddress = simResult[0] as Address
-    const tokenAddress = simResult[1] as Address
+    const tokenAddress = simResult[0] as Address
+    const hookAddress = simResult[1] as Address
 
     const poolId = this.computePoolId({
       currency0: tokenAddress < params.sale.numeraire ? tokenAddress : params.sale.numeraire,
