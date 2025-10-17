@@ -3,6 +3,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { getAddress } from 'viem'
 
 /**
  * Simple CLI to convert a Doppler Deployments.json into a TypeScript module.
@@ -50,16 +51,16 @@ function sortKeysDeep(value) {
   return value
 }
 
-function lowerAddressesOnly(value) {
-  if (Array.isArray(value)) return value.map((v) => lowerAddressesOnly(v))
+function checksumAddressesOnly(value) {
+  if (Array.isArray(value)) return value.map((v) => checksumAddressesOnly(v))
   if (value && typeof value === 'object') {
     const out = {}
     for (const [k, v] of Object.entries(value)) {
-      out[k] = lowerAddressesOnly(v)
+      out[k] = checksumAddressesOnly(v)
     }
     return out
   }
-  if (typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value)) return value.toLowerCase()
+  if (typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value)) return getAddress(value)
   return value
 }
 
@@ -94,7 +95,7 @@ async function main() {
 // WARNING: If you need Doppler addresses, import from @addresses.ts instead (e.g. use ADDRESSES / getAddresses).
 `
 
-    const sorted = sortKeysDeep(lowerAddressesOnly(deployments))
+    const sorted = sortKeysDeep(checksumAddressesOnly(deployments))
     const tsBody = `/** @internal */\nexport type GeneratedDopplerDeployments = Record<string, Record<string, string>>\n\n/** @internal */\nexport const GENERATED_DOPPLER_DEPLOYMENTS = ${JSON.stringify(
       sorted,
       null,

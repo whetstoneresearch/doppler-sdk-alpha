@@ -1,0 +1,137 @@
+name: PR Address Diff
+on:
+  pull_request:
+    paths:
+      - 'src/addresses.ts'
+      - 'src/deployments.generated.ts'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  address-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: generate-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: whetstoneresearch
+          repositories: doppler-sdk-alpha
+      
+      - name: Post initial comment
+        id: timestamp
+        run: echo "started=$(date -u '+%B %d, %Y at %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+      
+      - name: Post in-progress comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: address-diff
+          message: |
+            ## 🔄⏳ Checking Address Changes...
+            
+            Currently comparing `${{ github.event.pull_request.head.ref }}` with `${{ github.event.pull_request.base.ref }}`. This comment will update automatically when the check completes.
+            
+            ---
+            *Started: ${{ steps.timestamp.outputs.started }}*
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+      
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Create snapshots directory
+        run: mkdir -p snapshots
+      
+      - name: Snapshot PR addresses
+        run: pnpx tsx ./scripts/snapshot-addresses.ts > snapshots/addresses.pr.json
+      
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      
+      - name: Snapshot base addresses
+        run: |
+          cd base
+          pnpm install --frozen-lockfile
+          pnpx tsx ./scripts/snapshot-addresses.ts > ../snapshots/addresses.base.json
+      
+      - name: Generate diff
+        id: diff
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          # Get human-readable timestamp
+          timestamp=$(date -u '+%B %d, %Y at %H:%M:%S UTC')
+          
+          if npx --yes json-diff snapshots/addresses.base.json snapshots/addresses.pr.json > diff_output.txt 2>&1; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No address changes detected"
+            
+            # Create comment for no utilized address changes
+            {
+              echo 'COMMENT_BODY<<EOF'
+              echo '## ✅ No Address Changes'
+              echo ''
+              echo "Compared \`${HEAD_REF}\` with \`${BASE_REF}\`"
+              echo ''
+              echo 'This PR does not modify any addresses currently used by the SDK.'
+              echo ''
+              echo 'While `deployments.generated.ts` or `addresses.ts` may have been updated, the runtime addresses referenced by `ADDRESSES` remain unchanged. This typically means:'
+              echo '- New contracts were deployed but are not yet integrated into the SDK'
+              echo '- Code formatting or comments were updated'
+              echo '- Unused addresses in the generated file changed'
+              echo ''
+              echo "---"
+              echo "*Last checked: ${timestamp}*"
+              echo EOF
+            } >> $GITHUB_ENV
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Address changes detected"
+            
+            # Create comment body for actual changes
+            {
+              echo 'COMMENT_BODY<<EOF'
+              echo '## 🔄 Address Changes Detected'
+              echo ''
+              echo "Compared \`${HEAD_REF}\` with \`${BASE_REF}\`"
+              echo ''
+              echo 'The following addresses used by the SDK have changed:'
+              echo ''
+              echo '> **Note:** This diff shows **only** the addresses actually used by the SDK (from `ADDRESSES` constant).'
+              echo ''
+              echo '```diff'
+              cat diff_output.txt
+              echo '```'
+              echo ''
+              echo "---"
+              echo "*Last checked: ${timestamp}*"
+              echo EOF
+            } >> $GITHUB_ENV
+          fi
+      
+      - name: Post or update comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: address-diff
+          message: ${{ env.COMMENT_BODY }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+
