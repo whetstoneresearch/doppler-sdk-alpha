@@ -247,7 +247,7 @@ describe('DopplerFactory', () => {
       
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
         request: { address: mockAddresses.airlock, functionName: 'create', args: [{}, {}] },
-        result: [mockPoolAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockPoolAddress],
       } as any)
       vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
       vi.mocked(publicClient.waitForTransactionReceipt).mockResolvedValueOnce(
@@ -275,7 +275,7 @@ describe('DopplerFactory', () => {
       
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
         request: { address: mockAddresses.airlock, functionName: 'create', args: [{}, {}] },
-        result: [mockPoolAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockPoolAddress],
       } as any)
       vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
       vi.mocked(publicClient.waitForTransactionReceipt).mockResolvedValueOnce(
@@ -369,7 +369,7 @@ describe('DopplerFactory', () => {
       
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
         request: { address: mockAddresses.airlock, functionName: 'create', args: [{}, {}] },
-        result: [mockPoolAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockPoolAddress],
       } as any)
       vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
       vi.mocked(publicClient.waitForTransactionReceipt).mockResolvedValueOnce(
@@ -408,7 +408,7 @@ describe('DopplerFactory', () => {
 
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
         request: { address: mockAddresses.airlock, functionName: 'create', args: [{}, {}] },
-        result: [mockPoolAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockPoolAddress],
       } as any)
       vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
       vi.mocked(publicClient.waitForTransactionReceipt).mockResolvedValueOnce(
@@ -436,7 +436,7 @@ describe('DopplerFactory', () => {
       vi.mocked(publicClient.estimateContractGas).mockImplementationOnce(async () => 12_250_000n)
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
         request: {},
-        result: [mockPoolAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockPoolAddress],
       } as any)
 
       const { createParams, hookAddress, tokenAddress, poolId, gasEstimate } = await factory.simulateCreateDynamicAuction(
@@ -457,7 +457,7 @@ describe('DopplerFactory', () => {
       vi.mocked(publicClient.estimateContractGas).mockImplementationOnce(async () => 10_000_000n)
       vi.mocked(publicClient.simulateContract).mockResolvedValueOnce({
         request: { address: mockAddresses.airlock, functionName: 'create', args: [{}, {}] },
-        result: [mockPoolAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockPoolAddress],
       } as any)
       vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
       vi.mocked(publicClient.waitForTransactionReceipt).mockResolvedValueOnce(createMockTransactionReceipt([]))

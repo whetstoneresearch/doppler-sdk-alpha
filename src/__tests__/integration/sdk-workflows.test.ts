@@ -204,7 +204,7 @@ describe('SDK Workflows Integration Tests', () => {
           functionName: 'create',
           args: [{}, {}],
         },
-        result: [mockHookAddress, mockTokenAddress],
+        result: [mockTokenAddress, mockHookAddress],
       } as any)
 
       vi.mocked(walletClient.writeContract).mockResolvedValueOnce(mockTxHash as `0x${string}`)
