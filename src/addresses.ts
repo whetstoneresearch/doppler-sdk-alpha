@@ -215,25 +215,25 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     uniswapV4Quoter: '0x56dcd40a3f2d466f48e7f48bdbe5cc9b92ae4472' as Address,
   },
   [CHAIN_IDS.MONAD_TESTNET]: {
-    airlock: '0xa82c66b6ddEb92089015C3565E05B5c9750b2d4B' as Address,
-    tokenFactory: '0x8AF018e28c273826e6b2d5a99e81c8fB63729b07' as Address,
-    v3Initializer: '0x9F4e56be80f08ba1A2445645EFa6d231E27b43ec' as Address,
+    airlock: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].Airlock as Address,
+    tokenFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].TokenFactory as Address,
+    v3Initializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].UniswapV3Initializer as Address,
     v3Quoter: ZERO_ADDRESS,
-    v4Initializer: '0x06FEFD02F0b6d9f57F52cfacFc113665Dfa20F0f' as Address,
-    dopplerLens: '0x2F2BAcd46d3F5c9EE052Ab392b73711dB89129DB' as Address,
-    dopplerDeployer: '0x166109C4EE7fE69164631Caa937dAA5F5cEbFef0' as Address,
+    v4Initializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].UniswapV4Initializer as Address,
+    dopplerLens: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].DopplerLensQuoter as Address,
+    dopplerDeployer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].DopplerDeployer as Address,
     poolManager: '0xe93882f395B0b24180855c68Ab19B2d78573ceBc' as Address,
-    v2Migrator: '0x43d0D97EC9241A8F05A264f94B82A1d2E600f2B3' as Address,
+    v2Migrator: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].UniswapV2Migrator as Address,
     v3Migrator: ZERO_ADDRESS,
     v4Migrator: '0xBEd386a1Fc62B6598c9b8d2BF634471B6Fe75EB7' as Address, // Same as v2/v3 migrator
-    noOpMigrator: '0x5CadB034267751a364dDD4d321C99E07A307f915' as Address,
-    governanceFactory: '0x014E1c0bd34f3B10546E554CB33B3293fECDD056' as Address,
-    noOpGovernanceFactory: '0x094D926A969B3024ca46D2186BF13FD5CDBA9CE2' as Address, // Not yet deployed
-    streamableFeesLocker: '0x91231cDdD8d6C86Df602070a3081478e074b97b7' as Address, // Not yet deployed
+    noOpMigrator: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].NoOpMigrator as Address,
+    governanceFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].GovernanceFactory as Address,
+    noOpGovernanceFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].NoOpGovernanceFactory as Address, // Not yet deployed
+    streamableFeesLocker: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].Bundler as Address, // Not yet deployed
     universalRouter: ZERO_ADDRESS,
     univ2Router02: ZERO_ADDRESS,
     permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address,
-    bundler: '0xf6023127f6E937091D5B605680056A6D27524bad' as Address,
+    bundler: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].Bundler as Address,
     weth: ZERO_ADDRESS, // TODO: Get Monad Testnet weth
     uniswapV4Quoter: ZERO_ADDRESS,
   }
