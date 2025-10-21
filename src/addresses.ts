@@ -102,7 +102,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     v4MulticurveInitializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.BASE].UniswapV4MulticurveInitializer as Address, // From Doppler multicurve deployments (Base mainnet)
     v4ScheduledMulticurveInitializer: '0xa36715Da46DdF4A769F3290f49aF58Bf8132Ed8e' as Address, // From Doppler scheduled multicurve deployments (Base mainnet)
     dopplerLens: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.BASE].DopplerLensQuoter as Address,
-    dopplerDeployer: '0x8350cAd81149A9944c2fb4276955FaAA7D61e836' as Address,
+    dopplerDeployer: '0x49F3fBB2dFF7f3d03B622e3b2a6d3F2E6fdB2a5A' as Address,
     poolManager: '0x498581ff718922c3f8e6a244956af099b2652b2b' as Address,
     v2Migrator: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.BASE].UniswapV2Migrator as Address,
     v3Migrator: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.BASE].UniswapV2Migrator as Address,
