@@ -1350,10 +1350,14 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
     
     // Validate tick range
-    if (params.auction.startTick >= params.auction.endTick) {
-      throw new Error('Start tick must be less than end tick')
+    const isToken0 = isToken0Expected(params.sale.numeraire)
+    if (isToken0 && params.auction.startTick <= params.auction.endTick) {
+      throw new Error('Start tick must be greater than end tick if base token is currency0')
     }
-    
+    if (!isToken0 && params.auction.startTick >= params.auction.endTick) {
+      throw new Error('Start tick must be less than end tick if base token is currency1')
+    }
+
     // Validate sale config
     if (params.sale.initialSupply <= BigInt(0)) {
       throw new Error('Initial supply must be positive')

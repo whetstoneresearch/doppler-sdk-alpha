@@ -4,6 +4,7 @@ import { createMockPublicClient, createMockWalletClient } from '../mocks/clients
 import { mockAddresses, mockTokenAddress, mockPoolAddress } from '../mocks/addresses'
 import { parseEther, keccak256, toHex, type Address } from 'viem'
 import type { CreateStaticAuctionParams, CreateDynamicAuctionParams } from '../../types'
+import { isToken0Expected } from '../../utils'
 
 vi.mock('../../addresses', () => ({
   getAddresses: vi.fn(() => mockAddresses)
@@ -169,8 +170,8 @@ describe('SDK Workflows Integration Tests', () => {
         auction: {
           duration: 7, // days
           epochLength: 3600, // 1 hour
-          startTick: -92103,
-          endTick: -69080,
+          startTick: 92103,
+          endTick: 69080,
           minProceeds: parseEther('100'),
           maxProceeds: parseEther('10000'),
         },
