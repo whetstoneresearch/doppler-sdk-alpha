@@ -50,7 +50,7 @@ import {
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
   DEFAULT_CREATE_GAS_LIMIT,
 } from '../constants'
-import { MIN_TICK, MAX_TICK } from '../utils'
+import { MIN_TICK, MAX_TICK, isToken0Expected } from '../utils'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
 
 // Type definition for the custom migration encoder function
@@ -1789,21 +1789,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     customDerc20Bytecode?: `0x${string}`
     tokenVariant?: 'standard' | 'doppler404'
   }): [Hash, Address, Address, Hex, Hex] {
-    const numeraireBigInt = BigInt(params.numeraire)
-    const halfMaxUint160 = (2n ** 159n) - 1n
-
-    // Determine token ordering based on numeraire address.
-    // Mining will find a salt such that token address is correctly ordered relative to numeraire.
-    // For numeraires > halfMaxUint160, token must be token0 (smaller address)
-    // For all other cases, token should be token1 (larger address)
-    let isToken0: boolean
-    if (numeraireBigInt === 0n) {
-      isToken0 = false  // ETH paired, token will be > 0x0
-    } else if (numeraireBigInt > halfMaxUint160) {
-      isToken0 = true   // Large numeraire, token will be < numeraire
-    } else {
-      isToken0 = false  // Normal case, token will be > numeraire
-    }
+    const isToken0 = isToken0Expected(params.numeraire)
 
     const {
       minimumProceeds,

@@ -49,3 +49,5 @@ export {
 export { decodeBalanceDelta } from './balanceDelta'
 
 export { computePoolId } from './poolKey'
+
+export { isToken0Expected } from './isToken0Expected'
