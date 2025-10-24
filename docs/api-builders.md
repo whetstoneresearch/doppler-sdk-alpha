@@ -180,6 +180,11 @@ Methods (chainable):
   - Or use the alias `.withMulticurveAuction({...})`
   - `curves`: Array of `{ tickLower, tickUpper, numPositions, shares }` where `shares` are WAD-based weights
   - `lockableBeneficiaries` (optional): share-based beneficiaries for fee locking at initialization
+- withMarketCapPresets(params?)
+  - Convenience wrapper that assembles `curves` using curated market cap tiers (`'low' | 'medium' | 'high'`)
+  - Defaults: `fee = FEE_TIERS.LOW (500)`, `tickSpacing` inferred, and all three presets selected
+  - `overrides` (per preset) let you tweak ticks, numPositions, or shares while preserving tier ordering
+  - Automatically appends a filler curve when the selected presets sum to < 100%, keeping total shares at exactly 1e18
 - withVesting({ duration?, cliffDuration?, recipients?, amounts? } | undefined)
   - `recipients`: Optional array of addresses to receive vested tokens. Defaults to `[userAddress]` if not provided.
   - `amounts`: Optional array of token amounts corresponding to each recipient. Must match `recipients` length if provided. Defaults to all unsold tokens to `userAddress` if not provided.
@@ -228,6 +233,32 @@ const params = new MulticurveBuilder(chainId)
 
 const { poolAddress, tokenAddress } = await sdk.factory.createMulticurve(params)
 ```
+
+Preset helper usage:
+```ts
+import { MulticurveBuilder, FEE_TIERS } from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
+
+const presetParams = new MulticurveBuilder(chainId)
+  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
+  .saleConfig({ initialSupply: parseEther('1_000_000'), numTokensToSell: parseEther('900_000'), numeraire: weth })
+  .withMarketCapPresets({
+    fee: FEE_TIERS.LOW,
+    presets: ['low', 'medium', 'high'], // default ordering; select a subset if needed
+    // overrides: { high: { shares: parseEther('0.25') } }, // adjust individual tiers
+  })
+  .withGovernance({ type: 'default' })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress(user)
+  .build()
+```
+
+Preset tiers map to approximate market cap bands (assuming ~1B supply, $4,500 reference numeraire):
+- `low`: 5% allocation targeting $7.5k-$30k launches
+- `medium`: 12.5% allocation targeting $50k-$150k
+- `high`: 20% allocation targeting $250k-$750k
+
+All presets use the curated tick ranges from `DEFAULT_MULTICURVE_*` constants. Shares are represented in WAD (1e18 = 100%); if you override shares, ensure they remain within bounds or the builder will throw.
 
 ---
 

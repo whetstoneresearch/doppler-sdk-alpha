@@ -11,7 +11,7 @@ Create a simple token launch using a static price range on Uniswap V3, then migr
 Create a gradual Dutch auction that adjusts price over time based on demand.
 
 ### 3. [Multicurve Initializer (V4)](./multicurve-initializer.ts)
-Create a pool seeded with multiple curves in one initializer call. Use any standard migration path (V2/V3/V4).
+Create a pool seeded with the low/medium/high market cap presets in one initializer call. Use any standard migration path (V2/V3/V4) and optionally tailor individual tiers.
 
 ### 4. [Multicurve with Lockable Beneficiaries](./multicurve-lockable-beneficiaries.ts)
 Create a multicurve auction with fee streaming to multiple beneficiaries. Uses NoOp migration (no post-auction migration) to keep liquidity locked while distributing fees.

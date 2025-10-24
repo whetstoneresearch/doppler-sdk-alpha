@@ -3,15 +3,15 @@
  *
  * This example demonstrates:
  * - Seeding a Uniswap V4 pool with multiple curves in a single initializer
- * - Using WAD-based shares to weight curve distributions
+ * - Using the low / medium / high market cap presets for curve distributions
  * - Choosing a standard migration path (V2 in this example)
  *
  * For lockable beneficiaries with NoOp migration, see:
  * - examples/multicurve-lockable-beneficiaries.ts
  */
 
-import { DopplerSDK, WAD } from '../src'
-import { createPublicClient, createWalletClient, http, parseEther } from 'viem'
+import { DopplerSDK, FEE_TIERS, WAD } from '../src'
+import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base } from 'viem/chains'
 
@@ -33,15 +33,11 @@ async function main() {
     .buildMulticurveAuction()
     .tokenConfig({ name: 'TEST MULTICURVE', symbol: 'TMC', tokenURI: 'ipfs://token.json' })
     .saleConfig({ initialSupply: 1_000_000n * WAD, numTokensToSell: 900_000n * WAD, numeraire: '0x4200000000000000000000000000000000000006' }) // WETH on Base
-    .withMulticurveAuction({
-      fee: 0,
-      tickSpacing: 8,
-      curves: [
-        { tickLower: 0, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
-        { tickLower: 16000, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
-      ],
-      // Optional: lock fee revenue to beneficiaries at init (shares in WAD)
-      // beneficiaries: [ { beneficiary: account.address, shares: parseEther('0.05') } ],
+    .withMarketCapPresets({
+      fee: FEE_TIERS.LOW, // defaults to 500 (0.05%) and tickSpacing 10
+      // presets: ['medium', 'high'], // select a subset of tiers if desired
+      // overrides: { high: { shares: WAD / 2n } }, // tweak ticks/positions/shares per tier
+      // beneficiaries: [ { beneficiary: account.address, shares: WAD / 20n } ], // optional fee lockers
     })
     .withGovernance({ type: 'default' })
     // Choose any supported migration (V2, V3, or V4). Using V2 for simplicity.

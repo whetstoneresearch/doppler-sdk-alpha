@@ -169,6 +169,37 @@ console.log('Pool address:', result.poolAddress)
 console.log('Token address:', result.tokenAddress)
 ```
 
+**Market Cap Presets (Low / Medium / High):**
+```typescript
+import { MulticurveBuilder, FEE_TIERS } from '@whetstone-research/doppler-sdk'
+import { parseEther } from 'viem'
+import { base } from 'viem/chains'
+
+const presetParams = new MulticurveBuilder(base.id)
+  .tokenConfig({ name: 'Preset Launch', symbol: 'PRST', tokenURI: 'ipfs://preset.json' })
+  .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: '0x...' })
+  .withMarketCapPresets({
+    fee: FEE_TIERS.LOW, // defaults to 0.05% fee tier (tick spacing 10)
+    presets: ['low', 'medium', 'high'], // defaults to all tiers
+    // overrides: { high: { shares: parseEther('0.25') } }, // optional per-tier tweaks
+  })
+  .withGovernance({ type: 'default' })
+  .withMigration({ type: 'uniswapV2' })
+  .withUserAddress('0x...')
+  .build()
+
+const presetResult = await sdk.factory.createMulticurve(presetParams)
+console.log('Pool address:', presetResult.poolAddress)
+console.log('Token address:', presetResult.tokenAddress)
+```
+
+The preset helper seeds three curated curve buckets sized for ~1B token supply targets:
+- `low`: ~5% of the sale allocated to a $7.5k-$30k market cap window.
+- `medium`: ~12.5% targeting roughly $50k-$150k market caps.
+- `high`: ~20% aimed at $250k-$750k market caps.
+
+Pass `presets` to pick a subset (e.g. `['medium', 'high']`) or provide `overrides` to adjust ticks, positions, or shares for a specific tier. When the selected presets sum to less than 100%, the builder automatically appends a filler curve (using the highest selected tier's shape) so liquidity always covers the full sale. Shares must stay within 0-1e18 and the helper will throw if the total ever exceeds 100%.
+
 **Scheduled Multicurve Launch:**
 ```typescript
 import { MulticurveBuilder } from '@whetstone-research/doppler-sdk'

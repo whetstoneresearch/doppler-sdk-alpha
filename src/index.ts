@@ -1,4 +1,4 @@
-export const VERSION = '0.0.1-alpha.51'
+export const VERSION = '0.0.1-alpha.52'
 
 // Export the main SDK class
 export { DopplerSDK } from './DopplerSDK'
@@ -32,6 +32,7 @@ export type {
   LockablePoolState,
   LockableV3InitializerParams,
   MulticurvePoolState,
+  MulticurveMarketCapPreset,
   
   // Parameter types
   CreateStaticAuctionParams,
@@ -102,6 +103,10 @@ export {
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
   DEFAULT_V4_YEARLY_MINT_RATE,
+  DEFAULT_MULTICURVE_LOWER_TICKS,
+  DEFAULT_MULTICURVE_UPPER_TICKS,
+  DEFAULT_MULTICURVE_NUM_POSITIONS,
+  DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES,
   BASIS_POINTS,
   FLAG_MASK,
   DOPPLER_FLAGS,

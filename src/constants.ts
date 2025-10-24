@@ -56,6 +56,18 @@ export const DEFAULT_V4_INITIAL_VOTING_PERIOD = 50400 // 14 hours
 export const DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD = 0n
 export const DEFAULT_V4_YEARLY_MINT_RATE = parseEther('0.02') // 2% yearly mint rate
 
+// V4 Multicurve Default Tick Ranges
+// Based on market cap tiers: LOW ($7.5k -> $30k), MEDIUM ($50k -> $150k), HIGH ($250k -> $750k)
+// Calculated for 1B token supply, $4500 numeraire (e.g., WETH on Base)
+export const DEFAULT_MULTICURVE_LOWER_TICKS = [-202_100, -183_100, -167_000] as const
+export const DEFAULT_MULTICURVE_UPPER_TICKS = [-188_200, -172_100, -156_000] as const
+export const DEFAULT_MULTICURVE_NUM_POSITIONS = [11, 11, 11] as const
+export const DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES = [
+  parseEther('0.05'),   // 5% for LOW tier
+  parseEther('0.125'),  // 12.5% for MEDIUM tier
+  parseEther('0.2'),    // 20% for HIGH tier
+] as const
+
 // Price bounds
 export const MIN_SQRT_RATIO = 4295128739n
 export const MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342n

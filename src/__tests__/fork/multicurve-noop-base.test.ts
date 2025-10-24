@@ -1,18 +1,29 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { createPublicClient, http, type Address, parseEther } from 'viem'
 import { base } from 'viem/chains'
-import { DopplerSDK, getAddresses, CHAIN_IDS, airlockAbi, WAD } from '../../index'
+import { DopplerSDK, getAddresses, CHAIN_IDS, airlockAbi, WAD, DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES } from '../../index'
 
 // Only run when explicitly enabled to avoid flaky network tests in CI
 const RUN = process.env.RUN_FORK_TESTS === '1'
-const maybeDescribe = RUN ? describe : describe.skip
+const BASE_RPC_URL = process.env.BASE_RPC_URL
+
+if (RUN && !BASE_RPC_URL) {
+  console.warn('RUN_FORK_TESTS=1 but BASE_RPC_URL is not set; skipping fork tests')
+}
+
+const shouldRun = RUN && Boolean(BASE_RPC_URL)
+const maybeDescribe = shouldRun ? describe : describe.skip
 
 /**
  * Fork test demonstrating two multicurve auctions with NoOp migration on Base mainnet.
  * Each auction has a single curve with different tick ranges (one positive, one negative).
  */
 maybeDescribe('Fork/Live - Multicurve NoOp Migration on Base', () => {
-  const RPC_URL = process.env.BASE_RPC_URL || 'https://mainnet.base.org'
+  if (!BASE_RPC_URL) {
+    throw new Error('BASE_RPC_URL must be provided when running fork tests')
+  }
+
+  const RPC_URL = BASE_RPC_URL
 
   const chainId = CHAIN_IDS.BASE
   const addresses = getAddresses(chainId)
@@ -178,6 +189,71 @@ maybeDescribe('Fork/Live - Multicurve NoOp Migration on Base', () => {
     expect(createParams.liquidityMigratorData).toBe('0x')
 
     // Simulate the create operation
+    const { asset, pool } = await sdk.factory.simulateCreateMulticurve(params)
+    expect(asset).toMatch(/^0x[a-fA-F0-9]{40}$/)
+    expect(pool).toMatch(/^0x[a-fA-F0-9]{40}$/)
+  }, 30_000)
+
+  it('creates multicurve auction using market cap presets', async () => {
+    if (!noOpMigratorWhitelisted) {
+      console.warn('NoOpMigrator not whitelisted on Base, skipping test')
+      return
+    }
+
+    if (!protocolOwner || protocolOwner === '0x0000000000000000000000000000000000000000') {
+      console.warn('Protocol owner not available, skipping test')
+      return
+    }
+
+    const beneficiaries = [
+      { beneficiary: protocolOwner, shares: WAD / 20n },  // 5% for protocol owner
+      { beneficiary: '0xabcdefabcdefabcdefabcdefabcdefabcdefabce' as Address, shares: (WAD * 19n) / 20n },  // 95%
+    ]
+
+    const builder = sdk
+      .buildMulticurveAuction()
+      .tokenConfig({
+        type: 'standard',
+        name: 'PresetTicksNoOp',
+        symbol: 'PTPRE',
+        tokenURI: 'ipfs://preset-ticks-noop'
+      })
+      .saleConfig({
+        initialSupply: MULTICURVE_TOTAL_SUPPLY,
+        numTokensToSell: MULTICURVE_NUM_TOKENS_TO_SELL,
+        numeraire: addresses.weth
+      })
+      .withMarketCapPresets({
+        fee: 0,
+        tickSpacing: MULTICURVE_TICK_SPACING,
+        beneficiaries,
+      })
+      .withGovernance({ type: 'default' })
+      .withMigration({ type: 'noOp' })
+      .withUserAddress(addresses.airlock)
+      .withV4MulticurveInitializer(addresses.v4MulticurveInitializer!)
+      .withNoOpMigrator(addresses.noOpMigrator!)
+
+    const params = builder.build()
+
+    expect(params.pool.curves).toHaveLength(4)
+    expect(params.pool.curves.slice(0, 3).map(c => c.shares)).toEqual([
+      DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES[0],
+      DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES[1],
+      DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES[2],
+    ])
+    const fillerShare = params.pool.curves[3]?.shares ?? 0n
+    expect(fillerShare).toBe(
+      WAD -
+      DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES[0] -
+      DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES[1] -
+      DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES[2]
+    )
+
+    const createParams = sdk.factory.encodeCreateMulticurveParams(params)
+    expect(createParams.liquidityMigrator).toBe(addresses.noOpMigrator)
+    expect(createParams.liquidityMigratorData).toBe('0x')
+
     const { asset, pool } = await sdk.factory.simulateCreateMulticurve(params)
     expect(asset).toMatch(/^0x[a-fA-F0-9]{40}$/)
     expect(pool).toMatch(/^0x[a-fA-F0-9]{40}$/)

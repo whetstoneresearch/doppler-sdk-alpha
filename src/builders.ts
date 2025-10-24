@@ -2,6 +2,10 @@ import type { Address } from 'viem'
 import {
   DEFAULT_AUCTION_DURATION,
   DEFAULT_EPOCH_LENGTH,
+  DEFAULT_MULTICURVE_LOWER_TICKS,
+  DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES,
+  DEFAULT_MULTICURVE_NUM_POSITIONS,
+  DEFAULT_MULTICURVE_UPPER_TICKS,
   DEFAULT_V3_END_TICK,
   DEFAULT_V3_FEE,
   DEFAULT_V3_MAX_SHARE_TO_BE_SOLD,
@@ -11,9 +15,12 @@ import {
   DEFAULT_V3_YEARLY_MINT_RATE,
   DEFAULT_V4_YEARLY_MINT_RATE,
   DAY_SECONDS,
+  FEE_TIERS,
   TICK_SPACINGS,
+  WAD,
   ZERO_ADDRESS,
 } from './constants'
+import { MAX_TICK, MIN_TICK } from './utils'
 import type {
   CreateDynamicAuctionParams,
   CreateStaticAuctionParams,
@@ -22,6 +29,7 @@ import type {
   MigrationConfig,
   PriceRange,
   TickRange,
+  MulticurveMarketCapPreset,
   VestingConfig,
   TokenConfig,
 } from './types'
@@ -58,6 +66,48 @@ function computeOptimalGamma(
   }
   return gamma
 }
+
+const MARKET_CAP_PRESET_ORDER = ['low', 'medium', 'high'] as const satisfies readonly MulticurveMarketCapPreset[]
+
+type MarketCapPresetConfig = {
+  tickLower: number
+  tickUpper: number
+  numPositions: number
+  shares: bigint
+}
+
+const MARKET_CAP_PRESETS: Record<MulticurveMarketCapPreset, MarketCapPresetConfig> = {
+  low: {
+    tickLower: DEFAULT_MULTICURVE_LOWER_TICKS[0],
+    tickUpper: DEFAULT_MULTICURVE_UPPER_TICKS[0],
+    numPositions: DEFAULT_MULTICURVE_NUM_POSITIONS[0],
+    shares: DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES[0],
+  },
+  medium: {
+    tickLower: DEFAULT_MULTICURVE_LOWER_TICKS[1],
+    tickUpper: DEFAULT_MULTICURVE_UPPER_TICKS[1],
+    numPositions: DEFAULT_MULTICURVE_NUM_POSITIONS[1],
+    shares: DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES[1],
+  },
+  high: {
+    tickLower: DEFAULT_MULTICURVE_LOWER_TICKS[2],
+    tickUpper: DEFAULT_MULTICURVE_UPPER_TICKS[2],
+    numPositions: DEFAULT_MULTICURVE_NUM_POSITIONS[2],
+    shares: DEFAULT_MULTICURVE_MAX_SUPPLY_SHARES[2],
+  },
+}
+
+type MarketCapPresetOverrides = Partial<
+  Record<
+    MulticurveMarketCapPreset,
+    {
+      tickLower?: number
+      tickUpper?: number
+      numPositions?: number
+      shares?: bigint
+    }
+  >
+>
 
 // Static Auction Builder (V3-style)
 export class StaticAuctionBuilder<C extends SupportedChainId> {
@@ -591,6 +641,110 @@ export class MulticurveBuilder<C extends SupportedChainId> {
 
     this.pool = { fee: params.fee, tickSpacing: params.tickSpacing, curves: params.curves, beneficiaries: sortedBeneficiaries }
     return this
+  }
+
+  withMarketCapPresets(params?: {
+    fee?: number
+    tickSpacing?: number
+    presets?: MulticurveMarketCapPreset[]
+    overrides?: MarketCapPresetOverrides
+    beneficiaries?: { beneficiary: Address; shares: bigint }[]
+  }): this {
+    const fee = params?.fee ?? FEE_TIERS.LOW
+    const tickSpacing =
+      params?.tickSpacing ??
+      (TICK_SPACINGS as Record<number, number>)[fee]
+
+    if (tickSpacing === undefined) {
+      throw new Error('tickSpacing must be provided when using a custom fee tier')
+    }
+
+    const requestedPresets = params?.presets ?? [...MARKET_CAP_PRESET_ORDER]
+    const uniquePresets: MulticurveMarketCapPreset[] = []
+    for (const preset of requestedPresets) {
+      if (!(preset in MARKET_CAP_PRESETS)) {
+        throw new Error(`Unsupported market cap preset: ${preset}`)
+      }
+      if (!uniquePresets.includes(preset)) {
+        uniquePresets.push(preset)
+      }
+    }
+
+    if (uniquePresets.length === 0) {
+      throw new Error('At least one market cap preset must be provided')
+    }
+
+    const presetCurves = uniquePresets.map((preset) => {
+      const base = MARKET_CAP_PRESETS[preset]
+      const override = params?.overrides?.[preset]
+      return {
+        tickLower: override?.tickLower ?? base.tickLower,
+        tickUpper: override?.tickUpper ?? base.tickUpper,
+        numPositions: override?.numPositions ?? base.numPositions,
+        shares: override?.shares ?? base.shares,
+      }
+    })
+
+    let totalShares = presetCurves.reduce((acc, curve) => {
+      if (curve.shares <= 0n) {
+        throw new Error('Preset shares must be greater than zero')
+      }
+      return acc + curve.shares
+    }, 0n)
+
+    if (totalShares > WAD) {
+      throw new Error('Total preset shares cannot exceed 100% (1e18)')
+    }
+
+    const curves = [...presetCurves]
+
+    if (totalShares < WAD) {
+      const remainder = WAD - totalShares
+      const lastCurve = curves[curves.length - 1]
+      let fillerTickLower = lastCurve?.tickUpper ?? 0
+      let fillerNumPositions = lastCurve?.numPositions ?? 1
+
+      if (fillerNumPositions <= 0) {
+        fillerNumPositions = 1
+      }
+
+      const minTickAllowed = Math.ceil(MIN_TICK / tickSpacing) * tickSpacing
+      const rawMaxTick = Math.floor(MAX_TICK / tickSpacing) * tickSpacing
+      const maxTickAllowed = rawMaxTick - tickSpacing
+
+      fillerTickLower = Math.max(fillerTickLower, minTickAllowed)
+      let fillerTickUpper = fillerTickLower + fillerNumPositions * tickSpacing
+
+      if (fillerTickUpper > maxTickAllowed) {
+        fillerTickUpper = maxTickAllowed
+        fillerTickLower = Math.min(fillerTickLower, maxTickAllowed - tickSpacing)
+      }
+
+      if (fillerTickUpper <= fillerTickLower) {
+        fillerTickLower = Math.max(minTickAllowed, maxTickAllowed - tickSpacing)
+        fillerTickUpper = fillerTickLower + tickSpacing
+      }
+
+      curves.push({
+        tickLower: fillerTickLower,
+        tickUpper: fillerTickUpper,
+        numPositions: fillerNumPositions,
+        shares: remainder,
+      })
+
+      totalShares = WAD
+    }
+
+    if (totalShares !== WAD) {
+      throw new Error('Failed to normalize preset shares to 100%')
+    }
+
+    return this.poolConfig({
+      fee,
+      tickSpacing,
+      curves,
+      beneficiaries: params?.beneficiaries,
+    })
   }
 
   // Alias for clarity: indicate use of V4 multicurve initializer

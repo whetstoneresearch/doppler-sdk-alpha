@@ -374,6 +374,8 @@ export interface MulticurveCurve {
   shares: bigint; // uint256 (WAD)
 }
 
+export type MulticurveMarketCapPreset = 'low' | 'medium' | 'high';
+
 export interface V4PoolKey {
   currency0: Address;
   currency1: Address;
