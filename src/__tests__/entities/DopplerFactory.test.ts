@@ -4,7 +4,7 @@ import { createMockPublicClient, createMockWalletClient, createMockTransactionRe
 import { mockAddresses, mockTokenAddress, mockPoolAddress } from '../mocks/addresses'
 import type { CreateStaticAuctionParams, CreateDynamicAuctionParams, CreateMulticurveParams } from '../../types'
 import { parseEther, keccak256, toHex, decodeAbiParameters, type Address } from 'viem'
-import { MIN_TICK, MAX_TICK } from '../../utils'
+import { MIN_TICK, MAX_TICK, isToken0Expected } from '../../utils'
 
 vi.mock('../../addresses', () => ({
   getAddresses: vi.fn(() => mockAddresses)
@@ -325,8 +325,8 @@ describe('DopplerFactory', () => {
       auction: {
         duration: 7, // days
         epochLength: 3600, // 1 hour
-        startTick: -92103, // ~0.0001 ETH per token
-        endTick: -69080, // ~0.001 ETH per token
+        startTick: isToken0Expected(mockAddresses.weth) ? 92103 : -92103, // ~0.0001 ETH per token
+        endTick: isToken0Expected(mockAddresses.weth) ? 69080 : -69080, // ~0.001 ETH per token
         minProceeds: parseEther('100'),
         maxProceeds: parseEther('10000'),
       },
@@ -348,6 +348,44 @@ describe('DopplerFactory', () => {
       },
       userAddress: '0x1234567890123456789012345678901234567890',
     }
+
+    it('should validate descending ticks for token0', async () => {
+      const invalidParams = {
+        ...validParams,
+        auction: {
+          ...validParams.auction,
+          startTick: -92103,
+          endTick: -69080,
+        },
+        sale: {
+          ...validParams.sale,
+          numeraire: '0xffffffffffffffffffffffffffffffffffffffff' as Address
+        },
+      }
+
+      await expect(factory.createDynamicAuction(invalidParams)).rejects.toThrow(
+        'Start tick must be greater than end tick if base token is currency0'
+      )
+    })
+
+    it('should validate ascending ticks for token1', async () => {
+      const invalidParams = {
+        ...validParams,
+        auction: {
+          ...validParams.auction,
+          startTick: 92103,
+          endTick: 69080,
+        },
+        sale: {
+          ...validParams.sale,
+          numeraire: '0x0000000000000000000000000000000000000000' as Address
+        },
+      }
+
+      await expect(factory.createDynamicAuction(invalidParams)).rejects.toThrow(
+        'Start tick must be less than end tick if base token is currency1'
+      )
+    })
 
     it('should validate duration', async () => {
       const invalidParams = {

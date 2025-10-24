@@ -99,7 +99,7 @@ describe('V4 SDK Compatibility', () => {
       .tokenConfig({ name: 'Test', symbol: 'TST', tokenURI: 'https://test.com' })
       .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('500000'), numeraire: mockAddresses.weth })
       .poolConfig({ fee: 3000, tickSpacing: 60 })
-      .auctionByTicks({ startTick: -92203, endTick: -91003, minProceeds: parseEther('100'), maxProceeds: parseEther('1000') })
+      .auctionByTicks({ startTick: 92203, endTick: 91003, minProceeds: parseEther('100'), maxProceeds: parseEther('1000') })
       .withGovernance({ type: 'default' })
       .withMigration({ type: 'uniswapV2' as const })
       .withUserAddress(mockAddressesWithExtras.user)
