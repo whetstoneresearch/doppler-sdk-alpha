@@ -21,9 +21,15 @@ importers:
       '@vitest/coverage-c8':
         specifier: ^0.33.0
         version: 0.33.0(vitest@2.1.9(@types/node@24.3.0))
+      doppler-router:
+        specifier: ^1.0.15
+        version: 1.0.15(viem@2.36.0(typescript@5.8.3))
       glob:
         specifier: ^10.4.5
         version: 10.4.5
+      graphql-request:
+        specifier: ^7.3.1
+        version: 7.3.1(graphql@16.11.0)
       size-limit:
         specifier: ^11.2.0
         version: 11.2.0
@@ -351,6 +357,11 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@graphql-typed-document-node/core@3.2.0':
+    resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
+    peerDependencies:
+      graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -682,6 +693,12 @@ packages:
     resolution: {integrity: sha512-h5k/5U50IJJFpzfL6nO9jaaumfjO/f2NjK/oYB2Djzm4p9L+3T9qWpZqZ2hAbLPuuYq9wrU08WQyBTL5GbPk5Q==}
     engines: {node: '>=6'}
 
+  doppler-router@1.0.15:
+    resolution: {integrity: sha512-81OHFrqcWzl2Qhfx0tdEmSo7/ZfM8KEFYIcUCYw8M1I+NqMJyk1lM8gTZIOHHbb5z4dourYwueHT4CQ/sPzV6g==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      viem: ^2.22.15
+
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
@@ -766,6 +783,15 @@ packages:
 
   globrex@0.1.2:
     resolution: {integrity: sha512-uHJgbwAMwNFf5mLst7IWLNg14x1CkeqglJb/K3doi4dw6q2IvAAmM/Y81kevy83wP+Sst+nutFTYOGg3d1lsxg==}
+
+  graphql-request@7.3.1:
+    resolution: {integrity: sha512-GdinBsBVYrWzwEvOlzadrV5j8mdOc9ZT8In9QyRIZaxbhkTL08j35yNbPp96jAacYzjeD/hKKy2E2RGI7c7Yug==}
+    peerDependencies:
+      graphql: 14 - 16
+
+  graphql@16.11.0:
+    resolution: {integrity: sha512-mS1lbMsxgQj6hge1XZ6p7GPhbrtFwUFYi3wRzXAC/FmYnyXMTvvI3td3rjmQ2u8ewXueaSvRPWaEcgVVOT9Jnw==}
+    engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
 
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
@@ -1449,6 +1475,10 @@ snapshots:
   '@esbuild/win32-x64@0.25.8':
     optional: true
 
+  '@graphql-typed-document-node/core@3.2.0(graphql@16.11.0)':
+    dependencies:
+      graphql: 16.11.0
+
   '@isaacs/cliui@8.0.2':
     dependencies:
       string-width: 5.1.2
@@ -1734,6 +1764,10 @@ snapshots:
 
   deep-eql@5.0.2: {}
 
+  doppler-router@1.0.15(viem@2.36.0(typescript@5.8.3)):
+    dependencies:
+      viem: 2.36.0(typescript@5.8.3)
+
   eastasianwidth@0.2.0: {}
 
   emoji-regex@8.0.0: {}
@@ -1862,6 +1896,13 @@ snapshots:
       path-is-absolute: 1.0.1
 
   globrex@0.1.2: {}
+
+  graphql-request@7.3.1(graphql@16.11.0):
+    dependencies:
+      '@graphql-typed-document-node/core': 3.2.0(graphql@16.11.0)
+      graphql: 16.11.0
+
+  graphql@16.11.0: {}
 
   has-flag@4.0.0: {}
 

@@ -23,18 +23,21 @@ Collect and distribute trading fees from a multicurve pool with lockable benefic
 Atomically create a multicurve auction and pre-buy tokens using WETH (not ETH) with Permit2 signatures. Demonstrates using `doppler-router` to build Universal Router commands for V4 swaps.
 
 ### 7. [Multicurve Quote & Swap](./multicurve-quote-and-swap.ts)
-Launch a multicurve auction, get a V4 quote, and execute a swap on the new pool.
+Create a multicurve auction with market cap presets, quote a swap using the SDK quoter, and execute the swap via Universal Router. Shows the complete flow of quoting and swapping on V4 pools.
 
-### 8. [Auction Monitoring](./auction-monitoring.ts)
+### 8. [Multicurve Indexer Data](./multicurve-indexer-data.ts)
+Query and process pool data from the Doppler indexer. Demonstrates fetching pool metrics, parsing PoolKey data, monitoring migration status, and using indexer data with the SDK for quoting. **Note:** Requires `graphql-request` package.
+
+### 9. [Auction Monitoring](./auction-monitoring.ts)
 Monitor an existing auction for graduation status and key metrics.
 
-### 9. [Token Interaction](./token-interaction.ts)
+### 10. [Token Interaction](./token-interaction.ts)
 Interact with launched tokens - check balances, approve spending, and release vested tokens.
 
-### 10. [Price Quoter](./price-quoter.ts)
+### 11. [Price Quoter](./price-quoter.ts)
 Get price quotes across different Uniswap versions for optimal trading.
 
-### 11. [Scheduled Multicurve Launch](./multicurve-scheduled-launch.ts)
+### 12. [Scheduled Multicurve Launch](./multicurve-scheduled-launch.ts)
 Create a multicurve auction that queues until a future start time using the scheduled initializer on Base.
 
 ## Prerequisites
@@ -52,8 +55,11 @@ Before running these examples, ensure you have:
 ```bash
 npm install doppler-sdk viem
 
-# For multicurve pre-buy example (optional)
+# For multicurve pre-buy and quote/swap examples (optional)
 npm install doppler-router
+
+# For multicurve indexer data example (optional)
+npm install graphql-request
 ```
 
 2. Set up environment variables:
@@ -123,6 +129,43 @@ const gasEstimate = await publicClient.estimateGas({
   data: encodedData
 })
 ```
+
+## Testing Examples
+
+The SDK includes fork tests for all examples to ensure they work correctly. These tests run against live testnet data and validate the complete example flows.
+
+### Running Fork Tests
+
+To run the fork tests, you'll need an RPC URL for Base Sepolia:
+
+```bash
+# Set your RPC URL
+export BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+
+# Run all tests
+pnpm test
+
+# Run specific test file
+pnpm test multicurve-quote-swap
+
+# Run tests in watch mode
+pnpm test:watch
+```
+
+### Test Coverage
+
+The following examples have corresponding fork tests:
+
+- **Multicurve Examples**: `test/multicurve*.test.ts`
+- **Quote & Swap**: `test/multicurve-quote-swap.test.ts`
+- **Indexer Data**: `test/multicurve-indexer-data.test.ts`
+- **Pre-buy with WETH**: `test/multicurve-prebuy-weth.test.ts`
+
+Fork tests validate:
+- Contract module whitelisting on target chain
+- Transaction simulation without spending gas
+- Correct parameter encoding
+- Expected return values and pool addresses
 
 ## Support
 
