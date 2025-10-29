@@ -20,7 +20,7 @@ import {
   WAD,
   ZERO_ADDRESS,
 } from './constants'
-import { MAX_TICK, MIN_TICK } from './utils'
+import { computeOptimalGamma, MAX_TICK, MIN_TICK } from './utils'
 import type {
   CreateDynamicAuctionParams,
   CreateStaticAuctionParams,
@@ -44,27 +44,6 @@ function computeTicks(priceRange: PriceRange, tickSpacing: number): TickRange {
     Math.ceil(Math.log(priceRange.endPrice) / Math.log(1.0001) / tickSpacing) *
     tickSpacing
   return { startTick, endTick }
-}
-
-function computeOptimalGamma(
-  startTick: number,
-  endTick: number,
-  durationDays: number,
-  epochLength: number,
-  tickSpacing: number,
-): number {
-  const totalEpochs = (durationDays * DAY_SECONDS) / epochLength
-  const tickDelta = Math.abs(endTick - startTick)
-  // Base per-epoch movement in ticks
-  let perEpochTicks = Math.ceil(tickDelta / totalEpochs)
-  // Quantize up to the nearest multiple of tickSpacing
-  const multiples = Math.ceil(perEpochTicks / tickSpacing)
-  let gamma = multiples * tickSpacing
-  gamma = Math.max(tickSpacing, gamma)
-  if (gamma % tickSpacing !== 0) {
-    throw new Error('Computed gamma must be divisible by tick spacing')
-  }
-  return gamma
 }
 
 const MARKET_CAP_PRESET_ORDER = ['low', 'medium', 'high'] as const satisfies readonly MulticurveMarketCapPreset[]
