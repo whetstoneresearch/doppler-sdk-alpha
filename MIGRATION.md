@@ -225,7 +225,7 @@ await sdk.factory.createDynamicAuction({
     numeraire: wethAddress,
   },
   auction: {
-    duration: 7,
+    duration: 7 * DAY_SECONDS,
     epochLength: 3600,
     startTick: -92103,
     endTick: -69080,

@@ -10,7 +10,7 @@
 // UNCOMMENT IF RUNNING LOCALLY
 // import { DopplerSDK, DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk';
 
-import { DopplerSDK } from '../src';
+import { DAY_SECONDS, DopplerSDK } from '../src';
 
 import {
   createPublicClient,
@@ -64,7 +64,7 @@ async function main() {
     })
     .poolConfig({ fee: 3000, tickSpacing: 60 })
     .auctionByTicks({
-      durationDays: 7,
+      duration: 7 * DAY_SECONDS,
       epochLength: 3600,
       startTick: -92103,
       endTick: -69080,

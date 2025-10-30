@@ -3,6 +3,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { sepolia } from 'viem/chains'
 import { DopplerSDK } from './src/DopplerSDK'
 import { DynamicAuctionBuilder } from './src/builders'
+import { DAY_SECONDS } from './src/constants'
 
 // Test reproducing the V4 SDK deployment parameters
 async function testV4Deployment() {
@@ -41,7 +42,7 @@ async function testV4Deployment() {
     })
     .poolConfig({ fee: 3000, tickSpacing: 60 })
     .auctionByTicks({
-      durationDays: 7,
+      duration: 7 * DAY_SECONDS,
       epochLength: 43200,
       startTick: -92203,
       endTick: -91003,

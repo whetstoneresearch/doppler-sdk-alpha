@@ -5,6 +5,7 @@ import { DynamicAuctionBuilder } from '../builders'
 import { createMockPublicClient, createMockWalletClient } from './mocks/clients'
 import { mockAddresses, mockTokenAddress, mockHookAddress, mockGovernanceAddress, mockTimelockAddress, mockV2PoolAddress, mockAddressesWithExtras } from './mocks/addresses'
 import type { CreateDynamicAuctionParams } from '../types'
+import { DAY_SECONDS } from '../constants'
 
 describe('V4 SDK Compatibility', () => {
   let factory: DopplerFactory
@@ -32,7 +33,7 @@ describe('V4 SDK Compatibility', () => {
         numeraire: "0x0000000000000000000000000000000000000000" as const,
       },
       auction: {
-        duration: 7,
+        duration: 7 * DAY_SECONDS,
         epochLength: 43200, // 12 hours
         startTick: -92203,
         endTick: -91003,

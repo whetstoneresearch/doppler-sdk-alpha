@@ -50,4 +50,6 @@ export { decodeBalanceDelta } from './balanceDelta'
 
 export { computePoolId } from './poolKey'
 
+export { computeOptimalGamma } from "./computeOptimalGamma"
+
 export { isToken0Expected } from './isToken0Expected'

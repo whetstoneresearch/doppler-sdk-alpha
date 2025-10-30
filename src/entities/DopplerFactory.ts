@@ -36,7 +36,6 @@ import {
   BASIS_POINTS,
   WAD,
   DEFAULT_PD_SLUGS,
-  DAY_SECONDS,
   FLAG_MASK,
   DEFAULT_V3_NUM_POSITIONS,
   DEFAULT_V3_YEARLY_MINT_RATE,
@@ -50,7 +49,7 @@ import {
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
   DEFAULT_CREATE_GAS_LIMIT,
 } from '../constants'
-import { MIN_TICK, MAX_TICK, isToken0Expected } from '../utils'
+import { computeOptimalGamma, MIN_TICK, MAX_TICK, isToken0Expected } from '../utils'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
 
 // Type definition for the custom migration encoder function
@@ -485,7 +484,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     const addresses = getAddresses(this.chainId)
 
     // 1. Calculate gamma if not provided
-    const gamma = params.auction.gamma ?? this.computeOptimalGamma(
+    const gamma = params.auction.gamma ?? computeOptimalGamma(
       params.auction.startTick,
       params.auction.endTick,
       params.auction.duration,
@@ -506,7 +505,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     // Use startTimeOffset if provided, otherwise default to 30 seconds
     const startTimeOffset = params.startTimeOffset ?? 30
     const startTime = blockTimestamp + startTimeOffset
-    const endTime = blockTimestamp + params.auction.duration * DAY_SECONDS + startTimeOffset
+    const endTime = blockTimestamp + params.auction.duration + startTimeOffset
 
     // 3. Prepare hook initialization data
     const dopplerData = {
@@ -1381,8 +1380,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
     
     // Validate that total duration is divisible by epoch length
-    const totalDuration = params.auction.duration * DAY_SECONDS
-    if (totalDuration % params.auction.epochLength !== 0) {
+    if (params.auction.duration % params.auction.epochLength !== 0) {
       throw new Error('Epoch length must divide total duration evenly')
     }
     
@@ -1465,33 +1463,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   }
 
   // computeTicks moved to builders. No longer needed here.
-
-  /**
-   * Compute optimal gamma parameter based on price range and time parameters
-   * Gamma determines how much the price can move per epoch during the sale.
-   */
-  private computeOptimalGamma(
-    startTick: number,
-    endTick: number,
-    durationDays: number,
-    epochLength: number,
-    tickSpacing: number
-  ): number {
-    // Calculate total number of epochs
-    const totalEpochs = (durationDays * DAY_SECONDS) / epochLength
-    const tickDelta = Math.abs(endTick - startTick)
-    // Base per-epoch movement in ticks
-    let perEpochTicks = Math.ceil(tickDelta / totalEpochs)
-    // Quantize up to the nearest multiple of tickSpacing
-    const multiples = Math.ceil(perEpochTicks / tickSpacing)
-    let gamma = multiples * tickSpacing
-    // Ensure minimum of one tickSpacing
-    gamma = Math.max(tickSpacing, gamma)
-    if (gamma % tickSpacing !== 0) {
-      throw new Error('Computed gamma must be divisible by tick spacing')
-    }
-    return gamma
-  }
+  // computeOptimalGamma moved to utils.
 
   // -----------------------------
   // Bundler helpers (Static/V3)

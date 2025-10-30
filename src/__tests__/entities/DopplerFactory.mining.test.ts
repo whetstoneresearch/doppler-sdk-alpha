@@ -5,6 +5,7 @@ import { mockAddresses } from '../mocks/addresses'
 import type { CreateDynamicAuctionParams } from '../../types'
 import { parseEther, type Address, decodeAbiParameters } from 'viem'
 import { isToken0Expected } from '../../utils'
+import { DAY_SECONDS } from '../../constants'
 
 vi.mock('../../addresses', () => ({
   getAddresses: vi.fn(() => mockAddresses)
@@ -33,7 +34,7 @@ describe('DopplerFactory - Token Ordering Mining', () => {
       numeraire,
     },
     auction: {
-      duration: 7, // days
+      duration: 7 * DAY_SECONDS,
       epochLength: 3600, // 1 hour
       startTick: isToken0Expected(numeraire) ? 92103 : -92103,
       endTick: isToken0Expected(numeraire) ? 69080 : -69080,

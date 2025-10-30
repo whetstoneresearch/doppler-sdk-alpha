@@ -5,6 +5,7 @@ import { mockAddresses, mockTokenAddress, mockPoolAddress } from '../mocks/addre
 import type { CreateStaticAuctionParams, CreateDynamicAuctionParams, CreateMulticurveParams } from '../../types'
 import { parseEther, keccak256, toHex, decodeAbiParameters, type Address } from 'viem'
 import { MIN_TICK, MAX_TICK, isToken0Expected } from '../../utils'
+import { DAY_SECONDS } from '../../constants'
 
 vi.mock('../../addresses', () => ({
   getAddresses: vi.fn(() => mockAddresses)
@@ -323,7 +324,7 @@ describe('DopplerFactory', () => {
         numeraire: mockAddresses.weth,
       },
       auction: {
-        duration: 7, // days
+        duration: 7 * DAY_SECONDS,
         epochLength: 3600, // 1 hour
         startTick: isToken0Expected(mockAddresses.weth) ? 92103 : -92103, // ~0.0001 ETH per token
         endTick: isToken0Expected(mockAddresses.weth) ? 69080 : -69080, // ~0.001 ETH per token

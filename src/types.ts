@@ -284,7 +284,7 @@ export interface DynamicAuctionBuildConfig {
   // Time parameters
   startTimeOffset?: number; // Optional - seconds to add to block timestamp (default: 30)
   blockTimestamp?: number; // Optional - specific block timestamp to use (default: fetch latest)
-  duration?: number; // in days (default: 7)
+  duration?: number; // in seconds (default: 604800 = 7 days)
   epochLength?: number; // in seconds (default: 3600)
 
   // Price parameters - must provide either priceRange or tickRange

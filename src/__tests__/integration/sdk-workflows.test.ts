@@ -5,6 +5,7 @@ import { mockAddresses, mockTokenAddress, mockPoolAddress } from '../mocks/addre
 import { parseEther, keccak256, toHex, type Address } from 'viem'
 import type { CreateStaticAuctionParams, CreateDynamicAuctionParams } from '../../types'
 import { isToken0Expected } from '../../utils'
+import { DAY_SECONDS } from '../../constants'
 
 vi.mock('../../addresses', () => ({
   getAddresses: vi.fn(() => mockAddresses)
@@ -168,7 +169,7 @@ describe('SDK Workflows Integration Tests', () => {
           numeraire: mockAddresses.weth,
         },
         auction: {
-          duration: 7, // days
+          duration: 7 * DAY_SECONDS,
           epochLength: 3600, // 1 hour
           startTick: 92103,
           endTick: 69080,
