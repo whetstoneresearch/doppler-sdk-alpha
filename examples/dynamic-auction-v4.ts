@@ -93,8 +93,8 @@ async function main() {
   console.log('Creating dynamic auction...');
   console.log('Token:', params.token.name, `(${params.token.symbol})`);
   console.log('Selling:', formatEther(params.sale.numTokensToSell), 'tokens');
-  console.log('Duration:', params.auction.duration, 'days');
-  console.log('Epochs:', params.auction.duration * 24, 'total (1 hour each)');
+  console.log('Duration:', params.auction.duration / DAY_SECONDS, 'days', `(${params.auction.duration} seconds)`);
+  console.log('Epochs:', params.auction.duration / params.auction.epochLength, 'total', `(${params.auction.epochLength}s each)`);
   console.log('Price will gradually increase from ~0.0001 to ~0.001 ETH');
 
   try {

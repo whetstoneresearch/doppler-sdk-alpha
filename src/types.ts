@@ -53,7 +53,7 @@ export interface StaticPoolConfig {
 
 // Dynamic Auction configuration
 export interface DynamicAuctionConfig {
-  duration: number; // in days
+  duration: number; // in seconds
   epochLength: number; // in seconds
   startTick: number;
   endTick: number;

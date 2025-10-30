@@ -10,6 +10,7 @@ import {
   calculateFDV,
   estimateSlippage
 } from '../../utils/priceHelpers'
+import { DAY_SECONDS } from '../../constants'
 
 describe('priceHelpers', () => {
   describe('calculateTickRange', () => {
@@ -54,22 +55,23 @@ describe('priceHelpers', () => {
     it('should calculate gamma for dynamic auction', () => {
       const startTick = -92103
       const endTick = -69080
-      const durationDays = 7
-      const epochLengthHours = 1
-      
-      const gamma = calculateGamma(startTick, endTick, durationDays, epochLengthHours)
-      
-      const totalEpochs = 7 * 24 // 168 epochs
+      const duration = 7 * DAY_SECONDS // 7 days in seconds
+      const epochLength = 3600 // 1 hour in seconds
+
+      const gamma = calculateGamma(startTick, endTick, duration, epochLength)
+
+      const totalEpochs = (7 * DAY_SECONDS) / 3600 // 168 epochs
       const tickRange = Math.abs(endTick - startTick) // 23023
       const expectedGamma = Math.floor(tickRange / totalEpochs) // ~137
-      
+
       expect(gamma).toBe(expectedGamma)
     })
 
     it('should handle different epoch lengths', () => {
-      const gamma1h = calculateGamma(-100000, -80000, 7, 1)
-      const gamma4h = calculateGamma(-100000, -80000, 7, 4)
-      
+      const duration = 7 * DAY_SECONDS // 7 days
+      const gamma1h = calculateGamma(-100000, -80000, duration, 3600) // 1 hour epochs
+      const gamma4h = calculateGamma(-100000, -80000, duration, 14400) // 4 hour epochs
+
       // 4-hour epochs mean 4x fewer epochs, so gamma should be ~4x larger
       expect(gamma4h).toBeCloseTo(gamma1h * 4, 0)
     })

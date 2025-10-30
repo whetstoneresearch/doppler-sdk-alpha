@@ -54,17 +54,17 @@ export function calculateTokensToSell(
  * Calculate gamma for dynamic auctions
  * @param startTick Starting tick
  * @param endTick Ending tick
- * @param durationDays Duration in days
- * @param epochLengthHours Epoch length in hours
+ * @param duration Duration in seconds
+ * @param epochLength Epoch length in seconds
  * @returns Gamma value
  */
 export function calculateGamma(
   startTick: number,
   endTick: number,
-  durationDays: number,
-  epochLengthHours: number
+  duration: number,
+  epochLength: number
 ): number {
-  const totalEpochs = (durationDays * 24) / epochLengthHours
+  const totalEpochs = duration / epochLength
   const tickRange = Math.abs(endTick - startTick)
   return Math.floor(tickRange / totalEpochs)
 }

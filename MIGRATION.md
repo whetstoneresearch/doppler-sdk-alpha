@@ -165,9 +165,14 @@ console.log('Pool ID:', result.poolId)
 - **V4 SDK**: Required `blockTimestamp` and `startTimeOffset`
 - **Unified SDK**: Optional `blockTimestamp`, no `startTimeOffset` needed
 
+**IMPORTANT: Duration Unit Change**
+- **V4 SDK**: `duration` is specified in **days**
+- **Unified SDK**: `duration` is specified in **seconds**
+- To migrate: multiply your V4 duration by `DAY_SECONDS` (86400) or use the constant
+
 ### 2. Default Values
 The unified SDK provides more defaults:
-- `duration`: 7 days (vs required in V4)
+- `duration`: 604800 seconds = 7 days (vs required in V4)
 - `epochLength`: 3600 seconds (vs required in V4)
 - `numeraire`: Zero address (vs required in V4)
 - `yearlyMintRate`: 2% (vs required in V4)
@@ -414,7 +419,7 @@ const { createParams } = factory.buildConfig({
   tokenURI: "ipfs://...",
   blockTimestamp: Math.floor(Date.now() / 1000),
   startTimeOffset: 0,
-  duration: 30,
+  duration: 30, // 30 days (V4 SDK uses days)
   epochLength: 3600,
   numeraire: wethAddress,
   priceRange: { startPrice: 0.001, endPrice: 0.01 },
