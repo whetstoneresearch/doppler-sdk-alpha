@@ -181,7 +181,7 @@ const { hookAddress, tokenAddress } = await factory.create({
 
 #### After (Builder pattern)
 ```typescript
-import { DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk'
+import { DynamicAuctionBuilder, DAY_SECONDS } from '@whetstone-research/doppler-sdk'
 
 const params = new DynamicAuctionBuilder()
   .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/token' })
@@ -191,7 +191,7 @@ const params = new DynamicAuctionBuilder()
     priceRange: { startPrice: 0.0001, endPrice: 0.01 },
     minProceeds: parseEther('50'),
     maxProceeds: parseEther('500'),
-    durationDays: 7,
+    duration: 7 * DAY_SECONDS,
     epochLength: 3600,
   })
   .withMigration({

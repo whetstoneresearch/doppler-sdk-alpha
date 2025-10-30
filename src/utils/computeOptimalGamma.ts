@@ -7,12 +7,12 @@ import { DAY_SECONDS } from "../constants"
 export function computeOptimalGamma(
   startTick: number,
   endTick: number,
-  durationDays: number,
+  duration: number,
   epochLength: number,
   tickSpacing: number,
 ): number {
   // Calculate total number of epochs
-  const totalEpochs = (durationDays * DAY_SECONDS) / epochLength
+  const totalEpochs = duration / epochLength
   const tickDelta = Math.abs(endTick - startTick)
   // Base per-epoch movement in ticks
   let perEpochTicks = Math.ceil(tickDelta / totalEpochs)

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { CreateDynamicAuctionParams, DynamicAuctionConfig } from '../types'
+import { DAY_SECONDS } from '../constants'
 
 describe('Type Consistency', () => {
   it('should have pool parameters separate from auction config', () => {
@@ -16,7 +17,7 @@ describe('Type Consistency', () => {
         numeraire: '0x0000000000000000000000000000000000000000'
       },
       auction: {
-        duration: 7,
+        duration: 7 * DAY_SECONDS,
         epochLength: 3600,
         startTick: -92103,
         endTick: -69080,

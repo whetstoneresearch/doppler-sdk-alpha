@@ -36,7 +36,6 @@ import {
   BASIS_POINTS,
   WAD,
   DEFAULT_PD_SLUGS,
-  DAY_SECONDS,
   FLAG_MASK,
   DEFAULT_V3_NUM_POSITIONS,
   DEFAULT_V3_YEARLY_MINT_RATE,
@@ -506,7 +505,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     // Use startTimeOffset if provided, otherwise default to 30 seconds
     const startTimeOffset = params.startTimeOffset ?? 30
     const startTime = blockTimestamp + startTimeOffset
-    const endTime = blockTimestamp + params.auction.duration * DAY_SECONDS + startTimeOffset
+    const endTime = blockTimestamp + params.auction.duration + startTimeOffset
 
     // 3. Prepare hook initialization data
     const dopplerData = {
@@ -1381,8 +1380,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
     
     // Validate that total duration is divisible by epoch length
-    const totalDuration = params.auction.duration * DAY_SECONDS
-    if (totalDuration % params.auction.epochLength !== 0) {
+    if (params.auction.duration % params.auction.epochLength !== 0) {
       throw new Error('Epoch length must divide total duration evenly')
     }
     

@@ -114,10 +114,10 @@ Methods (chainable):
   - Defaults: `numeraire = ZERO_ADDRESS` (token is paired against ETH)
 - poolConfig({ fee, tickSpacing })
 - Price configuration methods (use one or the other, not both)
-  - auctionByTicks({ startTick, endTick, minProceeds, maxProceeds, durationDays?, epochLength?, gamma?, numPdSlugs? })
-    - Defaults: `durationDays = DEFAULT_AUCTION_DURATION (7)`, `epochLength = DEFAULT_EPOCH_LENGTH (43200)`, `numPdSlugs` optional
+  - auctionByTicks({ startTick, endTick, minProceeds, maxProceeds, duration?, epochLength?, gamma?, numPdSlugs? })
+    - Defaults: `duration = DEFAULT_AUCTION_DURATION (604800)`, `epochLength = DEFAULT_EPOCH_LENGTH (43200)`, `numPdSlugs` optional
     - If `gamma` omitted, computed from ticks, duration, epoch length, and `tickSpacing`
-  - auctionByPriceRange({ priceRange, minProceeds, maxProceeds, durationDays?, epochLength?, gamma?, tickSpacing?, numPdSlugs? })
+  - auctionByPriceRange({ priceRange, minProceeds, maxProceeds, duration?, epochLength?, gamma?, tickSpacing?, numPdSlugs? })
     - Uses `pool.tickSpacing` unless `tickSpacing` is provided here
 - withVesting({ duration?, cliffDuration?, recipients?, amounts? } | undefined)
   - Omit to disable vesting. Default duration if provided but undefined is `0` for dynamic auctions.
@@ -147,7 +147,7 @@ Validation highlights:
 - token name/symbol non‑empty
 - `startTick < endTick`
 - `initialSupply > 0`, `numTokensToSell > 0`, and `numTokensToSell <= initialSupply`
-- `durationDays > 0`, `epochLength > 0`, and `durationDays * 86400` divisible by `epochLength`
+- `duration > 0`, `epochLength > 0`, and `duration` divisible by `epochLength`
 - `tickSpacing > 0`; if `gamma` provided, it must be a multiple of `tickSpacing`
 - For V4 migration config (if chosen), beneficiary percentages must sum to 10000
 

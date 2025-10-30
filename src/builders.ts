@@ -366,12 +366,12 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     endTick: number
     minProceeds: bigint
     maxProceeds: bigint
-    durationDays?: number
+    duration?: number
     epochLength?: number
     gamma?: number
     numPdSlugs?: number
   }): this {
-    const duration = params.durationDays ?? DEFAULT_AUCTION_DURATION
+    const duration = params.duration ?? DEFAULT_AUCTION_DURATION
     const epochLength = params.epochLength ?? DEFAULT_EPOCH_LENGTH
     const gamma =
       params.gamma ?? (this.pool ? computeOptimalGamma(params.startTick, params.endTick, duration, epochLength, this.pool.tickSpacing) : undefined)
@@ -393,7 +393,7 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
     priceRange: PriceRange
     minProceeds: bigint
     maxProceeds: bigint
-    durationDays?: number
+    duration?: number
     epochLength?: number
     gamma?: number
     tickSpacing?: number // optional; will use pool.tickSpacing if not provided
@@ -409,7 +409,7 @@ export class DynamicAuctionBuilder<C extends SupportedChainId> {
       endTick: ticks.endTick,
       minProceeds: params.minProceeds,
       maxProceeds: params.maxProceeds,
-      durationDays: params.durationDays,
+      duration: params.duration,
       epochLength: params.epochLength,
       gamma: params.gamma,
       numPdSlugs: params.numPdSlugs,

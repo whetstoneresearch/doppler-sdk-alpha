@@ -27,7 +27,7 @@ export const SECONDS_PER_YEAR = 365 * SECONDS_PER_DAY
 
 // Default values
 export const DEFAULT_EPOCH_LENGTH = 43200 // 12 hours in seconds (matching V4 SDK)
-export const DEFAULT_AUCTION_DURATION = 7 // 7 days
+export const DEFAULT_AUCTION_DURATION = 7 * SECONDS_PER_DAY // 7 days
 export const DEFAULT_LOCK_DURATION = SECONDS_PER_YEAR // 1 year
 export const DEFAULT_PD_SLUGS = 5 // Default price discovery slugs
 export const DAY_SECONDS = SECONDS_PER_DAY // Alias for consistency

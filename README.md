@@ -86,14 +86,14 @@ console.log('Token address:', result.tokenAddress)
 Dynamic auctions use Uniswap V4 hooks to implement gradual Dutch auctions where the price moves over time.
 
 ```typescript
-import { DynamicAuctionBuilder } from '@whetstone-research/doppler-sdk'
+import { DynamicAuctionBuilder, DAY_SECONDS } from '@whetstone-research/doppler-sdk'
 
 const params = new DynamicAuctionBuilder()
   .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
   .saleConfig({ initialSupply: parseEther('1000000'), numTokensToSell: parseEther('900000'), numeraire: '0x...' })
   .poolConfig({ fee: 3000, tickSpacing: 60 })
   .auctionByTicks({
-    durationDays: 7,
+    duration: 7 * DAY_SECONDS,
     epochLength: 3600,
     startTick: -92103,
     endTick: -69080,
@@ -812,6 +812,7 @@ import {
   mineTokenAddress,
   getAddresses,
   DopplerBytecode,
+  DAY_SECONDS,
 } from '@whetstone-research/doppler-sdk'
 import { parseEther, keccak256, encodePacked, encodeAbiParameters } from 'viem'
 import { base } from 'viem/chains'
@@ -825,7 +826,7 @@ const builder = new DynamicAuctionBuilder()
   })
   .poolConfig({ fee: 3000, tickSpacing: 60 })
   .auctionByTicks({
-    durationDays: 7,
+    duration: 7 * DAY_SECONDS,
     epochLength: 3600,
     startTick: -92103,
     endTick: -69080,
