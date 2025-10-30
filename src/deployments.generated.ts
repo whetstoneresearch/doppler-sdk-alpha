@@ -128,8 +128,8 @@ export const GENERATED_DOPPLER_DEPLOYMENTS = {
     "UniswapV4Initializer": "0x832e4763dEEcB9941a768f2bBd18583219F018Cc",
     "UniswapV4Migrator": "0xf326D8cdB65A4ad334cFBdD7d3A3CB27Be8b770d",
     "UniswapV4MigratorHook": "0x9D0C38A80647E53D5a8a319B39De2B66B8586500",
-    "UniswapV4MulticurveInitializer": "0x8099ef6A2100A5ac02Af275eeD606BABD38a1689",
-    "UniswapV4MulticurveInitializerHook": "0xf1A484724e2451d2C0290C946eC0034f057D6d40",
+    "UniswapV4MulticurveInitializer": "0x1718405E58c61425cDc0083262bC9f72198F5232",
+    "UniswapV4MulticurveInitializerHook": "0x6a1061FC558dDe1E6fD0eFd641b370d435b56d40",
     "UniswapV4ScheduledMulticurveInitializer": "0x5C10D3e14Aae2Ef95619B25E907E013260E832E4",
     "UniswapV4ScheduledMulticurveInitializerHook": "0x5D663F9C993deFf2D17ce4232D75f347df7DADc0",
     "WETH": "0x660eAaEdEBc968f8f3694354FA8EC0b4c5Ba8D12"
