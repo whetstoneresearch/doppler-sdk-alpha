@@ -180,24 +180,27 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       )
     }
 
+    const useNoOpGovernance = params.governance.type === 'noOp'
+
     // 4. Encode governance factory data
-    const governanceFactoryData = encodeAbiParameters(
-      [
-        { type: 'string' },
-        { type: 'uint48' },
-        { type: 'uint32' },
-        { type: 'uint256' },
-      ],
-      [
-        params.token.name,
-        params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V3_INITIAL_VOTING_DELAY,
-        params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V3_INITIAL_VOTING_PERIOD,
-        params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
-      ]
-    )
+    const governanceFactoryData: Hex = useNoOpGovernance
+      ? ('0x' as Hex)
+      : encodeAbiParameters(
+        [
+          { type: 'string' },
+          { type: 'uint48' },
+          { type: 'uint32' },
+          { type: 'uint256' },
+        ],
+        [
+          params.token.name,
+          params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V3_INITIAL_VOTING_DELAY,
+          params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V3_INITIAL_VOTING_PERIOD,
+          params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
+        ]
+      )
 
     // 4.1 Choose governance factory
-    const useNoOpGovernance = params.governance.type === 'noOp'
 
     const governanceFactoryAddress: Address = (() => {
       if (useNoOpGovernance) {
@@ -605,24 +608,27 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     // 6. Encode migration data
     const liquidityMigratorData = this.encodeMigrationData(params.migration)
 
+    const useNoOpGovernance = params.governance.type === 'noOp'
+
     // 7. Encode governance factory data
-    const governanceFactoryData = encodeAbiParameters(
-      [
-        { type: 'string' },
-        { type: 'uint48' },
-        { type: 'uint32' },
-        { type: 'uint256' },
-      ],
-      [
-        params.token.name,
-        params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V4_INITIAL_VOTING_DELAY,
-        params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V4_INITIAL_VOTING_PERIOD,
-        params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
-      ]
-    )
+    const governanceFactoryData: Hex = useNoOpGovernance
+      ? ('0x' as Hex)
+      : encodeAbiParameters(
+        [
+          { type: 'string' },
+          { type: 'uint48' },
+          { type: 'uint32' },
+          { type: 'uint256' },
+        ],
+        [
+          params.token.name,
+          params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V4_INITIAL_VOTING_DELAY,
+          params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V4_INITIAL_VOTING_PERIOD,
+          params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
+        ]
+      )
 
     // 7.1 Choose governance factory
-    const useNoOpGovernance = params.governance.type === 'noOp'
 
     const governanceFactoryAddress: Address = (() => {
       if (useNoOpGovernance) {
@@ -1041,16 +1047,20 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       )
     }
 
+    const useNoOpGovernance = params.governance.type === 'noOp'
+
     // Governance factory data
-    const governanceFactoryData = encodeAbiParameters(
-      [ { type: 'string' }, { type: 'uint48' }, { type: 'uint32' }, { type: 'uint256' } ],
-      [
-        params.token.name,
-        params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V4_INITIAL_VOTING_DELAY,
-        params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V4_INITIAL_VOTING_PERIOD,
-        params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
-      ]
-    )
+    const governanceFactoryData: Hex = useNoOpGovernance
+      ? ('0x' as Hex)
+      : encodeAbiParameters(
+        [ { type: 'string' }, { type: 'uint48' }, { type: 'uint32' }, { type: 'uint256' } ],
+        [
+          params.token.name,
+          params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V4_INITIAL_VOTING_DELAY,
+          params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V4_INITIAL_VOTING_PERIOD,
+          params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
+        ]
+      )
 
     // Resolve module addresses
     const salt = this.generateRandomSalt(params.userAddress)
@@ -1099,7 +1109,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
 
     const governanceFactoryAddress: Address = (() => {
-      if (params.governance.type === 'noOp') {
+      if (useNoOpGovernance) {
         const resolved = params.modules?.governanceFactory ?? (addresses.noOpGovernanceFactory ?? ZERO_ADDRESS)
         if (!resolved || resolved === ZERO_ADDRESS) {
           throw new Error('No-op governance requested, but no-op governanceFactory is not configured on this chain.')
