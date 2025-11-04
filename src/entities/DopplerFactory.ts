@@ -881,20 +881,22 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
 
       case 'uniswapV4':
         // Encode V4 migration data with optional streamable fees config
-        // When streamableFees is omitted, we encode with 0 lock duration and empty beneficiaries
-        let beneficiaryData: { beneficiary: Address; shares: bigint }[] = []
-
-        if (config.streamableFees) {
-          // Copy beneficiaries and sort by address in ascending order (required by contract)
-          beneficiaryData = [...config.streamableFees.beneficiaries].sort((a, b) => {
-            const addrA = a.beneficiary.toLowerCase()
-            const addrB = b.beneficiary.toLowerCase()
-            return addrA < addrB ? -1 : addrA > addrB ? 1 : 0
-          })
-
-          // Note: The contract will validate that the airlock owner gets at least 5%
-          // If not present, the SDK user should add it manually
+        // When streamableFees is omitted, mirror legacy SDK behaviour by emitting an empty payload
+        const streamableFees = config.streamableFees
+        if (!streamableFees) {
+          // Default V4 migrator behaviour: no additional payload required
+          return '0x'
         }
+
+        // Copy beneficiaries and sort by address in ascending order (required by contract)
+        const beneficiaryData = [...streamableFees.beneficiaries].sort((a, b) => {
+          const addrA = a.beneficiary.toLowerCase()
+          const addrB = b.beneficiary.toLowerCase()
+          return addrA < addrB ? -1 : addrA > addrB ? 1 : 0
+        })
+
+        // Note: The contract will validate that the airlock owner gets at least 5%
+        // If not present, the SDK user should add it manually
 
         return encodeAbiParameters(
           [
@@ -912,7 +914,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           [
             config.fee,
             config.tickSpacing,
-            config.streamableFees?.lockDuration ?? 0,
+            streamableFees.lockDuration,
             beneficiaryData
           ]
         )

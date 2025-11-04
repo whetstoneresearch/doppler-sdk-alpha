@@ -112,6 +112,40 @@ describe('DopplerFactory Custom Migration Encoder', () => {
     expect(result.liquidityMigratorData).not.toBe('0x')
   })
 
+  it('returns empty migration payload for default V4 config', async () => {
+    const defaultFactory = new DopplerFactory(publicClient, undefined, CHAIN_IDS.BASE_SEPOLIA)
+    const paramsWithDefaultV4 = {
+      ...mockCreateParams,
+      migration: {
+        type: 'uniswapV4' as const,
+        fee: 3000,
+        tickSpacing: (TICK_SPACINGS as Record<number, number>)[3000],
+      },
+    }
+
+    const result = await defaultFactory.encodeCreateStaticAuctionParams(paramsWithDefaultV4)
+    expect(result.liquidityMigratorData).toBe('0x')
+  })
+
+  it('encodes migration payload when V4 streamable fees configured', async () => {
+    const defaultFactory = new DopplerFactory(publicClient, undefined, CHAIN_IDS.BASE_SEPOLIA)
+    const paramsWithStreamableV4 = {
+      ...mockCreateParams,
+      migration: {
+        type: 'uniswapV4' as const,
+        fee: 3000,
+        tickSpacing: (TICK_SPACINGS as Record<number, number>)[3000],
+        streamableFees: {
+          lockDuration: 3600,
+          beneficiaries: [{ beneficiary: mockCreateParams.userAddress, shares: parseEther('1') }],
+        },
+      },
+    }
+
+    const result = await defaultFactory.encodeCreateStaticAuctionParams(paramsWithStreamableV4)
+    expect(result.liquidityMigratorData).not.toBe('0x')
+  })
+
   it('should handle V3 migration with custom encoder', async () => {
     const v3Migration: MigrationConfig = {
       type: 'uniswapV3',
