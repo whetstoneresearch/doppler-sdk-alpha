@@ -48,6 +48,8 @@ import {
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
   DEFAULT_CREATE_GAS_LIMIT,
+  DEFAULT_V3_FEE,
+  TICK_SPACINGS,
 } from '../constants'
 import { computeOptimalGamma, MIN_TICK, MAX_TICK, isToken0Expected } from '../utils'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
@@ -858,6 +860,11 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
 
       case 'uniswapV3':
         // Encode V3 migration data: fee and tick spacing
+        const expectedSpacing = (TICK_SPACINGS as Record<number, number>)[config.fee]
+        if (expectedSpacing !== undefined && config.tickSpacing === expectedSpacing) {
+          // Match legacy behaviour: default configuration emits empty payload
+          return '0x'
+        }
         return encodeAbiParameters(
           [
             { type: 'uint24' }, // fee

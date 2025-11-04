@@ -5,6 +5,7 @@ import { DopplerFactory, type MigrationEncoder } from '../../entities/DopplerFac
 import { CHAIN_IDS } from '../../addresses'
 import type { MigrationConfig, CreateStaticAuctionParams } from '../../types'
 import type { SupportedPublicClient } from '../../types'
+import { DEFAULT_V3_FEE, TICK_SPACINGS } from '../../constants'
 
 describe('DopplerFactory Custom Migration Encoder', () => {
   let factory: DopplerFactory
@@ -79,6 +80,36 @@ describe('DopplerFactory Custom Migration Encoder', () => {
 
     // For uniswapV2 migration, default encoder returns '0x'
     expect(result.liquidityMigratorData).toBe('0x')
+  })
+
+  it('returns empty migration payload for default V3 config', async () => {
+    const defaultFactory = new DopplerFactory(publicClient, undefined, CHAIN_IDS.BASE_SEPOLIA)
+    const paramsWithDefaultV3 = {
+      ...mockCreateParams,
+      migration: {
+        type: 'uniswapV3' as const,
+        fee: DEFAULT_V3_FEE,
+        tickSpacing: (TICK_SPACINGS as Record<number, number>)[DEFAULT_V3_FEE],
+      },
+    }
+
+    const result = await defaultFactory.encodeCreateStaticAuctionParams(paramsWithDefaultV3)
+    expect(result.liquidityMigratorData).toBe('0x')
+  })
+
+  it('encodes migration payload for non-standard V3 spacing', async () => {
+    const defaultFactory = new DopplerFactory(publicClient, undefined, CHAIN_IDS.BASE_SEPOLIA)
+    const paramsWithOverride = {
+      ...mockCreateParams,
+      migration: {
+        type: 'uniswapV3' as const,
+        fee: DEFAULT_V3_FEE,
+        tickSpacing: (TICK_SPACINGS as Record<number, number>)[DEFAULT_V3_FEE] + 1,
+      },
+    }
+
+    const result = await defaultFactory.encodeCreateStaticAuctionParams(paramsWithOverride)
+    expect(result.liquidityMigratorData).not.toBe('0x')
   })
 
   it('should handle V3 migration with custom encoder', async () => {
