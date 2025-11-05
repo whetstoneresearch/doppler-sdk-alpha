@@ -1041,10 +1041,14 @@ The SDK includes comprehensive tests covering:
 
 See [`test/README.md`](./test/README.md) for detailed testing documentation.
 
-To run whitelisting tests with your own RPC URLs:
+To run whitelisting tests:
 
 ```bash
-BASE_SEPOLIA_RPC_URL=https://sepolia.base.org pnpm test airlock-whitelisting
+# Uses default public RPCs
+pnpm test airlock-whitelisting
+
+# Or with Alchemy (faster and more reliable)
+ALCHEMY_API_KEY=your_key_here pnpm test airlock-whitelisting
 ```
 
 ## Migration from Previous SDKs

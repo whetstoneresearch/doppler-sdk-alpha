@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createPublicClient, http, type Address, type Chain } from 'viem';
-import { mainnet, base, baseSepolia, ink, unichainSepolia, monadTestnet, unichain } from 'viem/chains';
+import { base, baseSepolia, monadTestnet } from 'viem/chains';
 import {
   CHAIN_IDS,
   getAddresses,
@@ -18,30 +18,35 @@ enum ModuleState {
   LiquidityMigrator = 4,
 }
 
+const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+
+const getAlchemyRpc = (network: string) =>
+  ALCHEMY_API_KEY ? `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}` : undefined;
+
 const CHAINS: Partial<Record<SupportedChainId, { chain: Chain; rpc?: string }>> = {
   [CHAIN_IDS.BASE]: {
     chain: base,
-    rpc: process.env.BASE_RPC_URL,
+    rpc: getAlchemyRpc('base-mainnet'),
   },
   [CHAIN_IDS.BASE_SEPOLIA]: {
     chain: baseSepolia,
-    rpc: process.env.BASE_SEPOLIA_RPC_URL,
+    rpc: getAlchemyRpc('base-sepolia'),
   },
   [CHAIN_IDS.MONAD_TESTNET]: {
     chain: monadTestnet,
-    rpc: process.env.MONAD_TESTNET_RPC_URL,
+    rpc: getAlchemyRpc('monad-testnet'),
   },
   // [CHAIN_IDS.INK]: {
   //   chain: ink,
-  //   rpc: process.env.INK_RPC_URL,
+  //   rpc: getAlchemyRpc('ink-mainnet'),
   // },
   // [CHAIN_IDS.UNICHAIN]: {
   //   chain: unichain,
-  //   rpc: process.env.UNICHAIN_RPC_URL,
+  //   rpc: getAlchemyRpc('unichain-mainnet'),
   // },
   // [CHAIN_IDS.UNICHAIN_SEPOLIA]: {
   //   chain: unichainSepolia,
-  //   rpc: process.env.UNICHAIN_SEPOLIA_RPC_URL,
+  //   rpc: getAlchemyRpc('unichain-sepolia'),
   // },
 };
 

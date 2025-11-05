@@ -14,14 +14,7 @@ jobs:
   test-whitelisting:
     runs-on: ubuntu-latest
     env:
-      # RPC URLs for each chain
-      MAINNET_RPC_URL: https://eth-mainnet.g.alchemy.com/v2/${{ secrets.ALCHEMY_API_KEY }}
-      BASE_RPC_URL: https://base-mainnet.g.alchemy.com/v2/${{ secrets.ALCHEMY_API_KEY }}
-      BASE_SEPOLIA_RPC_URL: https://base-sepolia.g.alchemy.com/v2/${{ secrets.ALCHEMY_API_KEY }}
-      INK_RPC_URL: https://ink-mainnet.g.alchemy.com/v2/${{ secrets.ALCHEMY_API_KEY }}
-      UNICHAIN_RPC_URL: https://unichain-mainnet.g.alchemy.com/v2/${{ secrets.ALCHEMY_API_KEY }}
-      UNICHAIN_SEPOLIA_RPC_URL: https://unichain-sepolia.g.alchemy.com/v2/${{ secrets.ALCHEMY_API_KEY }}
-      MONAD_TESTNET_RPC_URL: https://monad-testnet.g.alchemy.com/v2/${{ secrets.ALCHEMY_API_KEY }}
+      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -48,14 +41,5 @@ jobs:
         run: |
           echo "## Airlock Whitelisting Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Tested module whitelisting across all deployed chains." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Chains tested:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Mainnet (1)" >> $GITHUB_STEP_SUMMARY
-          echo "- Base (8453)" >> $GITHUB_STEP_SUMMARY
-          echo "- Base Sepolia (84532)" >> $GITHUB_STEP_SUMMARY
-          echo "- Ink (57073)" >> $GITHUB_STEP_SUMMARY
-          echo "- Unichain (130)" >> $GITHUB_STEP_SUMMARY
-          echo "- Unichain Sepolia (1301)" >> $GITHUB_STEP_SUMMARY
-          echo "- Monad Testnet (10143)" >> $GITHUB_STEP_SUMMARY
+          echo "Verified that all Doppler modules (TokenFactory, GovernanceFactory, Initializers, Migrators) are properly whitelisted on Airlock contracts across all deployed chains." >> $GITHUB_STEP_SUMMARY
 
