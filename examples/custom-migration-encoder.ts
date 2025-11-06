@@ -98,8 +98,8 @@ async function main() {
       numeraire: '0x4200000000000000000000000000000000000006' // WETH on Base
     },
     pool: {
-      startTick: -276320,
-      endTick: -276300,
+      startTick: -276400,
+      endTick: -276200,
       fee: 10000
     },
     governance: { type: 'default' as const },

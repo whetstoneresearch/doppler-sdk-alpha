@@ -1303,6 +1303,21 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     if (params.pool.startTick >= params.pool.endTick) {
       throw new Error('Start tick must be less than end tick')
     }
+
+    const tickSpacing = (TICK_SPACINGS as Record<number, number>)[params.pool.fee]
+    if (tickSpacing === undefined) {
+      throw new Error(`Unsupported fee tier ${params.pool.fee} for static auctions`)
+    }
+
+    if (params.pool.startTick < MIN_TICK || params.pool.endTick > MAX_TICK) {
+      throw new Error(`Ticks must be within the allowed range (${MIN_TICK} to ${MAX_TICK})`)
+    }
+
+    const startTickAligned = params.pool.startTick % tickSpacing === 0
+    const endTickAligned = params.pool.endTick % tickSpacing === 0
+    if (!startTickAligned || !endTickAligned) {
+      throw new Error(`Pool ticks must be multiples of tick spacing ${tickSpacing} for fee tier ${params.pool.fee}`)
+    }
     
     // Validate sale config
     if (params.sale.initialSupply <= BigInt(0)) {

@@ -65,7 +65,7 @@ import { StaticAuctionBuilder } from '@whetstone-research/doppler-sdk'
 const params = new StaticAuctionBuilder()
   .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/metadata.json' })
   .saleConfig({ initialSupply: parseEther('1000000000'), numTokensToSell: parseEther('900000000'), numeraire: '0x...' })
-  .poolByTicks({ startTick: -92103, endTick: -69080, fee: 10000, numPositions: 15 })
+  .poolByTicks({ startTick: -92200, endTick: -69000, fee: 10000, numPositions: 15 })
   .withVesting({
     duration: BigInt(365 * 24 * 60 * 60),
     // Optional: specify multiple recipients and amounts
@@ -80,6 +80,8 @@ const result = await sdk.factory.createStaticAuction(params)
 console.log('Pool address:', result.poolAddress)
 console.log('Token address:', result.tokenAddress)
 ```
+
+> **Tick spacing reminder:** When you provide ticks manually via `poolByTicks`, make sure both `startTick` and `endTick` are exact multiples of the fee tier’s tick spacing (100→1, 500→10, 3000→60, 10000→200). The SDK now validates this locally and will fail fast if the ticks are misaligned.
 
 ### Dynamic Auction (Dutch Auction)
 
@@ -778,7 +780,7 @@ const builder = new StaticAuctionBuilder(base.id)
     numTokensToSell: parseEther('750000'),
     numeraire: '0x...',
   })
-  .poolByTicks({ startTick: -92103, endTick: -69080, fee: 3000 })
+  .poolByTicks({ startTick: -92100, endTick: -69060, fee: 3000 })
   .withGovernance({ type: 'default' })
   .withMigration({ type: 'uniswapV3', fee: 3000, tickSpacing: 60 })
   .withUserAddress('0x...')
