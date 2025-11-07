@@ -1020,11 +1020,37 @@ pnpm install
 # Build the SDK
 pnpm build
 
-# Run tests
+# Run all tests
 pnpm test
+
+# Run specific test suite
+pnpm test airlock-whitelisting
+
+# Run tests in watch mode
+pnpm test:watch
 
 # Development mode with watch
 pnpm dev
+```
+
+### Testing
+
+The SDK includes comprehensive tests covering:
+
+- **Airlock Whitelisting**: Verifies that all modules are properly whitelisted on deployed Airlock contracts across all chains
+- **Multicurve Functionality**: Tests multicurve auction creation and quoting
+- **Token Address Mining**: Tests for generating optimized token addresses
+
+See [`test/README.md`](./test/README.md) for detailed testing documentation.
+
+To run whitelisting tests:
+
+```bash
+# Uses default public RPCs
+pnpm test airlock-whitelisting
+
+# Or with Alchemy (faster and more reliable)
+ALCHEMY_API_KEY=your_key_here pnpm test airlock-whitelisting
 ```
 
 ## Migration from Previous SDKs
