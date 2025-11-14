@@ -253,6 +253,7 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     noOpMigrator: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].NoOpMigrator as Address,
     governanceFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].GovernanceFactory as Address,
     noOpGovernanceFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].NoOpGovernanceFactory as Address, // Not yet deployed
+    v4ScheduledMulticurveInitializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].UniswapV4ScheduledMulticurveInitializer as Address,
     streamableFeesLocker: '0x91231cDdD8d6C86Df602070a3081478e074b97b7' as Address, // Not yet deployed
     universalRouter: "0x661e93cca42afacb172121ef892830ca3b70f08d" as Address,
     univ2Router02: ZERO_ADDRESS,
