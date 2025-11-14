@@ -249,12 +249,12 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     poolManager: '0x188d586ddcf52439676ca21a244753fa19f9ea8e' as Address,
     v2Migrator: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].UniswapV2Migrator as Address,
     v3Migrator: ZERO_ADDRESS,
-    v4Migrator: '0xBEd386a1Fc62B6598c9b8d2BF634471B6Fe75EB7' as Address, // Same as v2/v3 migrator
+    v4Migrator: ZERO_ADDRESS, // Same as v2/v3 migrator
     noOpMigrator: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].NoOpMigrator as Address,
     governanceFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].GovernanceFactory as Address,
     noOpGovernanceFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].NoOpGovernanceFactory as Address, // Not yet deployed
     v4ScheduledMulticurveInitializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].UniswapV4ScheduledMulticurveInitializer as Address,
-    streamableFeesLocker: '0x91231cDdD8d6C86Df602070a3081478e074b97b7' as Address, // Not yet deployed
+    streamableFeesLocker: ZERO_ADDRESS, // Not yet deployed
     universalRouter: "0x661e93cca42afacb172121ef892830ca3b70f08d" as Address,
     univ2Router02: ZERO_ADDRESS,
     permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address,
