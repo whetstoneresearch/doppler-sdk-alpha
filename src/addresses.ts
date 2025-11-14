@@ -10,6 +10,7 @@ export const CHAIN_IDS = {
   UNICHAIN: 130,
   UNICHAIN_SEPOLIA: 1301,
   MONAD_TESTNET: 10143,
+  MONAD_MAINNET: 143,
 } as const
 
 export type SupportedChainId = typeof CHAIN_IDS[keyof typeof CHAIN_IDS]
@@ -236,9 +237,32 @@ export const ADDRESSES: Record<SupportedChainId, ChainAddresses> = {
     bundler: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_TESTNET].Bundler as Address,
     weth: ZERO_ADDRESS, // TODO: Get Monad Testnet weth
     uniswapV4Quoter: ZERO_ADDRESS,
+  },
+  [CHAIN_IDS.MONAD_MAINNET]: {
+    airlock: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].Airlock as Address,
+    tokenFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].TokenFactory as Address,
+    v3Initializer: ZERO_ADDRESS,
+    v3Quoter: "0x66266174564170519409d8853898f065c719536b" as Address,
+    v4Initializer: ZERO_ADDRESS,
+    dopplerLens: ZERO_ADDRESS,
+    dopplerDeployer: ZERO_ADDRESS,
+    poolManager: '0x188d586ddcf52439676ca21a244753fa19f9ea8e' as Address,
+    v2Migrator: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].UniswapV2Migrator as Address,
+    v3Migrator: ZERO_ADDRESS,
+    v4Migrator: ZERO_ADDRESS, // Same as v2/v3 migrator
+    noOpMigrator: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].NoOpMigrator as Address,
+    governanceFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].GovernanceFactory as Address,
+    noOpGovernanceFactory: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].NoOpGovernanceFactory as Address, // Not yet deployed
+    v4ScheduledMulticurveInitializer: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].UniswapV4ScheduledMulticurveInitializer as Address,
+    streamableFeesLocker: ZERO_ADDRESS, // Not yet deployed
+    universalRouter: "0x661e93cca42afacb172121ef892830ca3b70f08d" as Address,
+    univ2Router02: ZERO_ADDRESS,
+    permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address,
+    bundler: GENERATED_DOPPLER_DEPLOYMENTS[CHAIN_IDS.MONAD_MAINNET].Bundler as Address,
+    weth: "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242" as Address, // TODO: Get Monad Mainnet weth
+    uniswapV4Quoter: "0xa222dd357a9076d1091ed6aa2e16c9742dd26891" as Address,
   }
 }
-
 /**
  * Get addresses for a specific chain
  */
