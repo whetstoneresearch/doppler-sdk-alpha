@@ -1,0 +1,45 @@
+name: Test Airlock Whitelisting
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Run twice daily at 00:00 and 12:00 UTC to catch any whitelisting issues
+    - cron: '0 0,12 * * *'
+
+jobs:
+  test-whitelisting:
+    runs-on: ubuntu-latest
+    env:
+      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run airlock whitelisting tests
+        run: pnpm test airlock-whitelisting
+
+      - name: Create summary
+        if: always()
+        run: |
+          echo "## Airlock Whitelisting Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Verified that all Doppler modules (TokenFactory, GovernanceFactory, Initializers, Migrators) are properly whitelisted on Airlock contracts across all deployed chains." >> $GITHUB_STEP_SUMMARY
+

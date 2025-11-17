@@ -49,7 +49,11 @@ async function createStaticAuctionExample() {
       numTokensToSell: parseEther('900000000'), // 900 million for sale
       numeraire: '0x4200000000000000000000000000000000000006', // WETH on Base
     })
-    .poolByTicks({ startTick: 175000, endTick: 225000, fee: 3000 })
+    .poolByTicks({
+      startTick: 174960, // fee 3000 → tickSpacing 60, so ticks must be multiples of 60
+      endTick: 225000,
+      fee: 3000,
+    })
     .withVesting({
       duration: BigInt(365 * 24 * 60 * 60),
       cliffDuration: 0,

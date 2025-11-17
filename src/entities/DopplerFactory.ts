@@ -48,7 +48,9 @@ import {
   DEFAULT_V4_INITIAL_VOTING_PERIOD,
   DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
   DEFAULT_CREATE_GAS_LIMIT,
+  DEFAULT_V3_FEE,
   DYNAMIC_FEE_FLAG,
+  TICK_SPACINGS,
 } from '../constants'
 import { computeOptimalGamma, MIN_TICK, MAX_TICK, isToken0Expected } from '../utils'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
@@ -179,24 +181,27 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       )
     }
 
+    const useNoOpGovernance = params.governance.type === 'noOp'
+
     // 4. Encode governance factory data
-    const governanceFactoryData = encodeAbiParameters(
-      [
-        { type: 'string' },
-        { type: 'uint48' },
-        { type: 'uint32' },
-        { type: 'uint256' },
-      ],
-      [
-        params.token.name,
-        params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V3_INITIAL_VOTING_DELAY,
-        params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V3_INITIAL_VOTING_PERIOD,
-        params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
-      ]
-    )
+    const governanceFactoryData: Hex = useNoOpGovernance
+      ? ('0x' as Hex)
+      : encodeAbiParameters(
+        [
+          { type: 'string' },
+          { type: 'uint48' },
+          { type: 'uint32' },
+          { type: 'uint256' },
+        ],
+        [
+          params.token.name,
+          params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V3_INITIAL_VOTING_DELAY,
+          params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V3_INITIAL_VOTING_PERIOD,
+          params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD
+        ]
+      )
 
     // 4.1 Choose governance factory
-    const useNoOpGovernance = params.governance.type === 'noOp'
 
     const governanceFactoryAddress: Address = (() => {
       if (useNoOpGovernance) {
@@ -604,24 +609,27 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     // 6. Encode migration data
     const liquidityMigratorData = this.encodeMigrationData(params.migration)
 
+    const useNoOpGovernance = params.governance.type === 'noOp'
+
     // 7. Encode governance factory data
-    const governanceFactoryData = encodeAbiParameters(
-      [
-        { type: 'string' },
-        { type: 'uint48' },
-        { type: 'uint32' },
-        { type: 'uint256' },
-      ],
-      [
-        params.token.name,
-        params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V4_INITIAL_VOTING_DELAY,
-        params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V4_INITIAL_VOTING_PERIOD,
-        params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
-      ]
-    )
+    const governanceFactoryData: Hex = useNoOpGovernance
+      ? ('0x' as Hex)
+      : encodeAbiParameters(
+        [
+          { type: 'string' },
+          { type: 'uint48' },
+          { type: 'uint32' },
+          { type: 'uint256' },
+        ],
+        [
+          params.token.name,
+          params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V4_INITIAL_VOTING_DELAY,
+          params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V4_INITIAL_VOTING_PERIOD,
+          params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
+        ]
+      )
 
     // 7.1 Choose governance factory
-    const useNoOpGovernance = params.governance.type === 'noOp'
 
     const governanceFactoryAddress: Address = (() => {
       if (useNoOpGovernance) {
@@ -859,6 +867,11 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
 
       case 'uniswapV3':
         // Encode V3 migration data: fee and tick spacing
+        const expectedSpacing = (TICK_SPACINGS as Record<number, number>)[config.fee]
+        if (expectedSpacing !== undefined && config.tickSpacing === expectedSpacing) {
+          // Match legacy behaviour: default configuration emits empty payload
+          return '0x'
+        }
         return encodeAbiParameters(
           [
             { type: 'uint24' }, // fee
@@ -869,20 +882,22 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
 
       case 'uniswapV4':
         // Encode V4 migration data with optional streamable fees config
-        // When streamableFees is omitted, we encode with 0 lock duration and empty beneficiaries
-        let beneficiaryData: { beneficiary: Address; shares: bigint }[] = []
-
-        if (config.streamableFees) {
-          // Copy beneficiaries and sort by address in ascending order (required by contract)
-          beneficiaryData = [...config.streamableFees.beneficiaries].sort((a, b) => {
-            const addrA = a.beneficiary.toLowerCase()
-            const addrB = b.beneficiary.toLowerCase()
-            return addrA < addrB ? -1 : addrA > addrB ? 1 : 0
-          })
-
-          // Note: The contract will validate that the airlock owner gets at least 5%
-          // If not present, the SDK user should add it manually
+        // When streamableFees is omitted, mirror legacy SDK behaviour by emitting an empty payload
+        const streamableFees = config.streamableFees
+        if (!streamableFees) {
+          // Default V4 migrator behaviour: no additional payload required
+          return '0x'
         }
+
+        // Copy beneficiaries and sort by address in ascending order (required by contract)
+        const beneficiaryData = [...streamableFees.beneficiaries].sort((a, b) => {
+          const addrA = a.beneficiary.toLowerCase()
+          const addrB = b.beneficiary.toLowerCase()
+          return addrA < addrB ? -1 : addrA > addrB ? 1 : 0
+        })
+
+        // Note: The contract will validate that the airlock owner gets at least 5%
+        // If not present, the SDK user should add it manually
 
         return encodeAbiParameters(
           [
@@ -900,7 +915,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           [
             config.fee,
             config.tickSpacing,
-            config.streamableFees?.lockDuration ?? 0,
+            streamableFees.lockDuration,
             beneficiaryData
           ]
         )
@@ -1035,16 +1050,20 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       )
     }
 
+    const useNoOpGovernance = params.governance.type === 'noOp'
+
     // Governance factory data
-    const governanceFactoryData = encodeAbiParameters(
-      [ { type: 'string' }, { type: 'uint48' }, { type: 'uint32' }, { type: 'uint256' } ],
-      [
-        params.token.name,
-        params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V4_INITIAL_VOTING_DELAY,
-        params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V4_INITIAL_VOTING_PERIOD,
-        params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
-      ]
-    )
+    const governanceFactoryData: Hex = useNoOpGovernance
+      ? ('0x' as Hex)
+      : encodeAbiParameters(
+        [ { type: 'string' }, { type: 'uint48' }, { type: 'uint32' }, { type: 'uint256' } ],
+        [
+          params.token.name,
+          params.governance.type === 'custom' ? params.governance.initialVotingDelay : DEFAULT_V4_INITIAL_VOTING_DELAY,
+          params.governance.type === 'custom' ? params.governance.initialVotingPeriod : DEFAULT_V4_INITIAL_VOTING_PERIOD,
+          params.governance.type === 'custom' ? params.governance.initialProposalThreshold : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD
+        ]
+      )
 
     // Resolve module addresses
     const salt = this.generateRandomSalt(params.userAddress)
@@ -1093,7 +1112,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
 
     const governanceFactoryAddress: Address = (() => {
-      if (params.governance.type === 'noOp') {
+      if (useNoOpGovernance) {
         const resolved = params.modules?.governanceFactory ?? (addresses.noOpGovernanceFactory ?? ZERO_ADDRESS)
         if (!resolved || resolved === ZERO_ADDRESS) {
           throw new Error('No-op governance requested, but no-op governanceFactory is not configured on this chain.')
@@ -1284,6 +1303,21 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     // Validate tick range
     if (params.pool.startTick >= params.pool.endTick) {
       throw new Error('Start tick must be less than end tick')
+    }
+
+    const tickSpacing = (TICK_SPACINGS as Record<number, number>)[params.pool.fee]
+    if (tickSpacing === undefined) {
+      throw new Error(`Unsupported fee tier ${params.pool.fee} for static auctions`)
+    }
+
+    if (params.pool.startTick < MIN_TICK || params.pool.endTick > MAX_TICK) {
+      throw new Error(`Ticks must be within the allowed range (${MIN_TICK} to ${MAX_TICK})`)
+    }
+
+    const startTickAligned = params.pool.startTick % tickSpacing === 0
+    const endTickAligned = params.pool.endTick % tickSpacing === 0
+    if (!startTickAligned || !endTickAligned) {
+      throw new Error(`Pool ticks must be multiples of tick spacing ${tickSpacing} for fee tier ${params.pool.fee}`)
     }
     
     // Validate sale config

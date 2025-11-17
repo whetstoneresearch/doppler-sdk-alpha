@@ -40,6 +40,7 @@ Methods (chainable):
 - Price specification methods (use one or the other, not both)
   - poolByTicks({ startTick?, endTick?, fee?, numPositions?, maxShareToBeSold? })
     - Defaults: `fee = DEFAULT_V3_FEE (10000)`, `startTick = DEFAULT_V3_START_TICK`, `endTick = DEFAULT_V3_END_TICK`, `numPositions = DEFAULT_V3_NUM_POSITIONS`, `maxShareToBeSold = DEFAULT_V3_MAX_SHARE_TO_BE_SOLD`
+    - `startTick` and `endTick` must be multiples of the fee tier’s tick spacing (100→1, 500→10, 3000→60, 10000→200). The SDK enforces this before attempting a transaction.
   - poolByPriceRange({ priceRange, fee?, numPositions?, maxShareToBeSold? })
     - Computes ticks from `priceRange` using inferred `tickSpacing` from `fee`
 - withVesting({ duration?, cliffDuration?, recipients?, amounts? } | undefined)

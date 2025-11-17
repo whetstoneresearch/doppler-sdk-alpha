@@ -138,7 +138,7 @@ describe('DopplerFactory', () => {
         numeraire: mockAddresses.weth,
       },
       pool: {
-        startTick: 175000,
+        startTick: 174960,
         endTick: 225000,
         fee: 3000,
       },
@@ -160,6 +160,20 @@ describe('DopplerFactory', () => {
 
       await expect(factory.createStaticAuction(invalidParams)).rejects.toThrow(
         'Cannot sell more tokens than initial supply'
+      )
+    })
+
+    it('should validate tick spacing alignment when ticks provided manually', async () => {
+      const invalidParams = {
+        ...validParams,
+        pool: {
+          ...validParams.pool,
+          startTick: validParams.pool.startTick + 30, // Not divisible by 60
+        },
+      }
+
+      await expect(factory.createStaticAuction(invalidParams)).rejects.toThrow(
+        'Pool ticks must be multiples of tick spacing 60 for fee tier 3000'
       )
     })
 
@@ -269,7 +283,7 @@ describe('DopplerFactory', () => {
     it('should encode migration data correctly for V3', async () => {
       const params = {
         ...validParams,
-        migration: { type: 'uniswapV3' as const, fee: 3000, tickSpacing: 60 },
+        migration: { type: 'uniswapV3' as const, fee: 3000, tickSpacing: 65 },
       }
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const eventSignature = keccak256(toHex('Create(address,address,address,address,address,address,address)'))
@@ -520,7 +534,7 @@ describe('DopplerFactory', () => {
           numTokensToSell: parseEther('500'),
           numeraire: mockAddresses.weth,
         },
-        pool: { startTick: 175000, endTick: 225000, fee: 3000 },
+        pool: { startTick: 174960, endTick: 225000, fee: 3000 },
         governance: { noOp: true },
         migration: { type: 'uniswapV2' },
         userAddress: '0x1234567890123456789012345678901234567890',
@@ -550,7 +564,7 @@ describe('DopplerFactory', () => {
           numTokensToSell: parseEther('500'),
           numeraire: mockAddresses.weth,
         },
-        pool: { startTick: 175000, endTick: 225000, fee: 3000 },
+        pool: { startTick: 174960, endTick: 225000, fee: 3000 },
         governance: { noOp: true },
         migration: { type: 'uniswapV2' },
         userAddress: '0x1234567890123456789012345678901234567890',

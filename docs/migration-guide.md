@@ -124,7 +124,7 @@ const params = new StaticAuctionBuilder()
     numTokensToSell: parseEther('500000'),
     numeraire: wethAddress,
   })
-  .poolByTicks({ startTick: -92103, endTick: -69080, fee: 3000 })
+  .poolByTicks({ startTick: -92100, endTick: -69060, fee: 3000 })
   .withMigration({
     type: 'uniswapV4',
     fee: 3000,
@@ -275,4 +275,3 @@ const quote = await quoter.quoteV3ExactInputSingle({
   sqrtPriceLimitX96: 0n,
 });
 ```
-

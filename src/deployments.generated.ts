@@ -27,6 +27,20 @@ export const GENERATED_DOPPLER_DEPLOYMENTS = {
     "UniswapV4Migrator": "0x49F3fBB2dFF7f3d03B622e3b2a6d3F2E6fdB2a5A",
     "UniswapV4MigratorHook": "0x53C050d3B09C80024138165520Bd7c078D9e2000"
   },
+  "143": {
+    "Airlock": "0x660eAaEdEBc968f8f3694354FA8EC0b4c5Ba8D12",
+    "AirlockMultisig": "0x9916Ec1c1E0462F6F8f7514e414F06bf001Ac82A",
+    "Bundler": "0xC99b485499f78995C6F1640dbB1413c57f8BA684",
+    "GovernanceFactory": "0xFAafdE6a5b658684cC5eb0C5c2c755B00A246F45",
+    "LaunchpadGovernanceFactory": "0x5FBe931dc4B923A7abe4c47aD68d5bF9Eda5B76D",
+    "LockableUniswapV3Initializer": "0x8b4C7DB9121FC885689C0A50D5a1429F15AEc2a0",
+    "NoOpGovernanceFactory": "0xb4deE32EB70A5E55f3D2d861F49Fb3D79f7a14d9",
+    "NoOpMigrator": "0x5F3bA43D44375286296Cb85F1EA2EBfa25dde731",
+    "TokenFactory": "0xaA47D2977d622DBdFD33eeF6a8276727c52EB4e5",
+    "UniswapV2Migrator": "0x136191B46478cAB023cbC01a36160C4Aad81677a",
+    "UniswapV4ScheduledMulticurveInitializer": "0xCe3099B2F07029b086E5e92a1573C5f5A3071783",
+    "UniswapV4ScheduledMulticurveInitializerHook": "0x580ca49389d83b019d07E17e99454f2F218e2dc0"
+  },
   "1301": {
     "Airlock": "0x0d2f38d807bfAd5C18e430516e10ab560D300caF",
     "AirlockMultisig": "0x40Bcb4dDA3BcF7dba30C5d10c31EE2791ed9ddCa",
@@ -128,8 +142,8 @@ export const GENERATED_DOPPLER_DEPLOYMENTS = {
     "UniswapV4Initializer": "0x832e4763dEEcB9941a768f2bBd18583219F018Cc",
     "UniswapV4Migrator": "0xf326D8cdB65A4ad334cFBdD7d3A3CB27Be8b770d",
     "UniswapV4MigratorHook": "0x9D0C38A80647E53D5a8a319B39De2B66B8586500",
-    "UniswapV4MulticurveInitializer": "0x8099ef6A2100A5ac02Af275eeD606BABD38a1689",
-    "UniswapV4MulticurveInitializerHook": "0xf1A484724e2451d2C0290C946eC0034f057D6d40",
+    "UniswapV4MulticurveInitializer": "0x1718405E58c61425cDc0083262bC9f72198F5232",
+    "UniswapV4MulticurveInitializerHook": "0x6a1061FC558dDe1E6fD0eFd641b370d435b56d40",
     "UniswapV4ScheduledMulticurveInitializer": "0x5C10D3e14Aae2Ef95619B25E907E013260E832E4",
     "UniswapV4ScheduledMulticurveInitializerHook": "0x5D663F9C993deFf2D17ce4232D75f347df7DADc0",
     "WETH": "0x660eAaEdEBc968f8f3694354FA8EC0b4c5Ba8D12"
