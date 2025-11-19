@@ -64,7 +64,7 @@ export class MulticurvePool {
         fee: number
         tickSpacing: number
         hooks: Address
-      } & readonly [Address, Address, number, numbercl, Address],
+      } & readonly [Address, Address, number, number, Address],
       number
     ]
 
