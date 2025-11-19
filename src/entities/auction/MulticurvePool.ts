@@ -41,12 +41,18 @@ export class MulticurvePool {
     const chainId = await this.rpc.getChainId()
     const addresses = getAddresses(chainId as SupportedChainId)
 
-    if (!addresses.v4MulticurveInitializer) {
-      throw new Error('V4 multicurve initializer address not configured for this chain')
+    if (!addresses.v4MulticurveInitializer && !addresses.v4ScheduledMulticurveInitializer) {
+      throw new Error('V4 multicurve initializer and scheduled multicurve initializer address not configured for this chain')
+    }
+
+    const initializerAddress = addresses.v4ScheduledMulticurveInitializer ?? addresses.v4MulticurveInitializer
+
+    if (!initializerAddress) {
+      throw new Error('V4 multicurve initializer or scheduled multicurve initializer address not configured for this chain')
     }
 
     const stateData = await this.rpc.readContract({
-      address: addresses.v4MulticurveInitializer,
+      address: initializerAddress,
       abi: v4MulticurveInitializerAbi,
       functionName: 'getState',
       args: [this.poolAddress],
