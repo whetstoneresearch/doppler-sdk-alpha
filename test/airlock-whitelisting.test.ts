@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { createPublicClient, http, type Address, type Chain } from 'viem';
 import { base, baseSepolia, monadTestnet } from 'viem/chains';
 import {
@@ -9,6 +9,10 @@ import {
 } from '../src';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+
+// Helper to add delay between RPC calls to avoid rate limiting
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const RPC_DELAY_MS = 300; // 300ms delay between requests
 
 enum ModuleState {
   NotWhitelisted = 0,
@@ -71,6 +75,11 @@ describe('Airlock Module Whitelisting', () => {
       const publicClient = createPublicClient({
         chain: config.chain,
         transport: http(config.rpc || config.chain.rpcUrls.default.http[0]),
+      });
+
+      // Add delay before each test to avoid rate limiting
+      beforeEach(async () => {
+        await delay(RPC_DELAY_MS);
       });
 
       (addresses.tokenFactory === ZERO_ADDRESS ? it.skip : it)(
