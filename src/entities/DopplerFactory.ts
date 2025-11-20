@@ -2054,11 +2054,9 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           params.tokenFactory
         )
         const tokenBigInt = BigInt(token)
-        const numeraireBigInt = BigInt(params.numeraire)
         if (
           (hookBigInt & FLAG_MASK) === flags &&
-          ((isToken0 && tokenBigInt < numeraireBigInt) ||
-            (!isToken0 && tokenBigInt > numeraireBigInt))
+          numeraireBigInt < tokenBigInt
         ) {
           return [saltBytes, hook, token, poolInitializerData, tokenFactoryData]
         }
