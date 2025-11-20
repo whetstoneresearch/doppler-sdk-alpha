@@ -29,7 +29,7 @@ import type {
   V4PoolKey
 } from '../types'
 import type { ModuleAddressOverrides } from '../types'
-import { getAddresses } from '../addresses'
+import { CHAIN_IDS, getAddresses } from '../addresses'
 import { zeroAddress } from 'viem'
 import {
   ZERO_ADDRESS,
@@ -53,6 +53,7 @@ import {
 } from '../constants'
 import { computeOptimalGamma, MIN_TICK, MAX_TICK, isToken0Expected } from '../utils'
 import { airlockAbi, bundlerAbi, DERC20Bytecode, DopplerBytecode, DopplerDN404Bytecode } from '../abis'
+import { DopplerBytecodeBaseMainnet } from '@/abis/bytecodes'
 
 // Type definition for the custom migration encoder function
 export type MigrationEncoder = (config: MigrationConfig) => Hex
@@ -677,10 +678,10 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     poolId: string
     transactionHash: string
   }> {
+    const addresses = getAddresses(this.chainId)
 
     const { createParams, hookAddress, tokenAddress } = await this.encodeCreateDynamicAuctionParams(params);
 
-    const addresses = getAddresses(this.chainId)
 
     // Call the airlock contract to create the pool
     if (!this.walletClient) {
@@ -1799,6 +1800,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     customDerc20Bytecode?: `0x${string}`
     tokenVariant?: 'standard' | 'doppler404'
   }): [Hash, Address, Address, Hex, Hex] {
+    const addresses = getAddresses(this.chainId)
+
     const isToken0 = isToken0Expected(params.numeraire)
 
     const {
@@ -1846,6 +1849,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       ]
     )
 
+    const isBase = this.chainId === CHAIN_IDS.BASE
+
     const { poolManager, numTokensToSell, poolInitializer } = params
 
     const hookInitHashData = encodeAbiParameters(
@@ -1886,7 +1891,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     const hookInitHash = keccak256(
       encodePacked(
         ['bytes', 'bytes'],
-        [DopplerBytecode as Hex, hookInitHashData]
+        [isBase ? (DopplerBytecodeBaseMainnet as Hex) : (DopplerBytecode as Hex), hookInitHashData]
       )
     )
 
