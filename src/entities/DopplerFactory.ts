@@ -61,12 +61,12 @@ export type MigrationEncoder = (config: MigrationConfig) => Hex
 const MAX_UINT128 = (1n << 128n) - 1n
 
 export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
-  private publicClient: SupportedPublicClient
-  private walletClient?: WalletClient
-  private chainId: C
-  private customMigrationEncoder?: MigrationEncoder
+  protected publicClient: SupportedPublicClient
+  protected walletClient?: WalletClient
+  protected chainId: C
+  protected customMigrationEncoder?: MigrationEncoder
 
-  private multicurveBundlerSupport = new Map<Address, boolean>()
+  protected multicurveBundlerSupport = new Map<Address, boolean>()
 
   constructor(publicClient: SupportedPublicClient, walletClient: WalletClient | undefined, chainId: C) {
     this.publicClient = publicClient
@@ -385,7 +385,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   /**
    * Generate a random salt based on user address
    */
-  private generateRandomSalt(account: Address): Hex {
+  protected generateRandomSalt(account: Address): Hex {
     // Use crypto.getRandomValues for secure random generation
     const array = new Uint8Array(32)
     
@@ -431,7 +431,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
    * Iteratively mine a salt that ensures the newly created token sorts after the numeraire.
    * This mirrors the legacy SDK behaviour so tick configuration can assume the numeraire is token0.
    */
-  private async mineTokenOrder(args: {
+  protected async mineTokenOrder(args: {
     params: CreateStaticAuctionParams<C>
     baseCreateParams: Omit<CreateParams, 'salt'>
     addresses: ReturnType<typeof getAddresses>
@@ -812,7 +812,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return { createParams, hookAddress, tokenAddress, poolId, gasEstimate }
   }
 
-  private async resolveCreateGasEstimate(args: {
+  protected async resolveCreateGasEstimate(args: {
     request?: unknown
     address: Address
     createParams: CreateParams
@@ -842,7 +842,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
   }
 
-  private isDoppler404Token(token: TokenConfig): token is Doppler404TokenConfig {
+  protected isDoppler404Token(token: TokenConfig): token is Doppler404TokenConfig {
     return (token as Doppler404TokenConfig).type === 'doppler404'
   }
 
@@ -850,7 +850,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
    * Encode migration data based on the MigrationConfig
    * This replaces the manual encoding methods from the old SDKs
    */
-  private encodeMigrationData(config: MigrationConfig): Hex {
+  protected encodeMigrationData(config: MigrationConfig): Hex {
     // Use custom encoder if available
     if (this.customMigrationEncoder) {
       return this.customMigrationEncoder(config)
@@ -1210,7 +1210,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   /**
    * Normalize user-provided multicurve positions and ensure they satisfy SDK constraints
    */
-  private normalizeMulticurveCurves(
+  protected normalizeMulticurveCurves(
     curves: CreateMulticurveParams['pool']['curves'],
     tickSpacing: number
   ): CreateMulticurveParams['pool']['curves'] {
@@ -1282,7 +1282,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return [...sanitizedCurves, fallbackCurve]
   }
 
-  private roundMaxTickDown(tickSpacing: number): number {
+  protected roundMaxTickDown(tickSpacing: number): number {
     if (tickSpacing <= 0) {
       throw new Error('Tick spacing must be positive')
     }
@@ -1291,7 +1291,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return rounded
   }
 
-  private validateStaticAuctionParams(params: CreateStaticAuctionParams): void {
+  protected validateStaticAuctionParams(params: CreateStaticAuctionParams): void {
     // Validate token parameters
     if (!params.token.name || params.token.name.trim().length === 0) {
       throw new Error('Token name is required')
@@ -1374,7 +1374,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   /**
    * Validate dynamic auction parameters
    */
-  private validateDynamicAuctionParams(params: CreateDynamicAuctionParams): void {
+  protected validateDynamicAuctionParams(params: CreateDynamicAuctionParams): void {
     // Validate token parameters
     if (!params.token.name || params.token.name.trim().length === 0) {
       throw new Error('Token name is required')
@@ -1444,7 +1444,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   /**
    * Get the airlock contract address for the current chain
    */
-  private getAirlockAddress(): Address {
+  protected getAirlockAddress(): Address {
     const addresses = getAddresses(this.chainId)
     return addresses.airlock
   }
@@ -1452,7 +1452,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   /**
    * Get the appropriate initializer address based on auction type
    */
-  private getInitializerAddress(isStatic: boolean): Address {
+  protected getInitializerAddress(isStatic: boolean): Address {
     const addresses = getAddresses(this.chainId)
     return isStatic ? addresses.v3Initializer : addresses.v4Initializer
   }
@@ -1461,7 +1461,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
    * Get the Bundler contract address for the current chain
    * Used to perform atomic create + swap ("bundle") flows for static auctions
    */
-  private getBundlerAddress(): Address {
+  protected getBundlerAddress(): Address {
     const addresses = getAddresses(this.chainId)
     const addr = addresses.bundler
     if (!addr || addr === zeroAddress) {
@@ -1474,7 +1474,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
    * Get the appropriate migrator address based on migration config
    * Allows override via ModuleAddressOverrides when provided in params.
    */
-  private getMigratorAddress(config: MigrationConfig, overrides?: ModuleAddressOverrides): Address {
+  protected getMigratorAddress(config: MigrationConfig, overrides?: ModuleAddressOverrides): Address {
     const addresses = getAddresses(this.chainId)
 
     switch (config.type) {
@@ -1662,7 +1662,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   }
 
 
-  private ensureUint128(value: bigint, paramName: string, options: { allowZero?: boolean } = {}): void {
+  protected ensureUint128(value: bigint, paramName: string, options: { allowZero?: boolean } = {}): void {
     const { allowZero = false } = options
     if (value < 0n) {
       throw new Error(`${paramName} cannot be negative`)
@@ -1675,7 +1675,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
   }
 
-  private parseMulticurveBundleResult(result: unknown): { asset: Address; poolKey: V4PoolKey; amount: bigint; gasEstimate: bigint } {
+  protected parseMulticurveBundleResult(result: unknown): { asset: Address; poolKey: V4PoolKey; amount: bigint; gasEstimate: bigint } {
     let asset: Address | undefined
     let poolKeyRaw: unknown
     let amount: bigint | undefined
@@ -1711,7 +1711,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
   }
 
-  private normalizePoolKey(value: any): V4PoolKey {
+  protected normalizePoolKey(value: any): V4PoolKey {
     if (Array.isArray(value)) {
       const [currency0, currency1, feeRaw, tickSpacingRaw, hooks] = value as [Address, Address, number | bigint, number | bigint, Address]
       const feeValue = Number(feeRaw)
@@ -1755,9 +1755,9 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
    * @param params - Parameters for hook address mining
    * @returns Tuple of [salt, hook address, token address, pool data, token data]
    * @throws {Error} If no valid salt can be found within the search limit
-   * @private
+   * @protected
    */
-  private mineHookAddress(params: {
+  protected mineHookAddress(params: {
     airlock: Address
     poolManager: Address
     deployer: Address
@@ -2079,9 +2079,9 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
    * @param initCodeHash - Hash of the initialization code
    * @param deployer - Address of the deploying contract
    * @returns The computed contract address
-   * @private
+   * @protected
    */
-  private computeCreate2Address(
+  protected computeCreate2Address(
     salt: Hash,
     initCodeHash: Hash,
     deployer: Address
@@ -2096,7 +2096,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   /**
    * Compute V4 pool ID from pool key components
    */
-  private computePoolId(poolKey: {
+  protected computePoolId(poolKey: {
     currency0: Address
     currency1: Address  
     fee: number
@@ -2123,7 +2123,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return keccak256(encoded)
   }
 
-  private async ensureMulticurveBundlerSupport(bundler: Address): Promise<void> {
+  protected async ensureMulticurveBundlerSupport(bundler: Address): Promise<void> {
     if (this.multicurveBundlerSupport.get(bundler)) {
       return
     }
