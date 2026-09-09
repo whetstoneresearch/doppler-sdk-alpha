@@ -377,15 +377,15 @@ export class MulticurveBuilder<
    *
    * When configured, the hook will be initialized with the pool and will handle:
    * - Custom swap fees
-   * - Fee distribution to beneficiaries, LPs, and buyback destinations
-   *
+   * - Residual fee distribution to beneficiaries, LPs, and buyback destinations
+   * - An optional, independently routed integrator share of gross hook fees
    * IMPORTANT:
    * - The hook address must be whitelisted in the DopplerHookInitializer
    * - Fee distribution percentages must sum to exactly WAD (1e18 = 100%)
-   *
+   * - integratorFeeConfig.integrator defaults to withIntegrator(address)
    * @example
    * ```typescript
-   * builder.withRehypeDopplerHookInitializer({
+   * builder.withIntegrator('0x...').withRehypeDopplerHookInitializer({
    *   hookAddress: '0x...',
    *   buybackDestination: '0x...',
    *   startFee: 3000, // 0.3%
@@ -400,6 +400,11 @@ export class MulticurveBuilder<
    *     numeraireFeesToNumeraireBuybackWad: parseEther('0.2'),
    *     numeraireFeesToBeneficiaryWad: parseEther('0.3'),
    *     numeraireFeesToLpWad: parseEther('0.3'),
+   *   },
+   *   integratorFeeConfig: {
+   *     feeShare: 200_000, // 20% of the Rehype hook fee
+   *     assetFeesToNumeraireRatio: 500_000_000, // Convert 50%
+   *     automaticPayout: false,
    *   },
    * })
    * ```
@@ -428,15 +433,22 @@ export class MulticurveBuilder<
       );
     }
 
-    // Validate immediately when the controller is already known. Otherwise,
-    // build() validates after withFeeDistributionController() can be chained.
+    // Validate immediately when all inherited values are known. Otherwise,
+    // build() validates after controller and integrator methods can be chained.
+    const needsInheritedIntegrator =
+      params.integratorFeeConfig !== undefined &&
+      params.integratorFeeConfig.integrator === undefined;
+    const canResolveIntegrator =
+      !needsInheritedIntegrator || this.integrator !== undefined;
     if (
-      params.buybackDestination !== undefined ||
-      this.feeDistributionControllerAddress !== undefined
+      (params.buybackDestination !== undefined ||
+        this.feeDistributionControllerAddress !== undefined) &&
+      canResolveIntegrator
     ) {
       normalizeRehypeDopplerHookInitializerConfig(
         params,
         this.feeDistributionControllerAddress,
+        this.integrator,
       );
     }
 
@@ -889,6 +901,7 @@ export class MulticurveBuilder<
       dopplerHook = normalizeRehypeDopplerHookInitializerConfig(
         dopplerHook,
         this.feeDistributionControllerAddress,
+        this.integrator,
       );
     }
 

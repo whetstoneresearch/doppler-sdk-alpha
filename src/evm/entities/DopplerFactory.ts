@@ -57,7 +57,7 @@ import type {
 } from '../types';
 import type { ModuleAddressOverrides } from '../types';
 import { assertTokenConfigSupportsYearlyMintRate } from '../builders/shared';
-import { getAddresses } from '../addresses';
+import { CHAIN_IDS, getAddresses } from '../addresses';
 import {
   ZERO_ADDRESS,
   DEAD_ADDRESS,
@@ -91,7 +91,6 @@ import {
 } from '../constants';
 import {
   computeOptimalGamma,
-  encodeRehypeDopplerHookMigratorCalldata,
   getMaxLiquiditySafeMulticurveTickUpper,
   MIN_TICK,
   MAX_TICK,
@@ -101,7 +100,6 @@ import {
   encodeRehypeDopplerHookInitializerData,
   normalizeRehypeDopplerHookInitializerConfig,
 } from '../utils';
-import { normalizeRehypeDopplerHookMigratorConfig } from '../utils/dopplerHookMigrator';
 import {
   airlockAbi,
   bundlerAbi,
@@ -424,6 +422,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     userAddress: Address;
     addresses: ReturnType<typeof getAddresses>;
     modules?: ModuleAddressOverrides;
+    governance: GovernanceOption<C>;
     protocolBalanceLimitExclusions?: (Address | undefined)[];
   }): DopplerERC20V1TokenFactoryData {
     const implementation = args.addresses.dopplerERC20V1Implementation;
@@ -475,6 +474,27 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       schedules,
       scheduleIds,
     });
+    if (
+      balanceLimitEnabled &&
+      args.governance.type !== 'noOp' &&
+      args.governance.type !== 'launchpad'
+    ) {
+      const allocatedTokens = amounts.reduce(
+        (total, amount) => total + amount,
+        0n,
+      );
+      const timelockTokens =
+        args.sale.initialSupply - args.sale.numTokensToSell - allocatedTokens;
+      if (timelockTokens > maxBalanceLimit) {
+        throw new Error(
+          `Standard governance would transfer ${timelockTokens} tokens to ` +
+            `the governance timelock at creation, exceeding ` +
+            `token.maxBalanceLimit (${maxBalanceLimit}). Increase ` +
+            `sale.numTokensToSell, add vesting allocations, increase the ` +
+            `balance limit, or use no-op or launchpad governance.`,
+        );
+      }
+    }
 
     return {
       kind: 'dopplerERC20V1',
@@ -526,6 +546,36 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return [];
   }
 
+  private governanceDuration(token: TokenConfig, seconds: number): number {
+    // DERC20 and DERC20V2 use block.number; DopplerERC20V1 uses timestamps.
+    // Nominal clock cadence only; custom deployments/cadence changes must use
+    // explicit custom governance values rather than relying on this estimate.
+    if (token.type !== 'standard') {
+      return seconds;
+    }
+
+    switch (this.chainId) {
+      case CHAIN_IDS.MAINNET:
+      case CHAIN_IDS.ARBITRUM: // Solidity block.number follows L1, not L2 blocks.
+        return Math.ceil(seconds / 12);
+      case CHAIN_IDS.BASE:
+      case CHAIN_IDS.BASE_SEPOLIA:
+        return Math.ceil(seconds / 2);
+      case CHAIN_IDS.INK:
+      case CHAIN_IDS.UNICHAIN:
+      case CHAIN_IDS.UNICHAIN_SEPOLIA:
+        // Canonical 1s blocks, not Flashblock/preconfirmation intervals.
+        return seconds;
+      case CHAIN_IDS.MONAD_MAINNET:
+      case CHAIN_IDS.MONAD_TESTNET:
+        return Math.ceil((seconds * 1_000) / 400);
+      default:
+        throw new Error(
+          'Legacy token governance clock cadence is unknown on this chain. Use custom governance with explicit token-clock voting delay and period.',
+        );
+    }
+  }
+
   private resolveGovernanceFactoryAddress(args: {
     governance: GovernanceOption<C>;
     modules?: ModuleAddressOverrides;
@@ -564,31 +614,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     return resolved;
   }
 
-  private shouldAutoExcludeGovernanceTimelock(args: {
-    governance: GovernanceOption<C>;
-    governanceFactory: Address;
-    modules?: ModuleAddressOverrides;
-    addresses: ReturnType<typeof getAddresses>;
-  }): boolean {
-    if (
-      args.governance.type !== 'default' &&
-      args.governance.type !== 'custom'
-    ) {
-      return false;
-    }
-
-    if (args.modules?.governanceFactory) {
-      return false;
-    }
-
-    const noOpGovernanceFactory = args.addresses.noOpGovernanceFactory;
-    return (
-      !noOpGovernanceFactory ||
-      args.governanceFactory.toLowerCase() !==
-        noOpGovernanceFactory.toLowerCase()
-    );
-  }
-
   private resolveMigrationLockerBalanceLimitExclusions(
     migration: MigrationConfig,
     addresses: ReturnType<typeof getAddresses>,
@@ -607,116 +632,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     }
 
     return [];
-  }
-
-  private withDopplerERC20V1EncodedBalanceLimitExclusions(
-    tokenFactoryData: Hex,
-    exclusions: readonly (Address | undefined)[],
-  ): Hex {
-    const decoded = decodeAbiParameters(
-      [
-        { type: 'string' },
-        { type: 'string' },
-        {
-          type: 'tuple[]',
-          components: [
-            { type: 'uint64', name: 'cliff' },
-            { type: 'uint64', name: 'duration' },
-          ],
-        },
-        { type: 'address[]' },
-        { type: 'uint256[]' },
-        { type: 'uint256[]' },
-        { type: 'string' },
-        { type: 'uint256' },
-        { type: 'uint48' },
-        { type: 'address' },
-        { type: 'address[]' },
-      ],
-      tokenFactoryData,
-    ) as readonly [
-      string,
-      string,
-      readonly { cliff: bigint; duration: bigint }[],
-      readonly Address[],
-      readonly bigint[],
-      readonly bigint[],
-      string,
-      bigint,
-      number,
-      Address,
-      readonly Address[],
-    ];
-
-    if (decoded[7] === 0n && decoded[8] === 0) {
-      return tokenFactoryData;
-    }
-
-    return encodeAbiParameters(
-      [
-        { type: 'string' },
-        { type: 'string' },
-        {
-          type: 'tuple[]',
-          components: [
-            { type: 'uint64', name: 'cliff' },
-            { type: 'uint64', name: 'duration' },
-          ],
-        },
-        { type: 'address[]' },
-        { type: 'uint256[]' },
-        { type: 'uint256[]' },
-        { type: 'string' },
-        { type: 'uint256' },
-        { type: 'uint48' },
-        { type: 'address' },
-        { type: 'address[]' },
-      ],
-      [
-        decoded[0],
-        decoded[1],
-        decoded[2],
-        decoded[3],
-        decoded[4],
-        decoded[5],
-        decoded[6],
-        decoded[7],
-        decoded[8],
-        decoded[9],
-        this.mergeDopplerERC20V1BalanceLimitExclusions(decoded[10], exclusions),
-      ],
-    );
-  }
-
-  private withSimulationGovernanceTimelockExclusion(args: {
-    createParams: CreateParams;
-    simResult: readonly unknown[];
-    token: TokenConfig;
-    governance: GovernanceOption<C>;
-    modules?: ModuleAddressOverrides;
-    addresses: ReturnType<typeof getAddresses>;
-  }): CreateParams {
-    if (
-      !this.isDopplerERC20V1Token(args.token) ||
-      !this.usesDefaultDopplerERC20V1Integration(args.modules) ||
-      args.simResult.length < 4 ||
-      !this.shouldAutoExcludeGovernanceTimelock({
-        governance: args.governance,
-        governanceFactory: args.createParams.governanceFactory,
-        modules: args.modules,
-        addresses: args.addresses,
-      })
-    ) {
-      return args.createParams;
-    }
-
-    return {
-      ...args.createParams,
-      tokenFactoryData: this.withDopplerERC20V1EncodedBalanceLimitExclusions(
-        args.createParams.tokenFactoryData,
-        [args.simResult[3] as Address],
-      ),
-    };
   }
 
   private withDopplerERC20V1BalanceLimitExclusions(
@@ -1305,7 +1220,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
 
     // 2. Encode migration data based on MigrationConfig
     const liquidityMigratorData = this.encodeMigrationData(params.migration, {
-      numeraire: params.sale.numeraire,
       overrides: params.modules,
     });
 
@@ -1382,6 +1296,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         sale: params.sale,
         vesting: params.vesting,
         userAddress: params.userAddress,
+        governance: params.governance,
         addresses,
         modules: params.modules,
         protocolBalanceLimitExclusions: includeProtocolBalanceLimitExclusions
@@ -1440,10 +1355,16 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           params.token.name,
           params.governance.type === 'custom'
             ? params.governance.initialVotingDelay
-            : DEFAULT_V3_INITIAL_VOTING_DELAY,
+            : this.governanceDuration(
+                params.token,
+                DEFAULT_V3_INITIAL_VOTING_DELAY,
+              ),
           params.governance.type === 'custom'
             ? params.governance.initialVotingPeriod
-            : DEFAULT_V3_INITIAL_VOTING_PERIOD,
+            : this.governanceDuration(
+                params.token,
+                DEFAULT_V3_INITIAL_VOTING_PERIOD,
+              ),
           params.governance.type === 'custom'
             ? params.governance.initialProposalThreshold
             : DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD,
@@ -1818,14 +1739,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       const isToken0 = BigInt(tokenAddress) < numeraireBigInt;
       const wantToken0 = isToken0Expected(params.sale.numeraire);
       if ((wantToken0 && isToken0) || (!wantToken0 && !isToken0)) {
-        return this.withSimulationGovernanceTimelockExclusion({
-          createParams,
-          simResult,
-          token: params.token,
-          governance: params.governance,
-          modules: params.modules,
-          addresses,
-        });
+        return createParams;
       }
 
       attempt += 1n;
@@ -1958,6 +1872,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
             vesting: params.vesting,
             userAddress: params.userAddress,
             addresses,
+            governance: params.governance,
             modules: params.modules,
             protocolBalanceLimitExclusions:
               includeProtocolBalanceLimitExclusions
@@ -2016,7 +1931,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
 
     // 6. Encode migration data
     const liquidityMigratorData = this.encodeMigrationData(params.migration, {
-      numeraire: params.sale.numeraire,
       overrides: params.modules,
     });
 
@@ -2042,10 +1956,16 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           params.token.name,
           params.governance.type === 'custom'
             ? params.governance.initialVotingDelay
-            : DEFAULT_V4_INITIAL_VOTING_DELAY,
+            : this.governanceDuration(
+                params.token,
+                DEFAULT_V4_INITIAL_VOTING_DELAY,
+              ),
           params.governance.type === 'custom'
             ? params.governance.initialVotingPeriod
-            : DEFAULT_V4_INITIAL_VOTING_PERIOD,
+            : this.governanceDuration(
+                params.token,
+                DEFAULT_V4_INITIAL_VOTING_PERIOD,
+              ),
           params.governance.type === 'custom'
             ? params.governance.initialProposalThreshold
             : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
@@ -2262,25 +2182,15 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       hooks: hookAddress,
     });
 
-    const createParamsWithTimelock =
-      this.withSimulationGovernanceTimelockExclusion({
-        createParams,
-        simResult,
-        token: params.token,
-        governance: params.governance,
-        modules: params.modules,
-        addresses,
-      });
-
     return {
-      createParams: createParamsWithTimelock,
+      createParams,
       hookAddress,
       tokenAddress,
       poolId,
       gasEstimate,
       execute: () =>
         this.createDynamicAuction(params, {
-          _createParams: createParamsWithTimelock,
+          _createParams: createParams,
         }),
     };
   }
@@ -2468,6 +2378,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
             vesting: params.vesting,
             userAddress: params.userAddress,
             addresses,
+            governance: params.governance,
             modules: params.modules,
             protocolBalanceLimitExclusions:
               includeProtocolBalanceLimitExclusions
@@ -2527,7 +2438,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       });
 
     const liquidityMigratorData = this.encodeMigrationData(params.migration, {
-      numeraire: params.sale.numeraire,
       overrides: params.modules,
     });
 
@@ -2552,10 +2462,16 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           params.token.name,
           params.governance.type === 'custom'
             ? params.governance.initialVotingDelay
-            : DEFAULT_V4_INITIAL_VOTING_DELAY,
+            : this.governanceDuration(
+                params.token,
+                DEFAULT_V4_INITIAL_VOTING_DELAY,
+              ),
           params.governance.type === 'custom'
             ? params.governance.initialVotingPeriod
-            : DEFAULT_V4_INITIAL_VOTING_PERIOD,
+            : this.governanceDuration(
+                params.token,
+                DEFAULT_V4_INITIAL_VOTING_PERIOD,
+              ),
           params.governance.type === 'custom'
             ? params.governance.initialProposalThreshold
             : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
@@ -2639,25 +2555,15 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       throw new Error('Failed to simulate opening auction create');
     }
 
-    const createParamsWithTimelock =
-      this.withSimulationGovernanceTimelockExclusion({
-        createParams,
-        simResult,
-        token: params.token,
-        governance: params.governance,
-        modules: params.modules,
-        addresses,
-      });
-
     return {
-      createParams: createParamsWithTimelock,
+      createParams,
       openingAuctionHookAddress: simResult[1] as Address,
       tokenAddress: simResult[0] as Address,
       minedSalt,
       gasEstimate,
       execute: () =>
         this.createOpeningAuction(params, {
-          _createParams: createParamsWithTimelock,
+          _createParams: createParams,
           _minedSalt: minedSalt,
         }),
     };
@@ -3806,7 +3712,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
   private encodeMigrationData(
     config: MigrationConfig,
     options?: {
-      numeraire?: Address;
       overrides?: ModuleAddressOverrides;
     },
   ): Hex {
@@ -3920,15 +3825,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       case 'dopplerHookMigrator': {
         const dopplerHookMigratorConfig = config;
 
-        if (
-          dopplerHookMigratorConfig.hook &&
-          dopplerHookMigratorConfig.rehype
-        ) {
-          throw new Error(
-            'dopplerHookMigrator migration cannot set both hook and rehype config. Use exactly one hook mode.',
-          );
-        }
-
         // Copy beneficiaries, sort by address ascending and reject duplicates (required by contract)
         const beneficiaries = sortBeneficiaries(
           dopplerHookMigratorConfig.beneficiaries,
@@ -3941,30 +3837,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           dopplerHookAddress = dopplerHookMigratorConfig.hook.hookAddress;
           onInitializationCalldata =
             dopplerHookMigratorConfig.hook.onInitializationCalldata ?? '0x';
-        } else if (dopplerHookMigratorConfig.rehype) {
-          const addresses = getAddresses(this.chainId);
-          const resolvedRehypeHookAddress =
-            dopplerHookMigratorConfig.rehype.hookAddress ??
-            options?.overrides?.rehypeDopplerHookMigrator ??
-            addresses.rehypeDopplerHookMigrator;
-
-          if (!resolvedRehypeHookAddress) {
-            throw new Error(
-              'RehypeDopplerHookMigrator address not configured on this chain. Provide migration.rehype.hookAddress or override modules.rehypeDopplerHookMigrator.',
-            );
-          }
-
-          if (!options?.numeraire) {
-            throw new Error(
-              'numeraire is required to encode rehype dopplerHookMigrator migration data',
-            );
-          }
-
-          dopplerHookAddress = resolvedRehypeHookAddress;
-          onInitializationCalldata = encodeRehypeDopplerHookMigratorCalldata({
-            numeraire: options.numeraire,
-            config: dopplerHookMigratorConfig.rehype,
-          });
         }
 
         const proceedsRecipient =
@@ -4295,6 +4167,8 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       initializerMode.type === 'dopplerHook' && initializerMode.hookConfig
         ? normalizeRehypeDopplerHookInitializerConfig(
             initializerMode.hookConfig,
+            undefined,
+            params.integrator,
           )
         : undefined;
 
@@ -4575,10 +4449,16 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           params.token.name,
           params.governance.type === 'custom'
             ? params.governance.initialVotingDelay
-            : DEFAULT_V4_INITIAL_VOTING_DELAY,
+            : this.governanceDuration(
+                params.token,
+                DEFAULT_V4_INITIAL_VOTING_DELAY,
+              ),
           params.governance.type === 'custom'
             ? params.governance.initialVotingPeriod
-            : DEFAULT_V4_INITIAL_VOTING_PERIOD,
+            : this.governanceDuration(
+                params.token,
+                DEFAULT_V4_INITIAL_VOTING_PERIOD,
+              ),
           params.governance.type === 'custom'
             ? params.governance.initialProposalThreshold
             : DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD,
@@ -4651,7 +4531,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     } else {
       // Use standard migration flow when no beneficiaries
       liquidityMigratorData = this.encodeMigrationData(params.migration, {
-        numeraire: params.sale.numeraire,
         overrides: params.modules,
       });
       resolvedMigrator = this.getMigratorAddress(
@@ -4675,6 +4554,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
           vesting: params.vesting,
           userAddress: params.userAddress,
           addresses,
+          governance: params.governance,
           modules: params.modules,
           protocolBalanceLimitExclusions: includeProtocolBalanceLimitExclusions
             ? [
@@ -4835,71 +4715,25 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     const { params, simulationAccount } = args;
     const addresses = getAddresses(this.chainId);
     const airlock = params.modules?.airlock ?? addresses.airlock;
-    const initialCreateParams =
+    const createParams =
       args.createParams ?? this.encodeCreateMulticurveParams(params);
 
     if (!params.devBuy) {
-      const initialSimulation = await (
+      const simulation = await (
         this.publicClient as PublicClient
       ).simulateContract({
         address: airlock,
         abi: airlockAbi,
         functionName: 'create',
-        args: [{ ...initialCreateParams }],
+        args: [{ ...createParams }],
         account: simulationAccount,
       });
-      const initialResult = initialSimulation.result as
-        | readonly unknown[]
-        | undefined;
-      if (
-        !initialResult ||
-        !Array.isArray(initialResult) ||
-        initialResult.length < 5
-      ) {
+      const result = simulation.result as readonly unknown[] | undefined;
+      if (!result || !Array.isArray(result) || result.length < 5) {
         throw new Error('Failed to simulate multicurve create');
       }
 
-      let createParams = initialCreateParams;
-      let request = initialSimulation.request;
-      let result = initialResult;
-      if (!args.createParams) {
-        const enrichedCreateParams =
-          this.withSimulationGovernanceTimelockExclusion({
-            createParams,
-            simResult: initialResult,
-            token: params.token,
-            governance: params.governance,
-            modules: params.modules,
-            addresses,
-          });
-        if (
-          enrichedCreateParams.tokenFactoryData !==
-          createParams.tokenFactoryData
-        ) {
-          createParams = enrichedCreateParams;
-          const finalSimulation = await (
-            this.publicClient as PublicClient
-          ).simulateContract({
-            address: airlock,
-            abi: airlockAbi,
-            functionName: 'create',
-            args: [{ ...createParams }],
-            account: simulationAccount,
-          });
-          const finalResult = finalSimulation.result as
-            | readonly unknown[]
-            | undefined;
-          if (
-            !finalResult ||
-            !Array.isArray(finalResult) ||
-            finalResult.length < 5
-          ) {
-            throw new Error('Failed to simulate enriched multicurve create');
-          }
-          request = finalSimulation.request;
-          result = finalResult;
-        }
-      }
+      const request = simulation.request;
 
       const tokenAddress = result[0] as Address;
       const poolIdentity = await this.computeMulticurvePoolIdentity(
@@ -4921,8 +4755,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
     const bundler = this.resolveBundlerAddress(params);
     await this.ensureDevBuyInitializerCompatibility({ params, bundler });
 
-    let createParams = initialCreateParams;
-    const initialBundleSimulation = await (
+    const simulation = await (
       this.publicClient as PublicClient
     ).simulateContract({
       address: bundler,
@@ -4930,38 +4763,7 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
       functionName: 'simulateBundle',
       args: [{ ...createParams }, params.devBuy.exactAmountIn],
     });
-    let result = this.parseBundleSimulation(initialBundleSimulation.result);
-    if (!args.createParams) {
-      const enrichedCreateParams =
-        this.withSimulationGovernanceTimelockExclusion({
-          createParams,
-          simResult: [
-            result.asset,
-            result.poolKey.hooks,
-            result.governance,
-            result.timelock,
-            ZERO_ADDRESS,
-          ],
-          token: params.token,
-          governance: params.governance,
-          modules: params.modules,
-          addresses,
-        });
-      if (
-        enrichedCreateParams.tokenFactoryData !== createParams.tokenFactoryData
-      ) {
-        createParams = enrichedCreateParams;
-        const finalBundleSimulation = await (
-          this.publicClient as PublicClient
-        ).simulateContract({
-          address: bundler,
-          abi: bundlerAbi,
-          functionName: 'simulateBundle',
-          args: [{ ...createParams }, params.devBuy.exactAmountIn],
-        });
-        result = this.parseBundleSimulation(finalBundleSimulation.result);
-      }
-    }
+    const result = this.parseBundleSimulation(simulation.result);
 
     const currency0 = result.poolKey.currency0.toLowerCase();
     const currency1 = result.poolKey.currency1.toLowerCase();
@@ -5852,16 +5654,6 @@ export class DopplerFactory<C extends SupportedChainId = SupportedChainId> {
         throw new Error(
           'DopplerHook migration lockDuration must fit within uint32',
         );
-      }
-
-      if (migration.hook && migration.rehype) {
-        throw new Error(
-          'dopplerHookMigrator migration cannot set both hook and rehype config. Use exactly one hook mode.',
-        );
-      }
-
-      if (migration.rehype) {
-        normalizeRehypeDopplerHookMigratorConfig(migration.rehype);
       }
 
       this.validateProceedsSplitConfig(

@@ -1,29 +1,35 @@
-import { beforeAll, describe, expect, it } from 'vitest'
-import type { Address } from 'viem'
+import { beforeAll, describe, expect, it } from 'vitest';
+import type { Address } from 'viem';
 
-import { CHAIN_IDS, DopplerSDK, WAD, airlockAbi, getAddresses } from '../../../../src/evm'
-import { delay, getRpcEnvVar, getTestClient, hasRpcUrl } from '../../utils'
+import {
+  CHAIN_IDS,
+  DopplerSDK,
+  WAD,
+  airlockAbi,
+  getAddresses,
+} from '../../../../src/evm';
+import { delay, getRpcEnvVar, getTestClient, hasRpcUrl } from '../../utils';
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
 describe('Multicurve (Ethereum Mainnet fork) smoke test', () => {
   if (!hasRpcUrl(CHAIN_IDS.MAINNET)) {
-    it.skip(`requires ${getRpcEnvVar(CHAIN_IDS.MAINNET)} env var`)
-    return
+    it.skip(`requires ${getRpcEnvVar(CHAIN_IDS.MAINNET)} env var`);
+    return;
   }
 
-  const chainId = CHAIN_IDS.MAINNET
-  const addresses = getAddresses(chainId)
+  const chainId = CHAIN_IDS.MAINNET;
+  const addresses = getAddresses(chainId);
   const publicClient = getTestClient(chainId, {
     retryCount: 1,
     retryDelay: 250,
-  })
-  const sdk = new DopplerSDK({ publicClient, chainId })
+  });
+  const sdk = new DopplerSDK({ publicClient, chainId });
 
   const configuredModules: Array<{
-    label: string
-    address?: Address
-    expectedState: number
+    label: string;
+    address?: Address;
+    expectedState: number;
   }> = [
     {
       label: 'TokenFactory',
@@ -95,17 +101,17 @@ describe('Multicurve (Ethereum Mainnet fork) smoke test', () => {
       address: addresses.noOpMigrator,
       expectedState: 4,
     },
-  ]
+  ];
 
   beforeAll(async () => {
-    await delay(250)
-  })
+    await delay(250);
+  });
 
   it('has non-zero Uniswap V4 trading endpoints configured for Ethereum mainnet', () => {
-    expect(addresses.poolManager).not.toBe(ZERO_ADDRESS)
-    expect(addresses.universalRouter).not.toBe(ZERO_ADDRESS)
-    expect(addresses.uniswapV4Quoter).not.toBe(ZERO_ADDRESS)
-  })
+    expect(addresses.poolManager).not.toBe(ZERO_ADDRESS);
+    expect(addresses.universalRouter).not.toBe(ZERO_ADDRESS);
+    expect(addresses.uniswapV4Quoter).not.toBe(ZERO_ADDRESS);
+  });
 
   it(
     'verifies whitelisted module states for configured Ethereum mainnet modules',
@@ -114,7 +120,7 @@ describe('Multicurve (Ethereum Mainnet fork) smoke test', () => {
       const activeModules = configuredModules.filter(
         (module): module is typeof module & { address: Address } =>
           Boolean(module.address) && module.address !== ZERO_ADDRESS,
-      )
+      );
 
       const moduleStates = await Promise.all(
         activeModules.map(async (module) => ({
@@ -126,16 +132,16 @@ describe('Multicurve (Ethereum Mainnet fork) smoke test', () => {
             args: [module.address],
           }),
         })),
-      )
+      );
 
       for (const { module, state } of moduleStates) {
         expect(
           Number(state),
           `${module.label} expected state ${module.expectedState}`,
-        ).toBe(module.expectedState)
+        ).toBe(module.expectedState);
       }
     },
-  )
+  );
 
   it('defaults multicurve governance to noOp on Ethereum mainnet', () => {
     const params = sdk
@@ -165,10 +171,10 @@ describe('Multicurve (Ethereum Mainnet fork) smoke test', () => {
       })
       .withMigration({ type: 'uniswapV2' })
       .withUserAddress(addresses.airlock)
-      .build()
+      .build();
 
-    expect(params.governance.type).toBe('noOp')
-  })
+    expect(params.governance.type).toBe('noOp');
+  });
 
   it('simulates create when required modules exist, otherwise fails fast with a clear config error', async () => {
     const params = sdk
@@ -198,24 +204,24 @@ describe('Multicurve (Ethereum Mainnet fork) smoke test', () => {
       })
       .withMigration({ type: 'uniswapV2' })
       .withUserAddress(addresses.airlock)
-      .build()
+      .build();
 
     const canSimulate =
       addresses.tokenFactory !== ZERO_ADDRESS &&
       addresses.v2Migrator !== ZERO_ADDRESS &&
       addresses.noOpGovernanceFactory !== ZERO_ADDRESS &&
-      !!addresses.v4MulticurveInitializer &&
-      addresses.v4MulticurveInitializer !== ZERO_ADDRESS
+      !!addresses.dopplerHookInitializer &&
+      addresses.dopplerHookInitializer !== ZERO_ADDRESS;
 
     if (!canSimulate) {
       expect(() => sdk.factory.encodeCreateMulticurveParams(params)).toThrow(
         /not configured|not deployed/i,
-      )
-      return
+      );
+      return;
     }
 
-    const result = await sdk.factory.simulateCreateMulticurve(params)
-    expect(result.tokenAddress).toMatch(/^0x[a-fA-F0-9]{40}$/)
-    expect(result.poolId).toMatch(/^0x[a-fA-F0-9]{64}$/)
-  })
-})
+    const result = await sdk.factory.simulateCreateMulticurve(params);
+    expect(result.tokenAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(result.poolId).toMatch(/^0x[a-fA-F0-9]{64}$/);
+  });
+});

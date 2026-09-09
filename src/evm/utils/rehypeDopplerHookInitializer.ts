@@ -5,10 +5,21 @@ import {
   type BeneficiaryData,
   type RehypeDopplerHookInitializerConfig,
   type RehypeFeeDistributionInfo,
+  type RehypeIntegratorFeeConfig,
 } from '../types';
 import { DECAY_MAX_START_FEE, ZERO_ADDRESS } from '../constants';
 import { normalizeBeneficiaries } from './beneficiaries';
 import { resolveRehypeFeeDistributionInfo } from './rehypeFeeDistribution';
+const MAX_REHYPE_INTEGRATOR_FEE_SHARE = 750_000;
+const REHYPE_INTEGRATOR_CONVERSION_RATIO_DENOMINATOR = 1_000_000_000;
+
+export interface NormalizedRehypeIntegratorFeeConfig {
+  integrator: Address;
+  feeShare: number;
+  assetFeesToNumeraireRatio: number;
+  numeraireFeesToAssetRatio: number;
+  automaticPayout: boolean;
+}
 
 type NormalizedCommonConfig = {
   hookAddress: Address;
@@ -17,6 +28,7 @@ type NormalizedCommonConfig = {
   durationSeconds: number;
   startingTime: number;
   feeDistributionInfo: RehypeFeeDistributionInfo;
+  integratorFeeConfig?: NormalizedRehypeIntegratorFeeConfig;
   graduationCalldata?: Hex;
   graduationMarketCap?: number;
   numerairePrice?: number;
@@ -47,6 +59,7 @@ export type NormalizedRehypeDopplerHookInitializerConfig =
 export function normalizeRehypeDopplerHookInitializerConfig(
   config: RehypeDopplerHookInitializerConfig,
   controllerOverride?: Address,
+  fallbackIntegrator?: Address,
 ): NormalizedRehypeDopplerHookInitializerConfig {
   assertNonZeroAddress(config.hookAddress, 'Rehype hookAddress');
 
@@ -76,6 +89,13 @@ export function normalizeRehypeDopplerHookInitializerConfig(
     feeBeneficiaries !== undefined
       ? normalizeBeneficiaryFeeRoutingMode(config.feeRoutingMode)
       : normalizeFeeRoutingMode(config.feeRoutingMode);
+  const integratorFeeConfig =
+    config.integratorFeeConfig === undefined
+      ? undefined
+      : normalizeIntegratorFeeConfig(
+          config.integratorFeeConfig,
+          fallbackIntegrator,
+        );
   const common = {
     hookAddress: config.hookAddress,
     startFee,
@@ -83,6 +103,7 @@ export function normalizeRehypeDopplerHookInitializerConfig(
     durationSeconds,
     startingTime,
     feeDistributionInfo,
+    ...(integratorFeeConfig === undefined ? {} : { integratorFeeConfig }),
     graduationCalldata: config.graduationCalldata,
     graduationMarketCap: config.graduationMarketCap,
     numerairePrice: config.numerairePrice,
@@ -107,6 +128,67 @@ export function normalizeRehypeDopplerHookInitializerConfig(
     buybackDestination,
     feeRoutingMode,
   };
+}
+
+function normalizeIntegratorFeeConfig(
+  config: RehypeIntegratorFeeConfig,
+  fallbackIntegrator?: Address,
+): NormalizedRehypeIntegratorFeeConfig {
+  const integrator = config.integrator ?? fallbackIntegrator;
+  if (integrator === undefined) {
+    throw new Error(
+      'Rehype integratorFeeConfig requires integrator or withIntegrator',
+    );
+  }
+  assertNonZeroAddress(integrator, 'Rehype integratorFeeConfig.integrator');
+
+  if (
+    !Number.isInteger(config.feeShare) ||
+    config.feeShare <= 0 ||
+    config.feeShare > MAX_REHYPE_INTEGRATOR_FEE_SHARE
+  ) {
+    throw new Error(
+      'Rehype integrator feeShare must be an integer between 1 and 750000',
+    );
+  }
+
+  const assetFeesToNumeraireRatio = config.assetFeesToNumeraireRatio ?? 0;
+  const numeraireFeesToAssetRatio = config.numeraireFeesToAssetRatio ?? 0;
+  assertIntegratorConversionRatio(
+    assetFeesToNumeraireRatio,
+    'Rehype integrator assetFeesToNumeraireRatio',
+  );
+  assertIntegratorConversionRatio(
+    numeraireFeesToAssetRatio,
+    'Rehype integrator numeraireFeesToAssetRatio',
+  );
+
+  if (
+    config.automaticPayout !== undefined &&
+    typeof config.automaticPayout !== 'boolean'
+  ) {
+    throw new Error('Rehype integrator automaticPayout must be a boolean');
+  }
+
+  return {
+    integrator,
+    feeShare: config.feeShare,
+    assetFeesToNumeraireRatio,
+    numeraireFeesToAssetRatio,
+    automaticPayout: config.automaticPayout ?? false,
+  };
+}
+
+function assertIntegratorConversionRatio(value: number, label: string): void {
+  if (
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > REHYPE_INTEGRATOR_CONVERSION_RATIO_DENOMINATOR
+  ) {
+    throw new Error(
+      `${label} must be an integer between 0 and ${REHYPE_INTEGRATOR_CONVERSION_RATIO_DENOMINATOR}`,
+    );
+  }
 }
 
 function assertNonZeroAddress(address: Address, label: string): void {

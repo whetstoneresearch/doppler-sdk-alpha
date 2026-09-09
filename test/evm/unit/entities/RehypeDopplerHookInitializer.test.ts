@@ -4,7 +4,9 @@ import {
   ContractFunctionRevertedError,
   createPublicClient,
   custom,
+  encodeAbiParameters,
   encodeErrorResult,
+  encodeEventTopics,
   getAddress,
   type Address,
   type Hex,
@@ -39,6 +41,32 @@ const poolId =
   '0x1111111111111111111111111111111111111111111111111111111111111111' as Hex;
 const transactionHash =
   '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as Hex;
+const asset = '0x0000000000000000000000000000000000000123' as Address;
+const integrator = '0x0000000000000000000000000000000000000456' as Address;
+const destination = '0x0000000000000000000000000000000000000789' as Address;
+
+function createIntegratorFeesClaimedLog({
+  emitter = hookAddress,
+  fees0 = 33n,
+  fees1 = 44n,
+}: {
+  emitter?: Address;
+  fees0?: bigint;
+  fees1?: bigint;
+} = {}) {
+  return {
+    address: emitter,
+    data: encodeAbiParameters(
+      [{ type: 'uint128' }, { type: 'uint128' }],
+      [fees0, fees1],
+    ),
+    topics: encodeEventTopics({
+      abi: rehypeDopplerHookInitializerAbi,
+      eventName: 'IntegratorFeesClaimed',
+      args: { poolId, integrator, to: destination },
+    }),
+  };
+}
 
 describe('RehypeDopplerHookInitializer', () => {
   let publicClient: RehypeTestClient;
@@ -281,5 +309,218 @@ describe('RehypeDopplerHookInitializer', () => {
       'Rehype beneficiary cannot be updated to the zero address',
     );
     expect(publicClient.simulateContract).not.toHaveBeenCalled();
+  });
+
+  it('reads Rehype integrator configuration and balances', async () => {
+    vi.mocked(publicClient.readContract)
+      .mockResolvedValueOnce(200_000)
+      .mockResolvedValueOnce([integrator, 500_000_000, 250_000_000, true])
+      .mockResolvedValueOnce([11n, 22n])
+      .mockResolvedValueOnce({ fees0: 33n, fees1: 44n });
+    await expect(initializer.getIntegratorFeeShare(poolId)).resolves.toBe(
+      200_000,
+    );
+    await expect(
+      initializer.getIntegratorRoutingConfig(poolId),
+    ).resolves.toEqual({
+      integrator,
+      assetFeesToNumeraireRatio: 500_000_000,
+      numeraireFeesToAssetRatio: 250_000_000,
+      automaticPayout: true,
+    });
+    await expect(initializer.getPendingIntegratorFees(poolId)).resolves.toEqual(
+      {
+        fees0: 11n,
+        fees1: 22n,
+      },
+    );
+    await expect(
+      initializer.getClaimableIntegratorFees(poolId),
+    ).resolves.toEqual({ fees0: 33n, fees1: 44n });
+    expect(publicClient.readContract).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        functionName: 'getIntegratorFeeShare',
+        args: [poolId],
+      }),
+    );
+    expect(publicClient.readContract).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        functionName: 'getIntegratorRoutingConfig',
+        args: [poolId],
+      }),
+    );
+    expect(publicClient.readContract).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        functionName: 'getPendingIntegratorFees',
+        args: [poolId],
+      }),
+    );
+    expect(publicClient.readContract).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
+        functionName: 'getClaimableIntegratorFees',
+        args: [poolId],
+      }),
+    );
+  });
+
+  it('accepts the maximum conversion ratio in either position', async () => {
+    publicClient.simulateContract.mockResolvedValue({
+      request: { address: hookAddress },
+    });
+    vi.mocked(walletClient.writeContract).mockResolvedValue(transactionHash);
+    publicClient.waitForTransactionReceipt.mockResolvedValue({
+      status: 'success',
+      logs: [],
+    });
+
+    await expect(
+      initializer.setIntegratorConversionRatios(poolId, 1_000_000_000, 0),
+    ).resolves.toEqual({ transactionHash });
+    await expect(
+      initializer.setIntegratorConversionRatios(poolId, 0, 1_000_000_000),
+    ).resolves.toEqual({ transactionHash });
+
+    expect(publicClient.simulateContract).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        functionName: 'setIntegratorConversionRatios',
+        args: [poolId, 1_000_000_000, 0],
+      }),
+    );
+    expect(publicClient.simulateContract).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        functionName: 'setIntegratorConversionRatios',
+        args: [poolId, 0, 1_000_000_000],
+      }),
+    );
+  });
+
+  it('returns mined integrator fees instead of stale simulation values', async () => {
+    publicClient.simulateContract.mockResolvedValueOnce({
+      request: { address: hookAddress },
+      result: [11n, 22n],
+    });
+    vi.mocked(walletClient.writeContract).mockResolvedValueOnce(
+      transactionHash,
+    );
+    publicClient.waitForTransactionReceipt.mockResolvedValueOnce({
+      status: 'success',
+      logs: [createIntegratorFeesClaimedLog()],
+    });
+
+    await expect(
+      initializer.claimIntegratorFees(asset, destination),
+    ).resolves.toEqual({ fees0: 33n, fees1: 44n, transactionHash });
+    expect(publicClient.simulateContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionName: 'claimIntegratorFees',
+        args: [asset, destination],
+      }),
+    );
+  });
+
+  it('rejects reverted integrator management receipts with the operation and hash', async () => {
+    publicClient.simulateContract.mockResolvedValueOnce({
+      request: { address: hookAddress },
+    });
+    vi.mocked(walletClient.writeContract).mockResolvedValueOnce(
+      transactionHash,
+    );
+    publicClient.waitForTransactionReceipt.mockResolvedValueOnce({
+      status: 'reverted',
+      logs: [],
+    });
+
+    await expect(
+      initializer.setIntegratorAutomaticPayout(poolId, true),
+    ).rejects.toThrow(
+      `setIntegratorAutomaticPayout transaction ${transactionHash} failed`,
+    );
+  });
+
+  it('rejects reverted integrator claim receipts with the operation and hash', async () => {
+    publicClient.simulateContract.mockResolvedValueOnce({
+      request: { address: hookAddress },
+      result: [11n, 22n],
+    });
+    vi.mocked(walletClient.writeContract).mockResolvedValueOnce(
+      transactionHash,
+    );
+    publicClient.waitForTransactionReceipt.mockResolvedValueOnce({
+      status: 'reverted',
+      logs: [],
+    });
+
+    await expect(
+      initializer.claimIntegratorFees(asset, destination),
+    ).rejects.toThrow(
+      `claimIntegratorFees transaction ${transactionHash} failed`,
+    );
+  });
+
+  it.each([
+    ['missing', [], 0],
+    ['foreign', [createIntegratorFeesClaimedLog({ emitter: beneficiary })], 0],
+    [
+      'ambiguous',
+      [
+        createIntegratorFeesClaimedLog(),
+        createIntegratorFeesClaimedLog({ fees0: 55n, fees1: 66n }),
+      ],
+      2,
+    ],
+  ])('rejects %s IntegratorFeesClaimed events', async (_case, logs, count) => {
+    publicClient.simulateContract.mockResolvedValueOnce({
+      request: { address: hookAddress },
+      result: [11n, 22n],
+    });
+    vi.mocked(walletClient.writeContract).mockResolvedValueOnce(
+      transactionHash,
+    );
+    publicClient.waitForTransactionReceipt.mockResolvedValueOnce({
+      status: 'success',
+      logs,
+    });
+
+    await expect(
+      initializer.claimIntegratorFees(asset, destination),
+    ).rejects.toThrow(
+      `transaction ${transactionHash} emitted ${count} IntegratorFeesClaimed events; expected exactly one`,
+    );
+  });
+
+  it('rejects invalid integrator management inputs before simulation', async () => {
+    await expect(
+      initializer.setIntegratorConversionRatios(poolId, 1_000_000_001, 0),
+    ).rejects.toThrow('assetFeesToNumeraireRatio');
+    await expect(
+      initializer.setIntegratorConversionRatios(poolId, 0, 1_000_000_001),
+    ).rejects.toThrow('numeraireFeesToAssetRatio');
+    await expect(
+      initializer.setIntegrator(poolId, ZERO_ADDRESS),
+    ).rejects.toThrow('must be a non-zero address');
+    await expect(
+      initializer.claimIntegratorFees(asset, ZERO_ADDRESS),
+    ).rejects.toThrow('must be a non-zero address');
+    expect(publicClient.simulateContract).not.toHaveBeenCalled();
+  });
+
+  it('requires a wallet for integrator management', async () => {
+    const readOnly = new RehypeDopplerHookInitializer(
+      publicClient,
+      undefined,
+      hookAddress,
+    );
+
+    await expect(
+      readOnly.setIntegratorAutomaticPayout(poolId, true),
+    ).rejects.toThrow(
+      'Wallet client required to set rehype integrator automatic payout',
+    );
   });
 });

@@ -22,6 +22,10 @@ const firstBeneficiary = getAddress(
 const secondBeneficiary = getAddress(
   '0x2222222222222222222222222222222222222222',
 );
+const integrator = getAddress('0x7777777777777777777777777777777777777777');
+const explicitIntegrator = getAddress(
+  '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+);
 
 describe('DopplerFactory RehypeDopplerHookInitializer beneficiary encoding', () => {
   let factory: DopplerFactory;
@@ -178,6 +182,89 @@ describe('DopplerFactory RehypeDopplerHookInitializer beneficiary encoding', () 
 
     expect(decoded.buybackDst).toBe(buybackDestination);
   });
+
+  it('encodes a disabled integrator config for old configurations', () => {
+    const params = multicurveParams({
+      hookAddress,
+      buybackDestination,
+      startFee: 3_000,
+      feeDistributionInfo: feeDistributionInfo(),
+    });
+    params.integrator = integrator;
+
+    const decoded = encodeAndDecode(factory, params);
+
+    expect(decoded.integratorConfig).toEqual({
+      integrator: '0x0000000000000000000000000000000000000000',
+      feeShare: 0,
+      assetFeesToNumeraireRatio: 0,
+      numeraireFeesToAssetRatio: 0,
+      automaticPayout: false,
+    });
+  });
+
+  it('inherits the direct factory integrator and supports an explicit override', () => {
+    const inheritedParams = multicurveParams({
+      hookAddress,
+      buybackDestination,
+      startFee: 3_000,
+      feeDistributionInfo: feeDistributionInfo(),
+      integratorFeeConfig: {
+        feeShare: 200_000,
+        assetFeesToNumeraireRatio: 125_000_000,
+        numeraireFeesToAssetRatio: 375_000_000,
+      },
+    });
+    inheritedParams.integrator = integrator;
+    const overriddenParams = multicurveParams({
+      hookAddress,
+      buybackDestination,
+      startFee: 3_000,
+      feeDistributionInfo: feeDistributionInfo(),
+      integratorFeeConfig: {
+        integrator: explicitIntegrator,
+        feeShare: 300_000,
+        assetFeesToNumeraireRatio: 625_000_000,
+        numeraireFeesToAssetRatio: 875_000_000,
+        automaticPayout: true,
+      },
+    });
+    overriddenParams.integrator = integrator;
+
+    expect(encodeAndDecode(factory, inheritedParams).integratorConfig).toEqual({
+      integrator,
+      feeShare: 200_000,
+      assetFeesToNumeraireRatio: 125_000_000,
+      numeraireFeesToAssetRatio: 375_000_000,
+      automaticPayout: false,
+    });
+    expect(encodeAndDecode(factory, overriddenParams).integratorConfig).toEqual(
+      {
+        integrator: explicitIntegrator,
+        feeShare: 300_000,
+        assetFeesToNumeraireRatio: 625_000_000,
+        numeraireFeesToAssetRatio: 875_000_000,
+        automaticPayout: true,
+      },
+    );
+  });
+
+  it('keeps the version five encoding readable by the legacy tuple', () => {
+    const params = multicurveParams({
+      hookAddress,
+      buybackDestination,
+      startFee: 3_000,
+      feeDistributionInfo: feeDistributionInfo(),
+    });
+    const rehypeData = encodeRehypeData(factory, params);
+
+    const [legacyDecoded] = decodeAbiParameters(
+      legacyRehypeDopplerHookInitializerDataAbi,
+      rehypeData,
+    );
+    expect(legacyDecoded.buybackDst).toBe(buybackDestination);
+    expect(legacyDecoded.feeBeneficiaries).toEqual([]);
+  });
 });
 
 function multicurveParams(
@@ -218,7 +305,7 @@ function multicurveParams(
   };
 }
 
-function encodeAndDecode(
+function encodeRehypeData(
   factory: DopplerFactory,
   params: CreateMulticurveParams,
 ) {
@@ -227,9 +314,16 @@ function encodeAndDecode(
     dopplerHookInitializerDataAbi,
     createParams.poolInitializerData,
   );
+  return poolInitData.onInitializationDopplerHookCalldata;
+}
+
+function encodeAndDecode(
+  factory: DopplerFactory,
+  params: CreateMulticurveParams,
+) {
   const [rehypeInitData] = decodeAbiParameters(
     rehypeDopplerHookInitializerDataAbi,
-    poolInitData.onInitializationDopplerHookCalldata,
+    encodeRehypeData(factory, params),
   );
   return rehypeInitData;
 }
@@ -266,14 +360,26 @@ const beneficiaryComponents = [
 ] as const;
 
 const feeDistributionComponents = [
-  { name: 'assetFeesToAssetBuybackWad', type: 'uint256' },
-  { name: 'assetFeesToNumeraireBuybackWad', type: 'uint256' },
-  { name: 'assetFeesToBeneficiaryWad', type: 'uint256' },
-  { name: 'assetFeesToLpWad', type: 'uint256' },
-  { name: 'numeraireFeesToAssetBuybackWad', type: 'uint256' },
-  { name: 'numeraireFeesToNumeraireBuybackWad', type: 'uint256' },
-  { name: 'numeraireFeesToBeneficiaryWad', type: 'uint256' },
-  { name: 'numeraireFeesToLpWad', type: 'uint256' },
+  { name: 'assetFeesToAssetBuybackWad', type: 'uint64' },
+  { name: 'assetFeesToNumeraireBuybackWad', type: 'uint64' },
+  { name: 'assetFeesToBeneficiaryWad', type: 'uint64' },
+  { name: 'assetFeesToLpWad', type: 'uint64' },
+  { name: 'numeraireFeesToAssetBuybackWad', type: 'uint64' },
+  { name: 'numeraireFeesToNumeraireBuybackWad', type: 'uint64' },
+  { name: 'numeraireFeesToBeneficiaryWad', type: 'uint64' },
+  { name: 'numeraireFeesToLpWad', type: 'uint64' },
+] as const;
+
+const legacyFeeDistributionComponents = feeDistributionComponents.map(
+  (component) => ({ ...component, type: 'uint256' as const }),
+);
+
+const integratorConfigComponents = [
+  { name: 'integrator', type: 'address' },
+  { name: 'feeShare', type: 'uint24' },
+  { name: 'assetFeesToNumeraireRatio', type: 'uint32' },
+  { name: 'numeraireFeesToAssetRatio', type: 'uint32' },
+  { name: 'automaticPayout', type: 'bool' },
 ] as const;
 
 const dopplerHookInitializerDataAbi = [
@@ -320,6 +426,36 @@ const rehypeDopplerHookInitializerDataAbi = [
         name: 'feeDistributionInfo',
         type: 'tuple',
         components: feeDistributionComponents,
+      },
+      {
+        name: 'feeBeneficiaries',
+        type: 'tuple[]',
+        components: beneficiaryComponents,
+      },
+      {
+        name: 'integratorConfig',
+        type: 'tuple',
+        components: integratorConfigComponents,
+      },
+    ],
+  },
+] as const;
+
+const legacyRehypeDopplerHookInitializerDataAbi = [
+  {
+    type: 'tuple',
+    components: [
+      { name: 'numeraire', type: 'address' },
+      { name: 'buybackDst', type: 'address' },
+      { name: 'startFee', type: 'uint24' },
+      { name: 'endFee', type: 'uint24' },
+      { name: 'durationSeconds', type: 'uint32' },
+      { name: 'startingTime', type: 'uint32' },
+      { name: 'feeRoutingMode', type: 'uint8' },
+      {
+        name: 'feeDistributionInfo',
+        type: 'tuple',
+        components: legacyFeeDistributionComponents,
       },
       {
         name: 'feeBeneficiaries',

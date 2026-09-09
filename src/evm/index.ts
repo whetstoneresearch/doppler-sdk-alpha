@@ -6,12 +6,10 @@ export { DopplerSDK } from './DopplerSDK';
 // Export factory and auction classes
 export { DopplerFactory } from './entities/DopplerFactory';
 export type { MigrationEncoder } from './entities/DopplerFactory';
-export { TopUpDistributor } from './entities/TopUpDistributor';
-export type {
-  TopUpParams,
-  TopUpSimulationResult,
-  TopUpTransaction,
-} from './entities/TopUpDistributor';
+export { DopplerHookMigrator } from './entities/DopplerHookMigrator';
+export type { MigrationRefund } from './entities/DopplerHookMigrator';
+export { StreamableFeesLockerV2 } from './entities/StreamableFeesLockerV2';
+export type { StreamableFeesStream } from './entities/StreamableFeesLockerV2';
 export { Bundler } from './entities/Bundler';
 export type {
   BundlerClaimSimulation,
@@ -24,19 +22,21 @@ export {
   MulticurveFees,
   RehypeDopplerHookInitializer,
   RehypeDopplerHook,
-  RehypeDopplerHookMigrator,
   OpeningAuction,
   OpeningAuctionLifecycle,
   OpeningAuctionBidManager,
   OpeningAuctionPositionManager,
 } from './entities/auction';
 export type {
+  AirlockAssetData,
   MulticurveFeesOptions,
   MulticurvePendingFees,
   MulticurvePendingFeesOptions,
   MulticurveTokenPendingFeeBreakdown,
   MulticurveTokenPendingFees,
   RehypePendingFees,
+  RehypeIntegratorFees,
+  RehypeIntegratorRoutingConfig,
 } from './entities/auction';
 
 // Export quoter
@@ -149,7 +149,7 @@ export type {
   RehypeDopplerHookInitializerConfig,
   RehypeDopplerHookConfig,
   RehypeFeeDistributionInfo,
-  RehypeDopplerHookMigratorConfig,
+  RehypeIntegratorFeeConfig,
   MulticurveInitializerConfig,
   MulticurveDecayFeeSchedule,
 

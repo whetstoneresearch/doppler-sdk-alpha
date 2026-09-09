@@ -180,6 +180,14 @@ async function main(): Promise<void> {
         numeraireFeesToBeneficiaryWad: WAD,
         numeraireFeesToLpWad: 0n,
       },
+      // Optional: omit the entire object to disable the Rehype integrator share.
+      integratorFeeConfig: {
+        integrator: account.address,
+        feeShare: 200_000, // 20% of gross Rehype hook fees.
+        assetFeesToNumeraireRatio: 500_000_000, // Convert 50% to numeraire.
+        numeraireFeesToAssetRatio: 250_000_000, // Convert 25% to the asset.
+        automaticPayout: false, // Accrue until claimed rather than auto-paying.
+      },
     })
     .withFeeDistributionController(account.address)
     .withGovernance({ type: 'noOp' })

@@ -30,11 +30,68 @@ export interface RehypePoolInfo {
   buybackDst: Address;
 }
 
+export interface RehypeIntegratorRoutingConfig {
+  integrator: Address;
+  assetFeesToNumeraireRatio: number;
+  numeraireFeesToAssetRatio: number;
+  automaticPayout: boolean;
+}
+
+export interface RehypeIntegratorFees {
+  fees0: bigint;
+  fees1: bigint;
+}
+export interface AirlockAssetData {
+  numeraire: Address;
+  timelock: Address;
+  governance: Address;
+  liquidityMigrator: Address;
+  poolInitializer: Address;
+  poolOrHook: Address;
+  migrationPool: Address;
+  numTokensToSell: bigint;
+  totalSupply: bigint;
+  integrator: Address;
+}
+
 export interface RehypePosition {
   tickLower: number;
   tickUpper: number;
   liquidity: bigint;
   salt: Hex;
+}
+
+export function normalizeAirlockAssetData(
+  rawAssetData: unknown,
+  context = 'Airlock getAssetData',
+): AirlockAssetData {
+  const addressField = (name: string, index: number): Address =>
+    parseAddress(
+      readContractResultField(rawAssetData, [name], index, context),
+      context,
+      name,
+    );
+  return {
+    numeraire: addressField('numeraire', 0),
+    timelock: addressField('timelock', 1),
+    governance: addressField('governance', 2),
+    liquidityMigrator: addressField('liquidityMigrator', 3),
+    poolInitializer: addressField('poolInitializer', 4),
+    poolOrHook: parseAddress(
+      readContractResultField(rawAssetData, ['poolOrHook', 'pool'], 5, context),
+      context,
+      'poolOrHook',
+    ),
+    migrationPool: addressField('migrationPool', 6),
+    numTokensToSell: parseBigIntField(
+      rawAssetData,
+      'numTokensToSell',
+      7,
+      context,
+    ),
+    totalSupply: parseBigIntField(rawAssetData, 'totalSupply', 8, context),
+    integrator: addressField('integrator', 9),
+  };
 }
 
 export function parseAirlockPoolOrHook(
@@ -139,6 +196,43 @@ export function normalizeRehypeFeeSchedule(
       4,
       context,
     ),
+  };
+}
+
+export function normalizeRehypeIntegratorRoutingConfig(
+  rawConfig: unknown,
+  context = 'Rehype getIntegratorRoutingConfig',
+): RehypeIntegratorRoutingConfig {
+  return {
+    integrator: parseAddressField(rawConfig, 'integrator', 0, context),
+    assetFeesToNumeraireRatio: parseNumberField(
+      rawConfig,
+      'assetFeesToNumeraireRatio',
+      1,
+      context,
+    ),
+    numeraireFeesToAssetRatio: parseNumberField(
+      rawConfig,
+      'numeraireFeesToAssetRatio',
+      2,
+      context,
+    ),
+    automaticPayout: parseBooleanField(
+      rawConfig,
+      'automaticPayout',
+      3,
+      context,
+    ),
+  };
+}
+
+export function normalizeRehypeIntegratorFees(
+  rawFees: unknown,
+  context: string,
+): RehypeIntegratorFees {
+  return {
+    fees0: parseBigIntField(rawFees, 'fees0', 0, context),
+    fees1: parseBigIntField(rawFees, 'fees1', 1, context),
   };
 }
 
@@ -259,6 +353,24 @@ function parseNumberField(
   }
 
   return numericField;
+}
+
+function parseBooleanField(
+  rawResult: unknown,
+  fieldName: string,
+  tupleIndex: number,
+  context: string,
+): boolean {
+  const rawField = readContractResultField(
+    rawResult,
+    [fieldName],
+    tupleIndex,
+    context,
+  );
+  if (typeof rawField !== 'boolean') {
+    throw new Error(`${context}: ${fieldName} must be a boolean`);
+  }
+  return rawField;
 }
 
 function parseHexField(

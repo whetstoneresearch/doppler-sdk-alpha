@@ -2,6 +2,14 @@ import { encodeAbiParameters, type Address, type Hex } from 'viem';
 import { ZERO_ADDRESS } from '../constants';
 import type { NormalizedRehypeDopplerHookInitializerConfig } from './rehypeDopplerHookInitializer';
 
+const DISABLED_REHYPE_INTEGRATOR_CONFIG = {
+  integrator: ZERO_ADDRESS,
+  feeShare: 0,
+  assetFeesToNumeraireRatio: 0,
+  numeraireFeesToAssetRatio: 0,
+  automaticPayout: false,
+} as const;
+
 export function encodeRehypeDopplerHookInitializerData(
   numeraire: Address,
   config: NormalizedRehypeDopplerHookInitializerConfig,
@@ -17,6 +25,8 @@ export function encodeRehypeDopplerHookInitializerData(
       feeRoutingMode: config.feeRoutingMode,
       feeDistributionInfo: config.feeDistributionInfo,
       feeBeneficiaries: config.feeBeneficiaries ?? [],
+      integratorConfig:
+        config.integratorFeeConfig ?? DISABLED_REHYPE_INTEGRATOR_CONFIG,
     },
   ]);
 }
@@ -27,14 +37,22 @@ const beneficiaryComponents = [
 ] as const;
 
 const feeDistributionComponents = [
-  { name: 'assetFeesToAssetBuybackWad', type: 'uint256' },
-  { name: 'assetFeesToNumeraireBuybackWad', type: 'uint256' },
-  { name: 'assetFeesToBeneficiaryWad', type: 'uint256' },
-  { name: 'assetFeesToLpWad', type: 'uint256' },
-  { name: 'numeraireFeesToAssetBuybackWad', type: 'uint256' },
-  { name: 'numeraireFeesToNumeraireBuybackWad', type: 'uint256' },
-  { name: 'numeraireFeesToBeneficiaryWad', type: 'uint256' },
-  { name: 'numeraireFeesToLpWad', type: 'uint256' },
+  { name: 'assetFeesToAssetBuybackWad', type: 'uint64' },
+  { name: 'assetFeesToNumeraireBuybackWad', type: 'uint64' },
+  { name: 'assetFeesToBeneficiaryWad', type: 'uint64' },
+  { name: 'assetFeesToLpWad', type: 'uint64' },
+  { name: 'numeraireFeesToAssetBuybackWad', type: 'uint64' },
+  { name: 'numeraireFeesToNumeraireBuybackWad', type: 'uint64' },
+  { name: 'numeraireFeesToBeneficiaryWad', type: 'uint64' },
+  { name: 'numeraireFeesToLpWad', type: 'uint64' },
+] as const;
+
+const integratorConfigComponents = [
+  { name: 'integrator', type: 'address' },
+  { name: 'feeShare', type: 'uint24' },
+  { name: 'assetFeesToNumeraireRatio', type: 'uint32' },
+  { name: 'numeraireFeesToAssetRatio', type: 'uint32' },
+  { name: 'automaticPayout', type: 'bool' },
 ] as const;
 
 const rehypeInitializerDataAbi = [
@@ -57,6 +75,11 @@ const rehypeInitializerDataAbi = [
         name: 'feeBeneficiaries',
         type: 'tuple[]',
         components: beneficiaryComponents,
+      },
+      {
+        name: 'integratorConfig',
+        type: 'tuple',
+        components: integratorConfigComponents,
       },
     ],
   },

@@ -1,4 +1,14 @@
-import type { Address, Hash, Hex, PublicClient, WalletClient } from 'viem';
+import {
+  isAddress,
+  isAddressEqual,
+  parseEventLogs,
+  type Address,
+  type Hash,
+  type Hex,
+  type PublicClient,
+  type TransactionReceipt,
+  type WalletClient,
+} from 'viem';
 import type {
   RehypeFeeDistributionInfo,
   SupportedPublicClient,
@@ -11,9 +21,13 @@ import {
   normalizeRehypeFeeDistributionInfo,
   normalizeRehypeFeeSchedule,
   normalizeRehypeHookFees,
+  normalizeRehypeIntegratorFees,
+  normalizeRehypeIntegratorRoutingConfig,
   normalizeRehypePoolInfo,
   type RehypeFeeSchedule,
   type RehypeHookFees,
+  type RehypeIntegratorFees,
+  type RehypeIntegratorRoutingConfig,
   type RehypePoolInfo,
 } from './contractResults';
 import {
@@ -26,6 +40,8 @@ const rehypeFeesManagerAbi = [
   ...feesManagerAbi,
   { type: 'error', name: 'FeeBeneficiariesNotConfigured', inputs: [] },
 ] as const;
+
+const INTEGRATOR_CONVERSION_RATIO_DENOMINATOR = 1_000_000_000;
 
 export class RehypeDopplerHookInitializer {
   private readonly client: SupportedPublicClient;
@@ -231,6 +247,161 @@ export class RehypeDopplerHookInitializer {
     return normalizeRehypeFeeSchedule(result);
   }
 
+  async getIntegratorFeeShare(poolId: Hex): Promise<number> {
+    const result = await this.rpc.readContract({
+      address: this.hookAddress,
+      abi: rehypeDopplerHookInitializerAbi,
+      functionName: 'getIntegratorFeeShare',
+      args: [poolId],
+    });
+    return Number(result);
+  }
+
+  async getIntegratorRoutingConfig(
+    poolId: Hex,
+  ): Promise<RehypeIntegratorRoutingConfig> {
+    const result = await this.rpc.readContract({
+      address: this.hookAddress,
+      abi: rehypeDopplerHookInitializerAbi,
+      functionName: 'getIntegratorRoutingConfig',
+      args: [poolId],
+    });
+    return normalizeRehypeIntegratorRoutingConfig(result);
+  }
+
+  async getPendingIntegratorFees(poolId: Hex): Promise<RehypeIntegratorFees> {
+    const result = await this.rpc.readContract({
+      address: this.hookAddress,
+      abi: rehypeDopplerHookInitializerAbi,
+      functionName: 'getPendingIntegratorFees',
+      args: [poolId],
+    });
+    return normalizeRehypeIntegratorFees(
+      result,
+      'Rehype getPendingIntegratorFees',
+    );
+  }
+
+  async getClaimableIntegratorFees(poolId: Hex): Promise<RehypeIntegratorFees> {
+    const result = await this.rpc.readContract({
+      address: this.hookAddress,
+      abi: rehypeDopplerHookInitializerAbi,
+      functionName: 'getClaimableIntegratorFees',
+      args: [poolId],
+    });
+    return normalizeRehypeIntegratorFees(
+      result,
+      'Rehype getClaimableIntegratorFees',
+    );
+  }
+
+  async setIntegratorConversionRatios(
+    poolId: Hex,
+    assetFeesToNumeraireRatio: number,
+    numeraireFeesToAssetRatio: number,
+  ): Promise<{ transactionHash: Hash }> {
+    assertIntegratorConversionRatio(
+      assetFeesToNumeraireRatio,
+      'assetFeesToNumeraireRatio',
+    );
+    assertIntegratorConversionRatio(
+      numeraireFeesToAssetRatio,
+      'numeraireFeesToAssetRatio',
+    );
+    const walletClient = this.requireWalletClient(
+      'Wallet client required to set rehype integrator conversion ratios',
+    );
+    const { request } = await this.rpc.simulateContract({
+      address: this.hookAddress,
+      abi: rehypeDopplerHookInitializerAbi,
+      functionName: 'setIntegratorConversionRatios',
+      args: [poolId, assetFeesToNumeraireRatio, numeraireFeesToAssetRatio],
+      account: walletClient.account,
+    });
+    const hash = await walletClient.writeContract(request);
+    await this.waitForSuccessfulReceipt(hash, 'setIntegratorConversionRatios');
+    return { transactionHash: hash };
+  }
+
+  async setIntegratorAutomaticPayout(
+    poolId: Hex,
+    automaticPayout: boolean,
+  ): Promise<{ transactionHash: Hash }> {
+    const walletClient = this.requireWalletClient(
+      'Wallet client required to set rehype integrator automatic payout',
+    );
+    const { request } = await this.rpc.simulateContract({
+      address: this.hookAddress,
+      abi: rehypeDopplerHookInitializerAbi,
+      functionName: 'setIntegratorAutomaticPayout',
+      args: [poolId, automaticPayout],
+      account: walletClient.account,
+    });
+    const hash = await walletClient.writeContract(request);
+    await this.waitForSuccessfulReceipt(hash, 'setIntegratorAutomaticPayout');
+    return { transactionHash: hash };
+  }
+
+  async setIntegrator(
+    poolId: Hex,
+    newIntegrator: Address,
+  ): Promise<{ transactionHash: Hash }> {
+    assertNonZeroAddress(newIntegrator, 'Rehype integrator');
+    const walletClient = this.requireWalletClient(
+      'Wallet client required to rotate rehype integrator',
+    );
+    const { request } = await this.rpc.simulateContract({
+      address: this.hookAddress,
+      abi: rehypeDopplerHookInitializerAbi,
+      functionName: 'setIntegrator',
+      args: [poolId, newIntegrator],
+      account: walletClient.account,
+    });
+    const hash = await walletClient.writeContract(request);
+    await this.waitForSuccessfulReceipt(hash, 'setIntegrator');
+    return { transactionHash: hash };
+  }
+
+  async claimIntegratorFees(
+    asset: Address,
+    to: Address,
+  ): Promise<{
+    fees0: bigint;
+    fees1: bigint;
+    transactionHash: Hash;
+  }> {
+    assertNonZeroAddress(to, 'Rehype integrator claim destination');
+    const walletClient = this.requireWalletClient(
+      'Wallet client required to claim rehype integrator fees',
+    );
+    const { request } = await this.rpc.simulateContract({
+      address: this.hookAddress,
+      abi: rehypeDopplerHookInitializerAbi,
+      functionName: 'claimIntegratorFees',
+      args: [asset, to],
+      account: walletClient.account,
+    });
+    const hash = await walletClient.writeContract(request);
+    const receipt = await this.waitForSuccessfulReceipt(
+      hash,
+      'claimIntegratorFees',
+    );
+    const events = parseEventLogs({
+      abi: rehypeDopplerHookInitializerAbi,
+      eventName: 'IntegratorFeesClaimed',
+      logs: receipt.logs.filter(({ address }) =>
+        isAddressEqual(address, this.hookAddress),
+      ),
+    });
+    if (events.length !== 1) {
+      throw new Error(
+        `Rehype claimIntegratorFees transaction ${hash} emitted ${events.length} IntegratorFeesClaimed events; expected exactly one`,
+      );
+    }
+    const { fees0, fees1 } = events[0].args;
+    return { fees0, fees1, transactionHash: hash };
+  }
+
   async getHookFees(poolId: Hex): Promise<RehypeHookFees> {
     const result = await this.rpc.readContract({
       address: this.hookAddress,
@@ -251,10 +422,47 @@ export class RehypeDopplerHookInitializer {
     return normalizeRehypePoolInfo(result);
   }
 
+  private async waitForSuccessfulReceipt(
+    hash: Hash,
+    operation: string,
+  ): Promise<TransactionReceipt> {
+    const receipt = await this.rpc.waitForTransactionReceipt({
+      hash,
+      confirmations: 1,
+    });
+    if (receipt.status !== 'success') {
+      throw new Error(
+        `Rehype ${operation} transaction ${hash} failed with receipt status ${receipt.status}`,
+      );
+    }
+    return receipt;
+  }
+
   private requireWalletClient(message: string): WalletClient {
     if (!this.walletClient) {
       throw new Error(message);
     }
     return this.walletClient;
+  }
+}
+
+function assertIntegratorConversionRatio(value: number, label: string): void {
+  if (
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > INTEGRATOR_CONVERSION_RATIO_DENOMINATOR
+  ) {
+    throw new Error(
+      `Rehype ${label} must be an integer between 0 and ${INTEGRATOR_CONVERSION_RATIO_DENOMINATOR}`,
+    );
+  }
+}
+
+function assertNonZeroAddress(address: Address, label: string): void {
+  if (
+    !isAddress(address, { strict: false }) ||
+    address.toLowerCase() === ZERO_ADDRESS
+  ) {
+    throw new Error(`${label} must be a non-zero address`);
   }
 }

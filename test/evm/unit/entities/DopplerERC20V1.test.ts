@@ -56,7 +56,9 @@ describe('DopplerERC20V1', () => {
       throw new Error('Expected both releaseFor overloads');
     }
 
-    expect(releaseForEntries.map((entry) => entry.inputs.length)).toEqual([2, 3]);
+    expect(releaseForEntries.map((entry) => entry.inputs.length)).toEqual([
+      2, 3,
+    ]);
     expect(amountReleaseFor.inputs[1]?.name).toBe('amount');
     expect([
       scheduleReleaseFor.inputs[0]?.name,
@@ -64,8 +66,7 @@ describe('DopplerERC20V1', () => {
       scheduleReleaseFor.inputs[2]?.name,
     ]).toEqual(['beneficiary', 'scheduleId', 'amount']);
     expect(availableEntries.map((entry) => entry.inputs.length)).toEqual([
-      2,
-      1,
+      2, 1,
     ]);
   });
 
@@ -102,6 +103,7 @@ describe('DopplerERC20V1', () => {
         'delegates',
         'getVotes',
         'getPastVotes',
+        'getPastTotalSupply',
         'delegate',
         'delegateBySig',
         'checkpointCount',
@@ -124,6 +126,7 @@ describe('DopplerERC20V1', () => {
         'unlockPool',
         'vestingStart',
         'vestedTotalAmount',
+        'totalUnreleasedOf',
         'burn',
       ]),
     );
@@ -216,7 +219,9 @@ describe('DopplerERC20V1', () => {
     await expect(token.getVotesTotalSupply()).resolves.toBe(1_000n);
     await expect(token.getPastVotesTotalSupply(50n)).resolves.toBe(900n);
     await expect(token.getClock()).resolves.toBe(12345);
-    await expect(token.getClockMode()).resolves.toBe('mode=blocknumber&from=default');
+    await expect(token.getClockMode()).resolves.toBe(
+      'mode=blocknumber&from=default',
+    );
     await expect(token.getCheckpointCount(beneficiary)).resolves.toBe(2n);
     await expect(token.getCheckpointAt(beneficiary, 1n)).resolves.toEqual({
       checkpointClock: 123,
@@ -263,9 +268,7 @@ describe('DopplerERC20V1', () => {
       };
       expect(publicClient.readContract).toHaveBeenNthCalledWith(
         index + 1,
-        expectedCall.args
-          ? { ...baseCall, args: expectedCall.args }
-          : baseCall,
+        expectedCall.args ? { ...baseCall, args: expectedCall.args } : baseCall,
       );
     });
   });
@@ -504,7 +507,9 @@ describe('DopplerERC20V1', () => {
         account: walletClient.account,
       });
     });
-    expect(walletClient.writeContract).toHaveBeenCalledTimes(expectedWrites.length);
+    expect(walletClient.writeContract).toHaveBeenCalledTimes(
+      expectedWrites.length,
+    );
   });
 
   it('passes gas overrides through write simulations and wallet writes', async () => {

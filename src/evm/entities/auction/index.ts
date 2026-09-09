@@ -11,8 +11,12 @@ export type {
   RehypePendingFees,
 } from './MulticurveFees';
 export { RehypeDopplerHookInitializer } from './RehypeDopplerHookInitializer';
+export type {
+  AirlockAssetData,
+  RehypeIntegratorFees,
+  RehypeIntegratorRoutingConfig,
+} from './contractResults';
 export { RehypeDopplerHook } from './RehypeDopplerHook';
-export { RehypeDopplerHookMigrator } from './RehypeDopplerHookMigrator';
 export { OpeningAuction } from './OpeningAuction';
 export type {
   OpeningAuctionBidConstraints,

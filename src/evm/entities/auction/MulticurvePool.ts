@@ -42,6 +42,7 @@ export class MulticurvePool {
   private client: SupportedPublicClient;
   private walletClient?: WalletClient;
   private tokenAddress: Address;
+  private recordedInitializer?: Address;
   private get rpc(): PublicClient {
     return this.client as PublicClient;
   }
@@ -50,10 +51,12 @@ export class MulticurvePool {
     client: SupportedPublicClient,
     walletClient: WalletClient | undefined,
     tokenAddress: Address,
+    recordedInitializer?: Address,
   ) {
     this.client = client;
     this.walletClient = walletClient;
     this.tokenAddress = tokenAddress;
+    this.recordedInitializer = recordedInitializer;
   }
 
   /**
@@ -91,6 +94,7 @@ export class MulticurvePool {
       client: this.rpc as InitializerDiscoveryClient,
       tokenAddress: this.tokenAddress,
       addresses,
+      recordedInitializer: this.recordedInitializer,
     });
   }
 

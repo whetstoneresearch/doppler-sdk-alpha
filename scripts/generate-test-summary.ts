@@ -32,24 +32,13 @@ const MODULE_PATTERNS: [RegExp, string][] = [
     /RehypeDopplerHookInitializer.*enabled on DopplerHookInitializer/,
     'RehypeDopplerHookInitializer on DopplerHookInitializer',
   ],
-  [
-    /RehypeDopplerHookMigrator.*not whitelisted on Airlock/,
-    'RehypeDopplerHookMigrator on Airlock',
-  ],
-  [
-    /RehypeDopplerHookMigrator.*enabled on DopplerHookMigrator/,
-    'RehypeDopplerHookMigrator on DopplerHookMigrator',
-  ],
   [/DopplerERC20V1Factory/, 'DopplerERC20V1Factory'],
   [/TokenFactory/, 'TokenFactory'],
   [/NoOpGovernanceFactory/, 'NoOpGovernanceFactory'],
   [/LaunchpadGovernanceFactory/, 'LaunchpadGovernanceFactory'],
   [/GovernanceFactory/, 'GovernanceFactory'],
   [/DopplerHookInitializer/, 'DopplerHookInitializer'],
-  [
-    /Lockable(?:Uniswap)?V3Initializer/,
-    'LockableUniswapV3Initializer',
-  ],
+  [/Lockable(?:Uniswap)?V3Initializer/, 'LockableUniswapV3Initializer'],
   [/V4ScheduledMulticurveInitializer/, 'V4ScheduledMulticurveInitializer'],
   [/V4MulticurveInitializer/, 'V4MulticurveInitializer'],
   [/V4DecayMulticurveInitializer/, 'V4DecayMulticurveInitializer'],
@@ -132,7 +121,7 @@ function parseResults(jsonPath: string): ChainResult[] {
     for (const assertion of testFile.assertionResults) {
       // Find chain ID from ancestor titles (e.g., "Chain 8453")
       const chainAncestor = assertion.ancestorTitles.find((t) =>
-        t.startsWith('Chain ')
+        t.startsWith('Chain '),
       );
       if (!chainAncestor) continue;
 
@@ -188,7 +177,7 @@ function parseResults(jsonPath: string): ChainResult[] {
 function generateMarkdownSummary(
   chains: ChainResult[],
   testChains: string,
-  rpcDelay: string
+  rpcDelay: string,
 ): string {
   const lines: string[] = [];
 
@@ -208,7 +197,7 @@ function generateMarkdownSummary(
 
   const statusEmoji = totalFailed > 0 ? ':x:' : ':white_check_mark:';
   lines.push(
-    `### Overall: ${statusEmoji} ${totalPassed} passed, ${totalFailed} failed, ${totalSkipped} skipped`
+    `### Overall: ${statusEmoji} ${totalPassed} passed, ${totalFailed} failed, ${totalSkipped} skipped`,
   );
   lines.push('');
 
@@ -227,7 +216,7 @@ function generateMarkdownSummary(
           : ':white_check_mark:';
     const notes = chain.skipReason || '';
     lines.push(
-      `| ${chain.chainName} | ${status} | ${chain.passed} | ${chain.failed} | ${chain.skipped} | ${notes} |`
+      `| ${chain.chainName} | ${status} | ${chain.passed} | ${chain.failed} | ${chain.skipped} | ${notes} |`,
     );
   }
   lines.push('');
@@ -273,7 +262,7 @@ function generateMarkdownSummary(
   // Get all unique modules in a consistent order
   const moduleOrder = MODULE_PATTERNS.map(([, name]) => name);
   const allModules = moduleOrder.filter((m) =>
-    chains.some((c) => c.modules.some((mod) => mod.name === m))
+    chains.some((c) => c.modules.some((mod) => mod.name === m)),
   );
 
   // Build matrix header
@@ -323,7 +312,7 @@ function generateConsoleSummary(chains: ChainResult[]): string {
 
     lines.push(`  ${statusIcon} ${chain.chainName} (${chain.chainId})`);
     lines.push(
-      `      Passed: ${chain.passed} | Failed: ${chain.failed} | Skipped: ${chain.skipped}`
+      `      Passed: ${chain.passed} | Failed: ${chain.failed} | Skipped: ${chain.skipped}`,
     );
 
     if (chain.skipReason) {
@@ -349,7 +338,7 @@ function generateConsoleSummary(chains: ChainResult[]): string {
 
   lines.push('');
   lines.push(
-    `  TOTAL: ${totalPassed} passed, ${totalFailed} failed, ${totalSkipped} skipped`
+    `  TOTAL: ${totalPassed} passed, ${totalFailed} failed, ${totalSkipped} skipped`,
   );
   lines.push(separator);
   lines.push('');

@@ -474,12 +474,6 @@ describe('Airlock Module Whitelisting', () => {
           expectedState: ModuleState.NotWhitelisted,
         },
         {
-          title: `RehypeDopplerHookMigrator (${addresses.rehypeDopplerHookMigrator}) not whitelisted on Airlock`,
-          module: 'RehypeDopplerHookMigrator on Airlock',
-          address: addresses.rehypeDopplerHookMigrator,
-          expectedState: ModuleState.NotWhitelisted,
-        },
-        {
           title: `NoOpMigrator (${addresses.noOpMigrator}) whitelisted`,
           module: 'NoOpMigrator',
           address: addresses.noOpMigrator,
@@ -505,12 +499,6 @@ describe('Airlock Module Whitelisting', () => {
           module: 'RehypeDopplerHookInitializer on DopplerHookInitializer',
           hookAddress: addresses.rehypeDopplerHookInitializer,
           parentAddress: addresses.dopplerHookInitializer,
-        },
-        {
-          title: `RehypeDopplerHookMigrator (${addresses.rehypeDopplerHookMigrator}) enabled on DopplerHookMigrator (${addresses.dopplerHookMigrator})`,
-          module: 'RehypeDopplerHookMigrator on DopplerHookMigrator',
-          hookAddress: addresses.rehypeDopplerHookMigrator,
-          parentAddress: addresses.dopplerHookMigrator,
         },
       ];
 

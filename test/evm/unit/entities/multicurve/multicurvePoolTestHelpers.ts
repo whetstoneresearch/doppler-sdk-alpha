@@ -171,13 +171,16 @@ export function createAbsentPoolDiscoveryError(): ContractFunctionRevertedError 
   });
 }
 
-export async function createMulticurvePoolHarness() {
+export async function createMulticurvePoolHarness(
+  recordedInitializer?: Address,
+) {
   const publicClient = createMockPublicClient() as MockPublicClient;
   const walletClient = createMockWalletClient();
   const multicurvePool = new MulticurvePool(
     publicClient,
     walletClient,
     mockTokenAddress,
+    recordedInitializer,
   );
 
   vi.clearAllMocks();

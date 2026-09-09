@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ContractFunctionRevertedError } from 'viem';
+import { ContractFunctionRevertedError, zeroAddress } from 'viem';
 import { v4MulticurveInitializerAbi } from '@/abis';
 import { DYNAMIC_FEE_FLAG } from '@/constants';
 import { LockablePoolStatus } from '@/types';
@@ -30,6 +30,9 @@ vi.mock('@/addresses', async (importOriginal) => {
   };
 });
 
+const historicalInitializer =
+  '0x9999999999999999999999999999999999999999' as const;
+
 describe('MulticurvePool initializer discovery', () => {
   let publicClient: MockPublicClient;
   let multicurvePool: MulticurvePool;
@@ -57,6 +60,24 @@ describe('MulticurvePool initializer discovery', () => {
         address: mockAddresses.v4MulticurveInitializer,
         functionName: 'getState',
         args: [mockTokenAddress],
+      }),
+    );
+  });
+
+  it('uses the initializer recorded by Airlock for historical launches', async () => {
+    ({ publicClient, multicurvePool } = await createMulticurvePoolHarness(
+      historicalInitializer,
+    ));
+    vi.mocked(publicClient.readContract)
+      .mockResolvedValueOnce(createState())
+      .mockResolvedValueOnce(createState());
+
+    const state = await multicurvePool.getState();
+    expect(state.poolKey).toEqual(mockPoolKey);
+    expect(publicClient.readContract).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        address: historicalInitializer,
+        functionName: 'getState',
       }),
     );
   });
@@ -182,10 +203,12 @@ describe('MulticurvePool initializer discovery', () => {
         (entry) => (entry as Error).message,
       );
       expect(messages[0]).toContain(
-        `${mockAddresses.v4MulticurveInitializer} getState failed:`,
+        `${mockAddresses.v4MulticurveInitializer} standard getState failed:`,
       );
       expect(messages[0]).toContain('PoolNotInitialized');
-      expect(messages[1]).toContain(`${mockDecayInitializer} getState failed:`);
+      expect(messages[1]).toContain(
+        `${mockDecayInitializer} standard getState failed:`,
+      );
       expect(messages[1]).toContain('PoolNotInitialized');
     }
   });

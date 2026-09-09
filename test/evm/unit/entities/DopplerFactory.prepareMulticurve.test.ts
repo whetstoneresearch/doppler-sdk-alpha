@@ -222,7 +222,7 @@ describe('DopplerFactory.prepareCreateMulticurve', () => {
     });
   });
 
-  it('selects a generated salt once and reuses it through enrichment', async () => {
+  it('selects one generated salt and preserves it through preparation', async () => {
     const params = multicurveParams();
     params.salt = undefined;
     params.token = {
@@ -232,6 +232,7 @@ describe('DopplerFactory.prepareCreateMulticurve', () => {
       maxBalanceLimit: parseEther('10000'),
       balanceLimitEnd: 2_000_000_000,
     };
+    params.governance = { type: 'noOp' };
     const firstPassResult = [
       '0x1000000000000000000000000000000000000001',
       '0x1000000000000000000000000000000000000002',
@@ -256,27 +257,21 @@ describe('DopplerFactory.prepareCreateMulticurve', () => {
         account,
       });
       const calls = vi.mocked(client.simulateContract).mock.calls;
-      const firstParams = calls[0][0].args?.[0];
-      const finalParams = calls[1][0].args?.[0];
+      const createParams = calls[0][0].args?.[0];
 
       expect(entropy).toHaveBeenCalledOnce();
-      expect(calls).toHaveLength(2);
-      expect(firstParams?.salt).toBe(prepared.createParams.salt);
-      expect(finalParams?.salt).toBe(prepared.createParams.salt);
-      expect(finalParams?.tokenFactoryData).toBe(
-        prepared.createParams.tokenFactoryData,
-      );
-      expect(firstParams?.tokenFactoryData).not.toBe(
+      expect(calls).toHaveLength(1);
+      expect(createParams?.salt).toBe(prepared.createParams.salt);
+      expect(createParams?.tokenFactoryData).toBe(
         prepared.createParams.tokenFactoryData,
       );
       expect(prepared.prediction).toMatchObject({
-        tokenAddress: mockTokenAddress,
-        poolOrHookAddress: mockPoolAddress,
-        governanceAddress: mockGovernanceAddress,
-        timelockAddress: mockTimelockAddress,
-        migrationPoolAddress: mockV2PoolAddress,
+        tokenAddress: firstPassResult[0],
+        poolOrHookAddress: firstPassResult[1],
+        governanceAddress: firstPassResult[2],
+        timelockAddress: firstPassResult[3],
+        migrationPoolAddress: firstPassResult[4],
       });
-      expect(prepared.prediction.tokenAddress).not.toBe(firstPassResult[0]);
     } finally {
       entropy.mockRestore();
     }

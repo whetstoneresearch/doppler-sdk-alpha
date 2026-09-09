@@ -4,6 +4,7 @@ import {
   decodeErrorResult,
   type Address,
   type Hex,
+  type PublicClient,
   zeroAddress,
 } from 'viem';
 import type { ChainAddresses } from '../../../addresses';
@@ -20,20 +21,14 @@ export interface InitializerDiscoveryResult {
   state: MulticurvePoolState;
 }
 
-export type InitializerDiscoveryClient = {
-  readContract(parameters: {
-    address: Address;
-    abi: typeof dopplerHookInitializerAbi | typeof v4MulticurveInitializerAbi;
-    functionName: 'getState';
-    args: readonly [Address];
-  }): Promise<unknown>;
-};
+export type InitializerDiscoveryClient = Pick<PublicClient, 'readContract'>;
 
 export type MulticurveInitializerKind = 'standard' | 'dopplerHook';
 
 export type MulticurveInitializerCandidate = {
   address: Address;
   kind: MulticurveInitializerKind;
+  probeAlternateLayout?: boolean;
 };
 
 type StructLike = Record<string, unknown> & {
@@ -57,12 +52,33 @@ export async function findMulticurveInitializerForPool({
   client,
   tokenAddress,
   addresses,
+  recordedInitializer,
 }: {
   client: InitializerDiscoveryClient;
   tokenAddress: Address;
   addresses: ChainAddresses;
+  recordedInitializer?: Address;
 }): Promise<InitializerDiscoveryResult> {
-  const initializersToTry = getMulticurveInitializerCandidates(addresses);
+  const configuredInitializers = getMulticurveInitializerCandidates(addresses);
+  const initializersToTry =
+    recordedInitializer === undefined
+      ? configuredInitializers
+      : [
+          {
+            address: recordedInitializer,
+            kind: 'dopplerHook' as const,
+            probeAlternateLayout: true,
+          },
+          {
+            address: recordedInitializer,
+            kind: 'standard' as const,
+            probeAlternateLayout: true,
+          },
+          ...configuredInitializers.filter(
+            ({ address }) =>
+              address.toLowerCase() !== recordedInitializer.toLowerCase(),
+          ),
+        ];
 
   if (initializersToTry.length === 0) {
     throw new Error(
@@ -86,26 +102,39 @@ export async function findMulticurveInitializerForPool({
         args: [tokenAddress],
       });
     } catch (error) {
-      if (!isAbsentPoolReadFailure(error)) {
+      if (
+        !initializer.probeAlternateLayout &&
+        !isAbsentPoolReadFailure(error)
+      ) {
         throw error;
       }
 
       const reason = error instanceof Error ? error.message : String(error);
       failedInitializers.push(
-        new Error(`${initializerAddress} getState failed: ${reason}`),
+        new Error(`${initializerAddress} ${kind} getState failed: ${reason}`),
       );
       continue;
     }
 
-    const discoveryResult = parseMulticurveInitializerDiscoveryResult({
-      tokenAddress,
-      initializerAddress,
-      kind,
-      stateData,
-    });
+    try {
+      const discoveryResult = parseMulticurveInitializerDiscoveryResult({
+        tokenAddress,
+        initializerAddress,
+        kind,
+        stateData,
+      });
 
-    if (isInitializedMulticurvePoolKey(discoveryResult.state.poolKey)) {
-      return discoveryResult;
+      if (isInitializedMulticurvePoolKey(discoveryResult.state.poolKey)) {
+        return discoveryResult;
+      }
+    } catch (error) {
+      if (!initializer.probeAlternateLayout) {
+        throw error;
+      }
+      const reason = error instanceof Error ? error.message : String(error);
+      failedInitializers.push(
+        new Error(`${initializerAddress} ${kind} decode failed: ${reason}`),
+      );
     }
   }
 

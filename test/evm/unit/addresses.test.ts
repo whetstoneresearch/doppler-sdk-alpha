@@ -46,7 +46,6 @@ const generatedAddressMappings = [
   ['derc20V2Implementation', 'CloneDERC20VotesV2'],
   ['dopplerERC20V1Factory', 'DopplerERC20V1Factory'],
   ['dopplerERC20V1Implementation', 'DopplerERC20V1'],
-  ['doppler404Factory', 'DN404Factory'],
   ['v3Initializer', 'UniswapV3Initializer'],
   ['lockableV3Initializer', 'LockableUniswapV3Initializer'],
   ['v4Initializer', 'UniswapV4Initializer'],
@@ -67,14 +66,12 @@ const generatedAddressMappings = [
   ['v4MigratorSplit', 'UniswapV4MigratorSplit'],
   ['v4MigratorHook', 'UniswapV4MigratorHook'],
   ['dopplerHookMigrator', 'DopplerHookMigrator'],
-  ['rehypeDopplerHookMigrator', 'RehypeDopplerHookMigrator'],
   ['noOpMigrator', 'NoOpMigrator'],
   ['governanceFactory', 'GovernanceFactory'],
   ['noOpGovernanceFactory', 'NoOpGovernanceFactory'],
   ['launchpadGovernanceFactory', 'LaunchpadGovernanceFactory'],
   ['streamableFeesLocker', 'StreamableFeesLocker'],
   ['streamableFeesLockerV2', 'StreamableFeesLockerV2'],
-  ['topUpDistributor', 'TopUpDistributor'],
   ['bundler', 'Bundler'],
 ] as const satisfies readonly (readonly [keyof ChainAddresses, string])[];
 

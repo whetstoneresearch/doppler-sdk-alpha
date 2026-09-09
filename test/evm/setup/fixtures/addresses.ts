@@ -65,9 +65,6 @@ export const mockAddresses: ChainAddresses = {
   dopplerHookMigrator: getAddress(
     '0x8100000000000000000000000000000000000008',
   ) as Address,
-  rehypeDopplerHookMigrator: getAddress(
-    '0x8200000000000000000000000000000000000008',
-  ) as Address,
   v4MigratorHook: getAddress(
     '0x9000000000000000000000000000000000000009',
   ) as Address,
@@ -108,9 +105,6 @@ export const mockAddresses: ChainAddresses = {
   ) as Address,
   launchpadGovernanceFactory: getAddress(
     '0x1500000000000000000000000000000000000025',
-  ) as Address,
-  topUpDistributor: getAddress(
-    '0x1500000000000000000000000000000000000026',
   ) as Address,
   universalRouter: getAddress(
     '0x1600000000000000000000000000000000000021',

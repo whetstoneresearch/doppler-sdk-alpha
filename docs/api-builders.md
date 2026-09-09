@@ -18,13 +18,14 @@ All types referenced are exported from `src/types.ts`.
   - Use `withGovernance({ type: 'default' })` for standard governance defaults.
   - Use `withGovernance({ type: 'noOp' })` where the chain supports no-op governance.
   - Use `withGovernance({ type: 'launchpad', multisig })` on launchpad-enabled chains.
-  - Or provide `withGovernance({ type: 'custom', initialVotingDelay, initialVotingPeriod, initialProposalThreshold })`.
+  - Or provide `withGovernance({ type: 'custom', initialVotingDelay, initialVotingPeriod, initialProposalThreshold })`. Current timestamp-clock deployments interpret delay and period as seconds; defaults are 1 day and 7 days. Legacy `type: 'standard'` tokens use equivalent nominal block counts for the chain, including DERC20 V2 vesting. Custom values are not converted; see [Governance Selection](./migration-options.md#governance-selection) for clock assumptions.
 - Fee tiers and tick spacing: 100→1, 500→10, 3000→60, 10000→200
 - DopplerHook compatibility:
   - Migration config should use `DopplerHookMigratorConfig` with `type: 'dopplerHookMigrator'`; the deprecated `DopplerHookMigrationConfig` and `type: 'dopplerHook'` remain accepted.
   - Multicurve initializer params should use `type: 'dopplerHookInitializer'`; the deprecated initializer discriminator `type: 'dopplerHook'` remains accepted.
 
 Price → Ticks conversion used by builders:
+
 ```
 startTick = floor(log(startPrice)/log(1.0001)/tickSpacing) * tickSpacing
 endTick   =  ceil(log(endPrice) /log(1.0001)/tickSpacing) * tickSpacing
@@ -43,7 +44,7 @@ Methods (chainable):
     - Legacy opt-in. Defaults: `yearlyMintRate = DEFAULT_V3_YEARLY_MINT_RATE (0.02e18)`
   - DopplerERC20V1: `{ type?: 'dopplerERC20V1', name, symbol, tokenURI, maxBalanceLimit?, balanceLimitEnd?, controller?, excludedFromBalanceLimit? }`
     - Default when `type` is omitted or explicitly set to `dopplerERC20V1`. Uses `dopplerERC20V1Factory`; `withTokenFactory(address)` takes precedence but must point to a compatible factory. DopplerERC20V1 does not encode `yearlyMintRate`; `controller` defaults to the zero address.
-    - `excludedFromBalanceLimit` is encoded only at deployment. On the default DopplerERC20V1 path, `simulateCreate*` and `create*` add user-supplied exclusions plus determinable protocol recipients for the selected auction path, and standard GovernanceFactory timelocks are auto-excluded when governance is `default` or `custom`. Custom `withTokenFactory(address)` paths receive only the `excludedFromBalanceLimit` entries supplied in `tokenConfig`, while `withGovernanceFactory(address)` skips standard-governance timelock auto-exclusion. If you submit encoded params manually via `encodeCreate*Params`, simulation-derived timelocks are not included; use `simulateCreate*`/`create*` or pass explicit exclusions yourself.
+    - `excludedFromBalanceLimit` is encoded only at deployment. The SDK adds user-supplied exclusions and, only with the default DopplerERC20V1 integration, deterministic protocol recipients for the selected auction path. When `withTokenFactory` or `withDopplerERC20V1Factory` overrides it, explicitly include every required protocol recipient in `excludedFromBalanceLimit`. It does not add the nonce-based standard-governance timelock. With an active balance limit and `default` or `custom` governance, encoding fails when `initialSupply - numTokensToSell - vesting allocations` exceeds `maxBalanceLimit`; allocate the excess to the sale or vesting, increase the limit, or use no-op or launchpad governance.
 - saleConfig({ initialSupply, numTokensToSell, numeraire })
 - Price specification methods (use one, not multiple):
   - **withMarketCapRange({ marketCap, numerairePrice, ... })** ⭐ Recommended
@@ -83,6 +84,7 @@ Methods (chainable):
   - Throws if required sections are missing
 
 Validation highlights:
+
 - token name/symbol non‑empty
 - `startTick < endTick`
 - `initialSupply > 0`, `numTokensToSell > 0`, and `numTokensToSell <= initialSupply`
@@ -91,55 +93,98 @@ Validation highlights:
 - Use `sdk.getDerc20V2(tokenAddress)` for schedule-aware reads and release flows on explicit `type: 'standard'` cliffed or multi-schedule tokens
 
 Examples:
+
 ```ts
 // Example 1: Using market cap range (recommended)
-const params = sdk.buildStaticAuction()
-  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
-  .saleConfig({ initialSupply: parseEther('1_000_000_000'), numTokensToSell: parseEther('500_000_000'), numeraire: WETH })
+const params = sdk
+  .buildStaticAuction()
+  .tokenConfig({
+    name: 'My Token',
+    symbol: 'MTK',
+    tokenURI: 'https://example.com/mtk.json',
+  })
+  .saleConfig({
+    initialSupply: parseEther('1_000_000_000'),
+    numTokensToSell: parseEther('500_000_000'),
+    numeraire: WETH,
+  })
   .withMarketCapRange({
     marketCap: { start: 100_000, end: 10_000_000 }, // $100k to $10M fully diluted
     numerairePrice: 3000, // ETH = $3000 USD
   })
-  .withVesting({ duration: BigInt(365*24*60*60) })
+  .withVesting({ duration: BigInt(365 * 24 * 60 * 60) })
   .withGovernance({ type: 'default' })
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress(user)
-  .build()
+  .build();
 
 // Example 2: Single vesting beneficiary with price range (legacy)
 const paramsLegacy = new StaticAuctionBuilder(chainId)
-  .tokenConfig({ type: 'standard', name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
-  .saleConfig({ initialSupply: parseEther('1_000_000_000'), numTokensToSell: parseEther('900_000_000'), numeraire: weth })
-  .poolByPriceRange({ priceRange: { startPrice: 0.0001, endPrice: 0.001 }, fee: 3000 })
-  .withVesting({ duration: BigInt(365*24*60*60) }) // All unsold tokens vest to userAddress
+  .tokenConfig({
+    type: 'standard',
+    name: 'My Token',
+    symbol: 'MTK',
+    tokenURI: 'https://example.com/mtk.json',
+  })
+  .saleConfig({
+    initialSupply: parseEther('1_000_000_000'),
+    numTokensToSell: parseEther('900_000_000'),
+    numeraire: weth,
+  })
+  .poolByPriceRange({
+    priceRange: { startPrice: 0.0001, endPrice: 0.001 },
+    fee: 3000,
+  })
+  .withVesting({ duration: BigInt(365 * 24 * 60 * 60) }) // All unsold tokens vest to userAddress
   .withGovernance({ type: 'default' })
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress(user)
-  .build()
+  .build();
 
 // Example 3: Multiple vesting beneficiaries
 const paramsMultiVest = new StaticAuctionBuilder(chainId)
-  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
-  .saleConfig({ initialSupply: parseEther('1_000_000_000'), numTokensToSell: parseEther('900_000_000'), numeraire: weth })
+  .tokenConfig({
+    name: 'My Token',
+    symbol: 'MTK',
+    tokenURI: 'https://example.com/mtk.json',
+  })
+  .saleConfig({
+    initialSupply: parseEther('1_000_000_000'),
+    numTokensToSell: parseEther('900_000_000'),
+    numeraire: weth,
+  })
   .withMarketCapRange({
     marketCap: { start: 50_000, end: 5_000_000 },
     numerairePrice: 3000,
   })
   .withVesting({
-    duration: BigInt(365*24*60*60),
+    duration: BigInt(365 * 24 * 60 * 60),
     cliffDuration: 0,
     recipients: ['0xTeam...', '0xAdvisor...', '0xTreasury...'],
-    amounts: [parseEther('30_000_000'), parseEther('20_000_000'), parseEther('50_000_000')] // Total: 100M of 100M unsold
+    amounts: [
+      parseEther('30_000_000'),
+      parseEther('20_000_000'),
+      parseEther('50_000_000'),
+    ], // Total: 100M of 100M unsold
   })
   .withGovernance({ type: 'default' })
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress(user)
-  .build()
+  .build();
 
 // Example 4: Per-beneficiary vesting schedules (DERC20 V2)
 const paramsPerSchedule = new StaticAuctionBuilder(chainId)
-  .tokenConfig({ type: 'standard', name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
-  .saleConfig({ initialSupply: parseEther('1_000_000_000'), numTokensToSell: parseEther('900_000_000'), numeraire: weth })
+  .tokenConfig({
+    type: 'standard',
+    name: 'My Token',
+    symbol: 'MTK',
+    tokenURI: 'https://example.com/mtk.json',
+  })
+  .saleConfig({
+    initialSupply: parseEther('1_000_000_000'),
+    numTokensToSell: parseEther('900_000_000'),
+    numeraire: weth,
+  })
   .withMarketCapRange({
     marketCap: { start: 50_000, end: 5_000_000 },
     numerairePrice: 3000,
@@ -149,24 +194,33 @@ const paramsPerSchedule = new StaticAuctionBuilder(chainId)
       {
         recipient: '0xTeam...',
         amount: parseEther('30_000_000'),
-        schedule: { duration: BigInt(180*24*60*60), cliffDuration: 30 * 24 * 60 * 60 },
+        schedule: {
+          duration: BigInt(180 * 24 * 60 * 60),
+          cliffDuration: 30 * 24 * 60 * 60,
+        },
       },
       {
         recipient: '0xAdvisor...',
         amount: parseEther('20_000_000'),
-        schedule: { duration: BigInt(365*24*60*60), cliffDuration: 90 * 24 * 60 * 60 },
+        schedule: {
+          duration: BigInt(365 * 24 * 60 * 60),
+          cliffDuration: 90 * 24 * 60 * 60,
+        },
       },
       {
         recipient: '0xTreasury...',
         amount: parseEther('50_000_000'),
-        schedule: { duration: BigInt(365*24*60*60), cliffDuration: 90 * 24 * 60 * 60 },
+        schedule: {
+          duration: BigInt(365 * 24 * 60 * 60),
+          cliffDuration: 90 * 24 * 60 * 60,
+        },
       },
     ],
   })
   .withGovernance({ type: 'default' })
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress(user)
-  .build()
+  .build();
 ```
 
 ---
@@ -182,7 +236,7 @@ Methods (chainable):
     - Legacy opt-in. Defaults: `yearlyMintRate = DEFAULT_V4_YEARLY_MINT_RATE (0.02e18)`
   - DopplerERC20V1: `{ type?: 'dopplerERC20V1', name, symbol, tokenURI, maxBalanceLimit?, balanceLimitEnd?, controller?, excludedFromBalanceLimit? }`
     - Default when `type` is omitted or explicitly set to `dopplerERC20V1`. Uses `dopplerERC20V1Factory`; `withTokenFactory(address)` takes precedence but must point to a compatible factory. DopplerERC20V1 does not encode `yearlyMintRate`; `controller` defaults to the zero address.
-    - `excludedFromBalanceLimit` is encoded only at deployment. On the default DopplerERC20V1 path, `simulateCreate*` and `create*` add user-supplied exclusions plus determinable protocol recipients for the selected auction path, and standard GovernanceFactory timelocks are auto-excluded when governance is `default` or `custom`. Custom `withTokenFactory(address)` paths receive only the `excludedFromBalanceLimit` entries supplied in `tokenConfig`, while `withGovernanceFactory(address)` skips standard-governance timelock auto-exclusion. If you submit encoded params manually via `encodeCreate*Params`, simulation-derived timelocks are not included; use `simulateCreate*`/`create*` or pass explicit exclusions yourself.
+    - `excludedFromBalanceLimit` is encoded only at deployment. The SDK adds user-supplied exclusions and, only with the default DopplerERC20V1 integration, deterministic protocol recipients for the selected auction path. When `withTokenFactory` or `withDopplerERC20V1Factory` overrides it, explicitly include every required protocol recipient in `excludedFromBalanceLimit`. It does not add the nonce-based standard-governance timelock. With an active balance limit and `default` or `custom` governance, encoding fails when `initialSupply - numTokensToSell - vesting allocations` exceeds `maxBalanceLimit`; allocate the excess to the sale or vesting, increase the limit, or use no-op or launchpad governance.
 - saleConfig({ initialSupply, numTokensToSell, numeraire? })
   - Defaults: `numeraire = ZERO_ADDRESS` (token is paired against ETH)
 - poolConfig({ fee, tickSpacing })
@@ -229,6 +283,7 @@ Methods (chainable):
   - Ensures `gamma` finalized, fills defaults, and throws if required sections are missing
 
 Validation highlights:
+
 - token name/symbol non‑empty
 - `startTick < endTick`
 - `initialSupply > 0`, `numTokensToSell > 0`, and `numTokensToSell <= initialSupply`
@@ -237,6 +292,7 @@ Validation highlights:
 - For V4 migration config (if chosen), beneficiary percentages must sum to 10000
 
 Examples:
+
 ```ts
 // Example 1: Using market cap range (recommended)
 const params = sdk.buildDynamicAuction()
@@ -281,7 +337,7 @@ Methods (chainable):
     - Legacy opt-in. Defaults: `yearlyMintRate = DEFAULT_V4_YEARLY_MINT_RATE (0.02e18)`
   - DopplerERC20V1: `{ type?: 'dopplerERC20V1', name, symbol, tokenURI, maxBalanceLimit?, balanceLimitEnd?, controller?, excludedFromBalanceLimit? }`
     - Default when `type` is omitted or explicitly set to `dopplerERC20V1`. Uses `dopplerERC20V1Factory`; `withTokenFactory(address)` takes precedence but must point to a compatible factory. DopplerERC20V1 does not encode `yearlyMintRate`; `controller` defaults to the zero address.
-    - `excludedFromBalanceLimit` is encoded only at deployment. On the default DopplerERC20V1 path, `simulateCreate*` and `create*` add user-supplied exclusions plus determinable protocol recipients for the selected auction path, and standard GovernanceFactory timelocks are auto-excluded when governance is `default` or `custom`. Custom `withTokenFactory(address)` paths receive only the `excludedFromBalanceLimit` entries supplied in `tokenConfig`, while `withGovernanceFactory(address)` skips standard-governance timelock auto-exclusion. If you submit encoded params manually via `encodeCreate*Params`, simulation-derived timelocks are not included; use `simulateCreate*`/`create*` or pass explicit exclusions yourself.
+    - `excludedFromBalanceLimit` is encoded only at deployment. The SDK adds user-supplied exclusions and, only with the default DopplerERC20V1 integration, deterministic protocol recipients for the selected auction path. When `withTokenFactory` or `withDopplerERC20V1Factory` overrides it, explicitly include every required protocol recipient in `excludedFromBalanceLimit`. It does not add the nonce-based standard-governance timelock. With an active balance limit and `default` or `custom` governance, encoding fails when `initialSupply - numTokensToSell - vesting allocations` exceeds `maxBalanceLimit`; allocate the excess to the sale or vesting, increase the limit, or use no-op or launchpad governance.
 - saleConfig({ initialSupply, numTokensToSell, numeraire })
 - Curve configuration methods (use one, not multiple):
   - **withCurves({ numerairePrice, curves, ... })** ⭐ Recommended
@@ -304,6 +360,8 @@ Methods (chainable):
 - Initializer configuration defaults to `{ type: 'dopplerHookInitializer' }`.
   - Use `withV4MulticurveInitializer(address)` to select the legacy `{ type: 'standard' }` initializer.
   - `withRehypeDopplerHookInitializer(config)` requires an explicit fee distribution controller. Set `config.buybackDestination` or chain `withFeeDistributionController(address)`, but not both. Both configure the hook's `buybackDst`, which authorizes distribution updates and may also receive direct-buyback proceeds.
+  - Set `config.integratorFeeConfig` to reserve an independent share of gross Rehype hook fees. `feeShare` uses a 1,000,000 denominator and is capped at 750,000. Conversion ratios use a 1,000,000,000 denominator.
+  - `integratorFeeConfig.integrator` defaults to the address supplied through `withIntegrator(address)`. An explicit nested address overrides that default. Omitting `integratorFeeConfig` disables the Rehype integrator share, even when `withIntegrator` is configured for Airlock fee attribution.
 - withVesting({ duration?, cliffDuration?, recipients?, amounts?, allocations? } | undefined)
   - `recipients`: Optional array of addresses to receive vested tokens. Defaults to `[userAddress]` if not provided.
   - `amounts`: Optional array of token amounts corresponding to each recipient. Must match `recipients` length if provided. Defaults to all unsold tokens to `userAddress` if not provided.
@@ -336,6 +394,7 @@ Methods (chainable):
 - build(): CreateMulticurveParams
 
 Validation highlights:
+
 - At least one curve required
 - `initialSupply > 0`, `numTokensToSell > 0`, and `numTokensToSell <= initialSupply`
 - Governance selection is required
@@ -346,60 +405,116 @@ Validation highlights:
 - Bundler provides exact-input simulation without a minimum output, deadline, or slippage guard.
 
 Examples:
+
 ```ts
 // Example 1: Using market cap ranges (recommended)
-const params = sdk.buildMulticurveAuction()
-  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
-  .saleConfig({ initialSupply: parseEther('1_000_000_000'), numTokensToSell: parseEther('900_000_000'), numeraire: WETH })
+const params = sdk
+  .buildMulticurveAuction()
+  .tokenConfig({
+    name: 'My Token',
+    symbol: 'MTK',
+    tokenURI: 'https://example.com/mtk.json',
+  })
+  .saleConfig({
+    initialSupply: parseEther('1_000_000_000'),
+    numTokensToSell: parseEther('900_000_000'),
+    numeraire: WETH,
+  })
   .withCurves({
     numerairePrice: 3000, // ETH = $3000 USD
     curves: [
       // Curve 1: Launch curve (concentrated liquidity at low market cap)
-      { marketCap: { start: 500_000, end: 1_500_000 }, numPositions: 10, shares: parseEther('0.3') }, // 30%
+      {
+        marketCap: { start: 500_000, end: 1_500_000 },
+        numPositions: 10,
+        shares: parseEther('0.3'),
+      }, // 30%
       // Curve 2: Mid-range (provides depth as price rises)
-      { marketCap: { start: 1_000_000, end: 5_000_000 }, numPositions: 15, shares: parseEther('0.4') }, // 40%
+      {
+        marketCap: { start: 1_000_000, end: 5_000_000 },
+        numPositions: 15,
+        shares: parseEther('0.4'),
+      }, // 40%
       // Curve 3: Upper range (moon bag for high market cap)
-      { marketCap: { start: 4_000_000, end: 50_000_000 }, numPositions: 10, shares: parseEther('0.29') }, // 29%
+      {
+        marketCap: { start: 4_000_000, end: 50_000_000 },
+        numPositions: 10,
+        shares: parseEther('0.29'),
+      }, // 29%
       // Tail position: extends from the highest curve to infinity ('max')
-      { marketCap: { start: 50_000_000, end: 'max' }, numPositions: 10, shares: parseEther('0.01') }, // 1%
+      {
+        marketCap: { start: 50_000_000, end: 'max' },
+        numPositions: 10,
+        shares: parseEther('0.01'),
+      }, // 1%
     ],
   })
-  .withVesting({ duration: BigInt(365*24*60*60) })
+  .withVesting({ duration: BigInt(365 * 24 * 60 * 60) })
   .withGovernance({ type: 'default' })
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress(user)
-  .build()
+  .build();
 
-const { tokenAddress, poolId } = await sdk.factory.createMulticurve(params)
+const { tokenAddress, poolId } = await sdk.factory.createMulticurve(params);
 
 // Example 2: Using raw ticks (advanced users)
 const paramsRaw = new MulticurveBuilder(chainId)
-  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
-  .saleConfig({ initialSupply: parseEther('1_000_000'), numTokensToSell: parseEther('900_000'), numeraire: weth })
+  .tokenConfig({
+    name: 'My Token',
+    symbol: 'MTK',
+    tokenURI: 'https://example.com/mtk.json',
+  })
+  .saleConfig({
+    initialSupply: parseEther('1_000_000'),
+    numTokensToSell: parseEther('900_000'),
+    numeraire: weth,
+  })
   .poolConfig({
     fee: 0,
     tickSpacing: 8,
     curves: [
-      { tickLower: 0, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
-      { tickLower: 16000, tickUpper: 240000, numPositions: 10, shares: parseEther('0.5') },
+      {
+        tickLower: 0,
+        tickUpper: 240000,
+        numPositions: 10,
+        shares: parseEther('0.5'),
+      },
+      {
+        tickLower: 16000,
+        tickUpper: 240000,
+        numPositions: 10,
+        shares: parseEther('0.5'),
+      },
     ],
   })
   .withGovernance({ type: 'default' })
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress(user)
-  .build()
+  .build();
 
-const { tokenAddress, poolId } = await sdk.factory.createMulticurve(params)
+const { tokenAddress, poolId } = await sdk.factory.createMulticurve(params);
 ```
 
 Preset helper usage:
+
 ```ts
-import { MulticurveBuilder, FEE_TIERS } from '@whetstone-research/doppler-sdk/evm'
-import { parseEther } from 'viem'
+import {
+  MulticurveBuilder,
+  FEE_TIERS,
+} from '@whetstone-research/doppler-sdk/evm';
+import { parseEther } from 'viem';
 
 const presetParams = new MulticurveBuilder(chainId)
-  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
-  .saleConfig({ initialSupply: parseEther('1_000_000'), numTokensToSell: parseEther('900_000'), numeraire: weth })
+  .tokenConfig({
+    name: 'My Token',
+    symbol: 'MTK',
+    tokenURI: 'https://example.com/mtk.json',
+  })
+  .saleConfig({
+    initialSupply: parseEther('1_000_000'),
+    numTokensToSell: parseEther('900_000'),
+    numeraire: weth,
+  })
   .withMarketCapPresets({
     fee: FEE_TIERS.LOW,
     presets: ['low', 'medium', 'high'], // default ordering; select a subset if needed
@@ -408,10 +523,11 @@ const presetParams = new MulticurveBuilder(chainId)
   .withGovernance({ type: 'default' })
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress(user)
-  .build()
+  .build();
 ```
 
 Preset tiers map to approximate market cap bands (assuming ~1B supply, $4,500 reference numeraire):
+
 - `low`: 50% allocation targeting $0-$3M launches
 - `medium`: 25% allocation targeting $1k-$40M
 - `high`: 24% allocation targeting $100k-$1B
@@ -423,16 +539,16 @@ All presets use the curated tick ranges from `DEFAULT_MULTICURVE_*` constants. S
 Access the chain-default contract through `sdk.bundler`, or use `sdk.getBundler(address)` for the same custom deployment selected with `withBundler(address)`. Read methods require only a public client; `claim` requires an SDK wallet client.
 
 ```ts
-const bundler = sdk.getBundler(result.devBuy!.bundler)
-const position = await bundler.getVesting(result.tokenAddress)
-const claimable = await bundler.getClaimable(result.tokenAddress)
+const bundler = sdk.getBundler(result.devBuy!.bundler);
+const position = await bundler.getVesting(result.tokenAddress);
+const claimable = await bundler.getClaimable(result.tokenAddress);
 
 if (claimable > 0n) {
-  const simulation = await bundler.simulateClaim(result.tokenAddress)
-  console.log('Claimable amount:', simulation.amount)
+  const simulation = await bundler.simulateClaim(result.tokenAddress);
+  console.log('Claimable amount:', simulation.amount);
 
-  const hash = await bundler.claim(result.tokenAddress)
-  await publicClient.waitForTransactionReceipt({ hash })
+  const hash = await bundler.claim(result.tokenAddress);
+  await publicClient.waitForTransactionReceipt({ hash });
 }
 ```
 
@@ -455,7 +571,7 @@ After creation, connect the SDK to the controller wallet and replace the pool's
 complete fee distribution matrix:
 
 ```ts
-const hook = await sdk.getRehypeDopplerHookInitializer(hookAddress)
+const hook = await sdk.getRehypeDopplerHookInitializer(hookAddress);
 
 const { transactionHash } = await hook.setFeeDistribution(poolId, {
   assetFeesToAssetBuybackWad: 0n,
@@ -466,7 +582,7 @@ const { transactionHash } = await hook.setFeeDistribution(poolId, {
   numeraireFeesToNumeraireBuybackWad: 0n,
   numeraireFeesToBeneficiaryWad: WAD,
   numeraireFeesToLpWad: 0n,
-})
+});
 ```
 
 The connected wallet must be the configured controller. This operation replaces
@@ -474,6 +590,56 @@ all eight fields rather than applying a partial update. The four asset-fee
 allocations must sum to `WAD`, and the four numeraire-fee allocations must
 separately sum to `WAD`. The returned transaction hash is provided after the SDK
 waits for transaction confirmation.
+
+### Configuring and managing Rehype integrator fees
+
+The Rehype integrator share is separate from both the Airlock integrator and the
+standard fee distribution matrix. The SDK can use the same address for both
+integrator roles without implicitly enabling the Rehype share. This is a partial
+builder fragment showing only the Rehype-specific configuration, not a complete
+executable build:
+
+```ts
+builder.withIntegrator(integrator).withRehypeDopplerHookInitializer({
+  hookAddress,
+  buybackDestination: feeDistributionController,
+  feeDistributionInfo,
+  integratorFeeConfig: {
+    feeShare: 200_000, // 20% of the Rehype hook fee
+    assetFeesToNumeraireRatio: 500_000_000,
+    numeraireFeesToAssetRatio: 0,
+    automaticPayout: false,
+  },
+});
+```
+
+Set `integratorFeeConfig.integrator` to use a different address from the
+top-level Airlock integrator. Omitting `integratorFeeConfig` encodes the
+contract's disabled zero configuration.
+
+An atomic Bundler dev buy is exempt from both the Rehype integrator share and
+the residual Rehype shares; only the Airlock owner cut applies.
+
+After creation, the current Rehype integrator can inspect balances and update
+its mutable routing configuration:
+
+```ts
+const hook = await sdk.getRehypeDopplerHookInitializer(hookAddress);
+
+const feeShare = await hook.getIntegratorFeeShare(poolId);
+const routing = await hook.getIntegratorRoutingConfig(poolId);
+const pending = await hook.getPendingIntegratorFees(poolId);
+const claimable = await hook.getClaimableIntegratorFees(poolId);
+
+await hook.setIntegratorConversionRatios(poolId, 500_000_000, 0);
+await hook.setIntegratorAutomaticPayout(poolId, true);
+await hook.claimIntegratorFees(asset, destination);
+await hook.setIntegrator(poolId, newIntegrator);
+```
+
+The fee share is immutable. Ratio and payout changes apply to fees that are
+pending but not yet processed. Rotating the integrator transfers control over
+pending and claimable balances to the new address.
 
 ---
 
@@ -487,7 +653,7 @@ Methods (chainable):
   - Standard: `{ type: 'standard', name, symbol, tokenURI, yearlyMintRate? }`
   - DopplerERC20V1: `{ type?: 'dopplerERC20V1', name, symbol, tokenURI, maxBalanceLimit?, balanceLimitEnd?, controller?, excludedFromBalanceLimit? }`
     - Default when `type` is omitted or explicitly set to `dopplerERC20V1`. Uses `dopplerERC20V1Factory`; `withTokenFactory(address)` takes precedence but must point to a compatible factory. DopplerERC20V1 does not encode `yearlyMintRate`; `controller` defaults to the zero address.
-    - `excludedFromBalanceLimit` is encoded only at deployment. On the default DopplerERC20V1 path, `simulateCreate*` and `create*` add user-supplied exclusions plus determinable protocol recipients for the selected auction path, and standard GovernanceFactory timelocks are auto-excluded when governance is `default` or `custom`. Custom `withTokenFactory(address)` paths receive only the `excludedFromBalanceLimit` entries supplied in `tokenConfig`, while `withGovernanceFactory(address)` skips standard-governance timelock auto-exclusion. If you submit encoded params manually via `encodeCreate*Params`, simulation-derived timelocks are not included; use `simulateCreate*`/`create*` or pass explicit exclusions yourself.
+    - `excludedFromBalanceLimit` is encoded only at deployment. The SDK adds user-supplied exclusions and, only with the default DopplerERC20V1 integration, deterministic protocol recipients for the selected auction path. When `withTokenFactory` or `withDopplerERC20V1Factory` overrides it, explicitly include every required protocol recipient in `excludedFromBalanceLimit`. It does not add the nonce-based standard-governance timelock. With an active balance limit and `default` or `custom` governance, encoding fails when `initialSupply - numTokensToSell - vesting allocations` exceeds `maxBalanceLimit`; allocate the excess to the sale or vesting, increase the limit, or use no-op or launchpad governance.
   - Doppler404: `{ type: 'doppler404', name, symbol, baseURI, unit? }`
 - saleConfig({ initialSupply, numTokensToSell, numeraire })
 - openingAuctionConfig({ auctionDuration, minAcceptableTickToken0, minAcceptableTickToken1, incentiveShareBps, tickSpacing, fee, minLiquidity, shareToAuctionBps })
@@ -519,6 +685,7 @@ Methods (chainable):
 - build(): `CreateOpeningAuctionParams`
 
 Validation highlights:
+
 - `initialSupply > 0`, `numTokensToSell > 0`, and `numTokensToSell <= initialSupply`
 - `openingAuction.shareToAuctionBps` must be in `(0, 10000]`
 - `openingAuction.incentiveShareBps` must be in `[0, 10000]`
@@ -529,10 +696,15 @@ Validation highlights:
   - token expected as currency0: `startTick >= endTick`
 
 Example:
+
 ```ts
 const openingParams = sdk
   .buildOpeningAuction()
-  .tokenConfig({ name: 'My Token', symbol: 'MTK', tokenURI: 'https://example.com/mtk.json' })
+  .tokenConfig({
+    name: 'My Token',
+    symbol: 'MTK',
+    tokenURI: 'https://example.com/mtk.json',
+  })
   .saleConfig({
     initialSupply: parseEther('1_000_000'),
     numTokensToSell: parseEther('900_000'),
@@ -558,13 +730,14 @@ const openingParams = sdk
   .withGovernance({ type: 'default' })
   .withMigration({ type: 'uniswapV2' })
   .withUserAddress(user)
-  .build()
+  .build();
 
-const createSim = await sdk.factory.simulateCreateOpeningAuction(openingParams)
-const created = await createSim.execute()
+const createSim = await sdk.factory.simulateCreateOpeningAuction(openingParams);
+const created = await createSim.execute();
 ```
 
 Lifecycle usage notes:
+
 - Read lifecycle state via initializer: `const lifecycle = await sdk.getOpeningAuctionLifecycle(initializerAddress)` then `await lifecycle.getState(asset)`
 - Settle before completion:
   - Explicit: `await (await sdk.getOpeningAuction(state.openingAuctionHook)).settleAuction()`
@@ -577,6 +750,7 @@ Lifecycle usage notes:
   - `simulateSweepOpeningAuctionIncentives` / `sweepOpeningAuctionIncentives`
 
 Phase 2 bid management (position manager):
+
 - Resolve the onchain `OpeningAuctionPositionManager`:
   - via SDK chain addresses: `const pm = await sdk.getOpeningAuctionPositionManager()`
   - or via initializer (recommended when addresses are not configured): `const pmAddress = await lifecycle.getPositionManager()` then `await sdk.getOpeningAuctionPositionManager(pmAddress)`
@@ -584,21 +758,23 @@ Phase 2 bid management (position manager):
 - Place/withdraw bids as Uniswap V4 liquidity positions. Use simulation to learn the required token deltas:
 
 ```ts
-import { OpeningAuctionPositionManager } from '@whetstone-research/doppler-sdk/evm'
-import { zeroHash } from 'viem'
+import { OpeningAuctionPositionManager } from '@whetstone-research/doppler-sdk/evm';
+import { zeroHash } from 'viem';
 
-const lifecycle = await sdk.getOpeningAuctionLifecycle(initializerAddress)
-const state = await lifecycle.getState(asset)
+const lifecycle = await sdk.getOpeningAuctionLifecycle(initializerAddress);
+const state = await lifecycle.getState(asset);
 
-const pmAddress = await lifecycle.getPositionManager()
-const pm = await sdk.getOpeningAuctionPositionManager(pmAddress)
+const pmAddress = await lifecycle.getPositionManager();
+const pm = await sdk.getOpeningAuctionPositionManager(pmAddress);
 
 // Optional: explicit hookData encoding (otherwise the position manager encodes msg.sender internally)
-const hookData = OpeningAuctionPositionManager.encodeOwnerHookData(account.address)
+const hookData = OpeningAuctionPositionManager.encodeOwnerHookData(
+  account.address,
+);
 
 // NOTE: `liquidity` is Uniswap V4 liquidity units; pick a value and iterate using simulation + decoded deltas.
-const tickLower = 0
-const salt = zeroHash
+const tickLower = 0;
+const salt = zeroHash;
 
 const sim = await pm.simulatePlaceBid({
   key: state.openingAuctionPoolKey,
@@ -607,19 +783,21 @@ const sim = await pm.simulatePlaceBid({
   salt,
   hookData,
   account: account.address,
-})
-console.log('BalanceDelta:', sim.decoded) // negative amounts mean you pay in
+});
+console.log('BalanceDelta:', sim.decoded); // negative amounts mean you pay in
 
 // Broadcast:
 // await pm.placeBid({ key: state.openingAuctionPoolKey, tickLower, liquidity: 1_000_000n, salt, hookData })
 ```
 
 Position ID resolution (for incentive claims):
+
 - The opening-auction hook assigns an onchain `positionId`. Use it to query/claim incentives:
   - `await opening.getPositionId({ owner, tickLower, tickUpper, salt })`
   - or `await opening.claimIncentivesByPositionKey({ owner, tickLower, tickUpper, salt })`
 
 Withdrawals during the active auction must be full:
+
 - The hook disallows partial removals while the auction is active.
 - Either track the exact liquidity you placed, or use `withdrawFullBid(...)` which reads onchain liquidity first:
 
@@ -630,8 +808,8 @@ const { transactionHash } = await pm.withdrawFullBid({
   tickLower,
   salt,
   hookData,
-})
-console.log('withdraw tx:', transactionHash)
+});
+console.log('withdraw tx:', transactionHash);
 ```
 
 ---
@@ -644,14 +822,23 @@ console.log('withdraw tx:', transactionHash)
 - Opening auction: `CreateOpeningAuctionParams` with fields: `token`, `sale`, `openingAuction`, `doppler`, optional `vesting`, `governance`, `migration`, `integrator`, `userAddress`, optional `startTimeOffset`, optional `startingTime`, optional `blockTimestamp`, optional module overrides
 
 Pass the built object directly to the factory:
+
 ```ts
-const { poolAddress, tokenAddress } = await sdk.factory.createStaticAuction(staticParams)
-const { hookAddress, tokenAddress: token2, poolId } = await sdk.factory.createDynamicAuction(dynamicParams)
-const { tokenAddress: token3, poolId: poolId3 } = await sdk.factory.createMulticurve(multicurveParams)
-const { tokenAddress: token4, openingAuctionHookAddress } = await sdk.factory.createOpeningAuction(openingParams)
+const { poolAddress, tokenAddress } =
+  await sdk.factory.createStaticAuction(staticParams);
+const {
+  hookAddress,
+  tokenAddress: token2,
+  poolId,
+} = await sdk.factory.createDynamicAuction(dynamicParams);
+const { tokenAddress: token3, poolId: poolId3 } =
+  await sdk.factory.createMulticurve(multicurveParams);
+const { tokenAddress: token4, openingAuctionHookAddress } =
+  await sdk.factory.createOpeningAuction(openingParams);
 ```
 
 Notes:
+
 - Doppler404 launches require a configured `doppler404Factory`. They are currently supported on Robinhood, Base, and Base Sepolia. A generic `withTokenFactory(address)` override does not enable Doppler404 on another chain.
 - Doppler404 tokenConfig supports optional `unit?: bigint`. It defaults to `WAD` (`1e18`), so one full 18-decimal ERC-20 token corresponds to one NFT. Set `unit` explicitly to choose another ERC-20 base-unit threshold.
 - Size `initialSupply` and `unit` together: the maximum NFT count is approximately `initialSupply / unit`. Very large NFT counts can make launch transfers exceed practical gas limits.

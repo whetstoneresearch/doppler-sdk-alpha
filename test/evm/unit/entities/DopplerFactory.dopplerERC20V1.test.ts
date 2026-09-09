@@ -240,7 +240,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
         numeraire: mockAddresses.weth,
       })
       .poolByTicks({ startTick: -120000, endTick: -60000, fee: 3000 })
-      .withGovernance({ type: 'default' })
+      .withGovernance({ type: 'noOp' })
       .withMigration({
         type: 'uniswapV2Split',
         proceedsSplit: {
@@ -326,14 +326,14 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
     expect(decoded[10]).not.toContain(mockTimelockAddress);
   });
 
-  it('adds the simulated governance timelock for default governance on the default V1 path', async () => {
+  it('rejects standard governance when timelock tokens exceed the balance limit', async () => {
     const params = StaticAuctionBuilder.forChain(1)
       .tokenConfig({
         type: 'dopplerERC20V1',
-        name: 'Static Token Timelock',
-        symbol: 'SV1T',
-        tokenURI: 'ipfs://static-token-timelock',
-        maxBalanceLimit: parseEther('10000'),
+        name: 'Unsafe Timelock Allocation',
+        symbol: 'UTA',
+        tokenURI: 'ipfs://unsafe-timelock-allocation',
+        maxBalanceLimit: parseEther('50000'),
         balanceLimitEnd: Math.floor(Date.now() / 1000) + 30 * DAY_SECONDS,
       })
       .saleConfig({
@@ -347,16 +347,44 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
       .withUserAddress(userAddress)
       .build();
 
+    await expect(
+      factory.encodeCreateStaticAuctionParams(params),
+    ).rejects.toThrow(
+      /100000000000000000000000 tokens to the governance timelock.*exceeding token\.maxBalanceLimit \(50000000000000000000000\)/,
+    );
+  });
+
+  it('allows no-op governance to receive tokens above the balance limit', async () => {
+    const params = StaticAuctionBuilder.forChain(1)
+      .tokenConfig({
+        type: 'dopplerERC20V1',
+        name: 'No-op Timelock Allocation',
+        symbol: 'NTA',
+        tokenURI: 'ipfs://no-op-timelock-allocation',
+        maxBalanceLimit: parseEther('50000'),
+        balanceLimitEnd: Math.floor(Date.now() / 1000) + 30 * DAY_SECONDS,
+      })
+      .saleConfig({
+        initialSupply: parseEther('1000000'),
+        numTokensToSell: parseEther('900000'),
+        numeraire: mockAddresses.weth,
+      })
+      .poolByTicks({ startTick: -120000, endTick: -60000, fee: 3000 })
+      .withGovernance({ type: 'noOp' })
+      .withMigration({ type: 'uniswapV2' })
+      .withUserAddress(userAddress)
+      .build();
+
     const createParams = await factory.encodeCreateStaticAuctionParams(params);
     const decoded = decodeV1TokenFactoryData(createParams.tokenFactoryData);
 
     expect(createParams.governanceFactory).toBe(
-      mockAddresses.governanceFactory,
+      mockAddresses.noOpGovernanceFactory,
     );
-    expect(decoded[10]).toContain(mockTimelockAddress);
+    expect(decoded[10]).toContain(DEAD_ADDRESS);
   });
 
-  it('adds the simulated governance timelock for custom governance on the default V1 path', async () => {
+  it('does not use a simulated custom-governance timelock in token exclusions', async () => {
     const params = StaticAuctionBuilder.forChain(1)
       .tokenConfig({
         type: 'dopplerERC20V1',
@@ -368,7 +396,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
       })
       .saleConfig({
         initialSupply: parseEther('1000000'),
-        numTokensToSell: parseEther('900000'),
+        numTokensToSell: parseEther('990000'),
         numeraire: mockAddresses.weth,
       })
       .poolByTicks({ startTick: -120000, endTick: -60000, fee: 3000 })
@@ -388,10 +416,10 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
     expect(createParams.governanceFactory).toBe(
       mockAddresses.governanceFactory,
     );
-    expect(decoded[10]).toContain(mockTimelockAddress);
+    expect(decoded[10]).not.toContain(mockTimelockAddress);
   });
 
-  it('skips simulated governance timelock when governanceFactory is overridden', async () => {
+  it('does not use a simulated timelock with a governance factory override', async () => {
     const customGovernanceFactory =
       '0x4444444444444444444444444444444444444444' as Address;
     const params = StaticAuctionBuilder.forChain(1)
@@ -405,7 +433,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
       })
       .saleConfig({
         initialSupply: parseEther('1000000'),
-        numTokensToSell: parseEther('900000'),
+        numTokensToSell: parseEther('990000'),
         numeraire: mockAddresses.weth,
       })
       .poolByTicks({ startTick: -120000, endTick: -60000, fee: 3000 })
@@ -422,7 +450,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
     expect(decoded[10]).not.toContain(mockTimelockAddress);
   });
 
-  it('adds the simulated governance timelock for default governance on the default V1 dynamic path', async () => {
+  it('does not use a simulated governance timelock in dynamic token exclusions', async () => {
     const balanceLimitEnd = Math.floor(Date.now() / 1000) + 30 * DAY_SECONDS;
     const params = DynamicAuctionBuilder.forChain(1)
       .tokenConfig({
@@ -435,7 +463,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
       })
       .saleConfig({
         initialSupply: parseEther('1000000'),
-        numTokensToSell: parseEther('900000'),
+        numTokensToSell: parseEther('990000'),
         numeraire: mockAddresses.weth,
       })
       .withMarketCapRange({
@@ -457,7 +485,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
     const decoded = decodeV1TokenFactoryData(createParams.tokenFactoryData);
 
     expect(createParams.tokenFactory).toBe(mockAddresses.dopplerERC20V1Factory);
-    expect(decoded[10]).toContain(mockTimelockAddress);
+    expect(decoded[10]).not.toContain(mockTimelockAddress);
   });
 
   it('keeps standard cliff vesting on the DERC20 V2 route without DopplerERC20V1-specific fields', async () => {
@@ -854,7 +882,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
     ]);
   });
 
-  it('adds the simulated governance timelock for default governance on the default V1 opening path', async () => {
+  it('does not use a simulated governance timelock in opening token exclusions', async () => {
     vi.mocked(publicClient.readContract)
       .mockResolvedValueOnce(mockAddresses.poolManager)
       .mockResolvedValueOnce(mockAddresses.dopplerDeployer);
@@ -871,7 +899,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
       })
       .saleConfig({
         initialSupply: parseEther('1000000'),
-        numTokensToSell: parseEther('900000'),
+        numTokensToSell: parseEther('990000'),
         numeraire: mockAddresses.weth,
       })
       .openingAuctionConfig({
@@ -904,7 +932,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
     const decoded = decodeV1TokenFactoryData(createParams.tokenFactoryData);
 
     expect(createParams.tokenFactory).toBe(mockAddresses.dopplerERC20V1Factory);
-    expect(decoded[10]).toContain(mockTimelockAddress);
+    expect(decoded[10]).not.toContain(mockTimelockAddress);
   });
 
   it('routes multicurve auctions through DopplerERC20V1Factory', () => {
@@ -1027,7 +1055,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
     expect(direct[10]).toContain(getAddress(beneficiary));
     expect(direct[10]).not.toContain(mockAddresses.bundler);
   });
-  it('adds the simulated governance timelock for default governance on the default V1 multicurve path', async () => {
+  it('does not use a simulated governance timelock in multicurve token exclusions', async () => {
     vi.mocked(publicClient.readContract).mockResolvedValueOnce(mockHookAddress);
 
     const balanceLimitEnd = Math.floor(Date.now() / 1000) + 30 * DAY_SECONDS;
@@ -1042,7 +1070,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
       })
       .saleConfig({
         initialSupply: parseEther('1000000'),
-        numTokensToSell: parseEther('700000'),
+        numTokensToSell: parseEther('990000'),
         numeraire: mockAddresses.weth,
       })
       .poolConfig({
@@ -1061,7 +1089,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
     const decoded = decodeV1TokenFactoryData(createParams.tokenFactoryData);
 
     expect(createParams.tokenFactory).toBe(mockAddresses.dopplerERC20V1Factory);
-    expect(decoded[10]).toContain(mockTimelockAddress);
+    expect(decoded[10]).not.toContain(mockTimelockAddress);
   });
 
   it('rejects zero beneficiary allocations', async () => {
@@ -1298,7 +1326,7 @@ describe('DopplerFactory DopplerERC20V1 token routing', () => {
     );
   });
 
-  it('allows balance-limited launches when unallocated supply exceeds the balance limit', async () => {
+  it('allows no-op launches when timelock tokens exceed the balance limit', async () => {
     const params = StaticAuctionBuilder.forChain(1)
       .tokenConfig({
         type: 'dopplerERC20V1',

@@ -411,10 +411,6 @@ export class DynamicAuctionBuilder<
     return this.overrideModule('dopplerHookMigrator', address);
   }
 
-  withRehypeDopplerHookMigrator(address: Address): this {
-    return this.overrideModule('rehypeDopplerHookMigrator', address);
-  }
-
   withNoOpMigrator(address: Address): this {
     return this.overrideModule('noOpMigrator', address);
   }

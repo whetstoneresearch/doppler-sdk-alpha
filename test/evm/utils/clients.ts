@@ -26,26 +26,22 @@ import {
   createWalletClient,
   createTestClient,
   http,
-} from 'viem'
-import { arbitrum, base, baseSepolia, mainnet, sepolia } from 'viem/chains'
-import { privateKeyToAccount } from 'viem/accounts'
-import { createRateLimitedClient } from './rpc'
-import { CHAIN_IDS } from '../../../src/evm'
-import { loadTestEnv } from './env'
-import {
-  ANVIL_ACCOUNTS,
-  getAnvilManager,
-  getAnvilPort,
-} from './anvil'
-import { getTestMode, type TestMode } from './testHelpers'
+} from 'viem';
+import { arbitrum, base, baseSepolia, mainnet } from 'viem/chains';
+import { privateKeyToAccount } from 'viem/accounts';
+import { createRateLimitedClient } from './rpc';
+import { CHAIN_IDS } from '../../../src/evm';
+import { loadTestEnv } from './env';
+import { ANVIL_ACCOUNTS, getAnvilManager, getAnvilPort } from './anvil';
+import { getTestMode, type TestMode } from './testHelpers';
 
-loadTestEnv()
+loadTestEnv();
 
 /** Default retry configuration for test clients */
 const DEFAULT_TEST_CLIENT_CONFIG = {
   retryCount: 5,
   retryDelay: 2000,
-}
+};
 
 /** Monad Mainnet chain definition (not in viem/chains yet) */
 export const monadMainnet = defineChain({
@@ -61,7 +57,7 @@ export const monadMainnet = defineChain({
       http: [],
     },
   },
-})
+});
 
 export const robinhoodChain = defineChain({
   id: CHAIN_IDS.ROBINHOOD,
@@ -82,14 +78,14 @@ export const robinhoodChain = defineChain({
       url: 'https://robinhoodchain.blockscout.com',
     },
   },
-})
+});
 
 /** Chain configuration for tests */
 interface ChainTestConfig {
-  chain: Chain
-  envVar?: string
+  chain: Chain;
+  envVar?: string;
   /** Optional Alchemy network name for fallback */
-  alchemyNetwork?: string
+  alchemyNetwork?: string;
 }
 
 const CHAIN_CONFIG: Record<number, ChainTestConfig> = {
@@ -97,11 +93,6 @@ const CHAIN_CONFIG: Record<number, ChainTestConfig> = {
     chain: mainnet,
     envVar: 'ETH_MAINNET_RPC_URL',
     alchemyNetwork: 'eth-mainnet',
-  },
-  [CHAIN_IDS.ETH_SEPOLIA]: {
-    chain: sepolia,
-    envVar: 'ETH_SEPOLIA_RPC_URL',
-    alchemyNetwork: 'eth-sepolia',
   },
   [CHAIN_IDS.ARBITRUM]: {
     chain: arbitrum,
@@ -126,7 +117,7 @@ const CHAIN_CONFIG: Record<number, ChainTestConfig> = {
     chain: monadMainnet,
     alchemyNetwork: 'monad-mainnet',
   },
-}
+};
 
 /**
  * Get the RPC URL for a chain
@@ -134,25 +125,25 @@ const CHAIN_CONFIG: Record<number, ChainTestConfig> = {
  */
 function getRpcUrl(config: ChainTestConfig): string | undefined {
   // 1. Check environment variable
-  const envUrl = config.envVar ? process.env[config.envVar] : undefined
-  if (envUrl) return envUrl
+  const envUrl = config.envVar ? process.env[config.envVar] : undefined;
+  if (envUrl) return envUrl;
 
   // 2. Try Alchemy fallback
-  const alchemyKey = process.env.ALCHEMY_API_KEY
+  const alchemyKey = process.env.ALCHEMY_API_KEY;
   if (alchemyKey && config.alchemyNetwork) {
-    return `https://${config.alchemyNetwork}.g.alchemy.com/v2/${alchemyKey}`
+    return `https://${config.alchemyNetwork}.g.alchemy.com/v2/${alchemyKey}`;
   }
 
   // 3. Fall back to default viem RPC URL
-  const defaultRpc = config.chain.rpcUrls.default.http[0]
-  if (defaultRpc) return defaultRpc
+  const defaultRpc = config.chain.rpcUrls.default.http[0];
+  if (defaultRpc) return defaultRpc;
 
-  return undefined
+  return undefined;
 }
 
 /**
  * Get a rate-limited test client for the specified chain
- * 
+ *
  * @param chainId - The chain ID to get a client for
  * @param options - Optional override for retry configuration
  * @returns A rate-limited PublicClient
@@ -160,34 +151,33 @@ function getRpcUrl(config: ChainTestConfig): string | undefined {
  */
 export function getTestClient(
   chainId: number,
-  options: { retryCount?: number; retryDelay?: number } = {}
+  options: { retryCount?: number; retryDelay?: number } = {},
 ): PublicClient {
-  const config = CHAIN_CONFIG[chainId]
+  const config = CHAIN_CONFIG[chainId];
   if (!config) {
     throw new Error(
       `No test client configuration for chain ${chainId}. ` +
-      `Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`
-    )
+        `Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`,
+    );
   }
 
-  const rpcUrl = getRpcUrl(config)
+  const rpcUrl = getRpcUrl(config);
   if (!rpcUrl) {
     const requirements = [
       config.envVar ? `Set ${config.envVar} environment variable` : undefined,
       config.alchemyNetwork
         ? `ALCHEMY_API_KEY for ${config.alchemyNetwork}`
         : undefined,
-    ].filter(Boolean)
+    ].filter(Boolean);
     throw new Error(
-      `No RPC URL available for chain ${chainId}. ` +
-        requirements.join(' or '),
-    )
+      `No RPC URL available for chain ${chainId}. ` + requirements.join(' or '),
+    );
   }
 
   return createRateLimitedClient(config.chain, rpcUrl, {
     ...DEFAULT_TEST_CLIENT_CONFIG,
     ...options,
-  })
+  });
 }
 
 /**
@@ -195,9 +185,9 @@ export function getTestClient(
  * Useful for conditionally skipping tests
  */
 export function hasRpcUrl(chainId: number): boolean {
-  const config = CHAIN_CONFIG[chainId]
-  if (!config) return false
-  return getRpcUrl(config) !== undefined
+  const config = CHAIN_CONFIG[chainId];
+  if (!config) return false;
+  return getRpcUrl(config) !== undefined;
 }
 
 /**
@@ -205,35 +195,35 @@ export function hasRpcUrl(chainId: number): boolean {
  * Useful for skip messages
  */
 export function getRpcEnvVar(chainId: number): string | undefined {
-  return CHAIN_CONFIG[chainId]?.envVar
+  return CHAIN_CONFIG[chainId]?.envVar;
 }
 
 // Convenience exports for commonly used chains
-export const getMainnetClient = () => getTestClient(CHAIN_IDS.MAINNET)
-export const getEthSepoliaClient = () => getTestClient(CHAIN_IDS.ETH_SEPOLIA)
-export const getArbitrumClient = () => getTestClient(CHAIN_IDS.ARBITRUM)
-export const getBaseClient = () => getTestClient(CHAIN_IDS.BASE)
-export const getBaseSepoliaClient = () => getTestClient(CHAIN_IDS.BASE_SEPOLIA)
-export const getRobinhoodClient = () => getTestClient(CHAIN_IDS.ROBINHOOD)
-export const getMonadMainnetClient = () => getTestClient(CHAIN_IDS.MONAD_MAINNET)
+export const getMainnetClient = () => getTestClient(CHAIN_IDS.MAINNET);
+export const getArbitrumClient = () => getTestClient(CHAIN_IDS.ARBITRUM);
+export const getBaseClient = () => getTestClient(CHAIN_IDS.BASE);
+export const getBaseSepoliaClient = () => getTestClient(CHAIN_IDS.BASE_SEPOLIA);
+export const getRobinhoodClient = () => getTestClient(CHAIN_IDS.ROBINHOOD);
+export const getMonadMainnetClient = () =>
+  getTestClient(CHAIN_IDS.MONAD_MAINNET);
 
 /**
  * Get the Anvil RPC URL for a chain
  */
 function getAnvilRpcUrl(chainId: number): string {
-  const port = getAnvilPort(chainId)
-  return `http://127.0.0.1:${port}`
+  const port = getAnvilPort(chainId);
+  return `http://127.0.0.1:${port}`;
 }
 
 /**
  * Test clients bundle for fork testing
  */
 export interface ForkClients {
-  publicClient: PublicClient
-  walletClient: WalletClient
-  testClient: TestClient
-  account: Account
-  chain: Chain
+  publicClient: PublicClient;
+  walletClient: WalletClient;
+  testClient: TestClient;
+  account: Account;
+  chain: Chain;
 }
 
 /**
@@ -251,34 +241,37 @@ export function getForkClients(
   accountIndex: number = 0,
   options?: { timeout?: number },
 ): ForkClients {
-  const config = CHAIN_CONFIG[chainId]
+  const config = CHAIN_CONFIG[chainId];
   if (!config) {
     throw new Error(
       `No configuration for chain ${chainId}. ` +
-        `Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`
-    )
+        `Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`,
+    );
   }
 
-  const rpcUrl = getAnvilRpcUrl(chainId)
-  const account = privateKeyToAccount(ANVIL_ACCOUNTS[accountIndex].privateKey)
-  const transport = http(rpcUrl, options?.timeout ? { timeout: options.timeout } : undefined)
+  const rpcUrl = getAnvilRpcUrl(chainId);
+  const account = privateKeyToAccount(ANVIL_ACCOUNTS[accountIndex].privateKey);
+  const transport = http(
+    rpcUrl,
+    options?.timeout ? { timeout: options.timeout } : undefined,
+  );
 
   const publicClient = createPublicClient({
     chain: config.chain,
     transport,
-  })
+  });
 
   const walletClient = createWalletClient({
     chain: config.chain,
     transport,
     account,
-  })
+  });
 
   const testClient = createTestClient({
     chain: config.chain,
     transport,
     mode: 'anvil',
-  })
+  });
 
   return {
     publicClient,
@@ -286,7 +279,7 @@ export function getForkClients(
     testClient,
     account,
     chain: config.chain,
-  }
+  };
 }
 
 /**
@@ -294,11 +287,11 @@ export function getForkClients(
  */
 export interface TestClientsOptions {
   /** Which Anvil account to use (0-9, default: 0) - only used in fork mode */
-  accountIndex?: number
+  accountIndex?: number;
   /** Override the detected test mode */
-  mode?: TestMode
+  mode?: TestMode;
   /** Custom RPC URL override */
-  rpcUrl?: string
+  rpcUrl?: string;
 }
 
 /**
@@ -314,55 +307,54 @@ export interface TestClientsOptions {
  */
 export function getTestClients(
   chainId: number,
-  options: TestClientsOptions = {}
+  options: TestClientsOptions = {},
 ): {
-  publicClient: PublicClient
-  walletClient?: WalletClient
-  testClient?: TestClient
-  account?: Account
-  chain: Chain
-  mode: TestMode
+  publicClient: PublicClient;
+  walletClient?: WalletClient;
+  testClient?: TestClient;
+  account?: Account;
+  chain: Chain;
+  mode: TestMode;
 } {
-  const mode = options.mode ?? getTestMode()
-  const config = CHAIN_CONFIG[chainId]
+  const mode = options.mode ?? getTestMode();
+  const config = CHAIN_CONFIG[chainId];
 
   if (!config) {
     throw new Error(
       `No configuration for chain ${chainId}. ` +
-        `Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`
-    )
+        `Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`,
+    );
   }
 
   if (mode === 'fork') {
-    const forkClients = getForkClients(chainId, options.accountIndex ?? 0)
+    const forkClients = getForkClients(chainId, options.accountIndex ?? 0);
     return {
       ...forkClients,
       mode,
-    }
+    };
   }
 
   // Live or unit mode - use rate-limited client
-  const rpcUrl = options.rpcUrl ?? getRpcUrl(config)
+  const rpcUrl = options.rpcUrl ?? getRpcUrl(config);
   if (!rpcUrl) {
     const requirements = [
       config.envVar ? `Set ${config.envVar} environment variable` : undefined,
       config.alchemyNetwork
         ? `ALCHEMY_API_KEY for ${config.alchemyNetwork}`
         : undefined,
-    ].filter(Boolean)
+    ].filter(Boolean);
     throw new Error(
-      `No RPC URL available for chain ${chainId}. ` +
-        requirements.join(' or '),
-    )
+      `No RPC URL available for chain ${chainId}. ` + requirements.join(' or '),
+    );
   }
 
-  const publicClient = createRateLimitedClient(config.chain, rpcUrl)
+  const publicClient = createRateLimitedClient(config.chain, rpcUrl);
 
   return {
     publicClient,
     chain: config.chain,
     mode,
-  }
+  };
 }
 
 /**
@@ -375,11 +367,11 @@ export function getTestClients(
  */
 export async function startAnvilAndGetClients(
   chainId: number,
-  accountIndex: number = 0
+  accountIndex: number = 0,
 ): Promise<ForkClients> {
-  const manager = getAnvilManager()
-  await manager.start(chainId)
-  return getForkClients(chainId, accountIndex)
+  const manager = getAnvilManager();
+  await manager.start(chainId);
+  return getForkClients(chainId, accountIndex);
 }
 
 /**
@@ -390,21 +382,21 @@ export async function startAnvilAndGetClients(
  */
 export function getAnvilWalletClient(
   chainId: number,
-  accountIndex: number = 0
+  accountIndex: number = 0,
 ): WalletClient {
-  const config = CHAIN_CONFIG[chainId]
+  const config = CHAIN_CONFIG[chainId];
   if (!config) {
-    throw new Error(`No configuration for chain ${chainId}`)
+    throw new Error(`No configuration for chain ${chainId}`);
   }
 
-  const rpcUrl = getAnvilRpcUrl(chainId)
-  const account = privateKeyToAccount(ANVIL_ACCOUNTS[accountIndex].privateKey)
+  const rpcUrl = getAnvilRpcUrl(chainId);
+  const account = privateKeyToAccount(ANVIL_ACCOUNTS[accountIndex].privateKey);
 
   return createWalletClient({
     chain: config.chain,
     transport: http(rpcUrl),
     account,
-  })
+  });
 }
 
 /**
@@ -413,19 +405,19 @@ export function getAnvilWalletClient(
  * @param chainId - The chain ID
  */
 export function getAnvilTestClient(chainId: number): TestClient {
-  const config = CHAIN_CONFIG[chainId]
+  const config = CHAIN_CONFIG[chainId];
   if (!config) {
-    throw new Error(`No configuration for chain ${chainId}`)
+    throw new Error(`No configuration for chain ${chainId}`);
   }
 
-  const rpcUrl = getAnvilRpcUrl(chainId)
+  const rpcUrl = getAnvilRpcUrl(chainId);
 
   return createTestClient({
     chain: config.chain,
     transport: http(rpcUrl),
     mode: 'anvil',
-  })
+  });
 }
 
 // Re-export Anvil accounts for convenience
-export { ANVIL_ACCOUNTS } from './anvil'
+export { ANVIL_ACCOUNTS } from './anvil';

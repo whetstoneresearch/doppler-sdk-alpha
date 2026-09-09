@@ -73,8 +73,6 @@ export {
 } from './rehypeDopplerHookInitializer';
 export { encodeRehypeDopplerHookInitializerData } from './rehypeDopplerHookInitializerEncoding';
 
-export { encodeRehypeDopplerHookMigratorCalldata } from './dopplerHookMigrator';
-
 export {
   AirlockCreateReceiptError,
   parseAirlockCreateReceipt,

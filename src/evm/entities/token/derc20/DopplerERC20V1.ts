@@ -149,6 +149,18 @@ export class DopplerERC20V1 {
       args: [account, timepoint],
     });
   }
+  /**
+   * Get historical voting-unit supply at a token clock timepoint.
+   * Read CLOCK_MODE to determine whether a deployment uses timestamps or blocks.
+   */
+  async getPastTotalSupply(timepoint: bigint): Promise<bigint> {
+    return await this.rpc.readContract({
+      address: this.address,
+      abi: dopplerERC20V1Abi,
+      functionName: 'getPastTotalSupply',
+      args: [timepoint],
+    });
+  }
 
   async getVotesTotalSupply(): Promise<bigint> {
     return await this.rpc.readContract({
@@ -256,6 +268,15 @@ export class DopplerERC20V1 {
       address: this.address,
       abi: dopplerERC20V1Abi,
       functionName: 'vestedTotalAmount',
+    });
+  }
+  /** Get a beneficiary's vesting allocation that has not been released. */
+  async getTotalUnreleasedOf(beneficiary: Address): Promise<bigint> {
+    return await this.rpc.readContract({
+      address: this.address,
+      abi: dopplerERC20V1Abi,
+      functionName: 'totalUnreleasedOf',
+      args: [beneficiary],
     });
   }
 

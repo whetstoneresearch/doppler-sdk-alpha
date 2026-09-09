@@ -1,4 +1,4 @@
-import type { Address, WalletClient } from 'viem';
+import type { Address, PublicClient, WalletClient } from 'viem';
 import type {
   BeneficiaryData,
   DopplerSDKConfig,
@@ -15,7 +15,6 @@ import {
   MulticurvePool,
   RehypeDopplerHookInitializer,
   RehypeDopplerHook,
-  RehypeDopplerHookMigrator,
   OpeningAuction,
   OpeningAuctionLifecycle,
   OpeningAuctionBidManager,
@@ -28,20 +27,26 @@ import {
   DopplerDN404,
   DopplerERC20V1,
 } from './entities/token';
-import { TopUpDistributor } from './entities/TopUpDistributor';
 import { Bundler } from './entities/Bundler';
+import { DopplerHookMigrator } from './entities/DopplerHookMigrator';
+import { StreamableFeesLockerV2 } from './entities/StreamableFeesLockerV2';
 import {
   StaticAuctionBuilder,
   DynamicAuctionBuilder,
   MulticurveBuilder,
   OpeningAuctionBuilder,
 } from './builders';
+import { airlockAbi } from './abis';
 import { ZERO_ADDRESS } from './constants';
 import {
   DEFAULT_AIRLOCK_BENEFICIARY_SHARES,
   getAirlockBeneficiary,
   getAirlockOwner as fetchAirlockOwner,
 } from './utils/airlock';
+import {
+  normalizeAirlockAssetData,
+  type AirlockAssetData,
+} from './entities/auction/contractResults';
 
 export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
   private publicClient: SupportedPublicClient;
@@ -49,7 +54,6 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
   public chainId: C;
   private _factory?: DopplerFactory<C>;
   private _quoter?: Quoter;
-  private _topUpDistributor?: TopUpDistributor;
   private _bundler?: Bundler;
 
   constructor(config: DopplerSDKConfig) {
@@ -80,40 +84,6 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
       this._quoter = new Quoter(this.publicClient, this.chainId);
     }
     return this._quoter;
-  }
-
-  /**
-   * Get the configured TopUpDistributor instance for split-migrator top-ups.
-   */
-  get topUpDistributor(): TopUpDistributor {
-    if (!this._topUpDistributor) {
-      this._topUpDistributor = this.getTopUpDistributor();
-    }
-    return this._topUpDistributor;
-  }
-
-  /**
-   * Get a TopUpDistributor instance using the chain default or an explicit override.
-   */
-  getTopUpDistributor(topUpDistributorAddress?: Address): TopUpDistributor {
-    const resolvedTopUpDistributor =
-      topUpDistributorAddress ?? getAddresses(this.chainId).topUpDistributor;
-
-    if (
-      !resolvedTopUpDistributor ||
-      resolvedTopUpDistributor === ZERO_ADDRESS
-    ) {
-      throw new Error(
-        'TopUpDistributor address is not configured on this chain. ' +
-          'Pass topUpDistributorAddress to getTopUpDistributor().',
-      );
-    }
-
-    return new TopUpDistributor(
-      this.publicClient,
-      this.walletClient,
-      resolvedTopUpDistributor,
-    );
   }
 
   /**
@@ -182,18 +152,47 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
     return this.getRehypeDopplerHookInitializer(hookAddress);
   }
 
-  /**
-   * Get a RehypeDopplerHookMigrator instance for interacting with migrator-side rehype hook state.
-   * @param hookAddress The address of the RehypeDopplerHookMigrator
-   */
-  async getRehypeDopplerHookMigrator(
-    hookAddress: Address,
-  ): Promise<RehypeDopplerHookMigrator> {
-    return new RehypeDopplerHookMigrator(
+  getDopplerHookMigrator(address?: Address): DopplerHookMigrator {
+    const resolvedAddress =
+      address ?? getAddresses(this.chainId).dopplerHookMigrator;
+    if (!resolvedAddress || resolvedAddress === ZERO_ADDRESS) {
+      throw new Error(
+        'DopplerHookMigrator address is not configured on this chain. Pass an address to getDopplerHookMigrator().',
+      );
+    }
+    return new DopplerHookMigrator(
       this.publicClient,
       this.walletClient,
-      hookAddress,
+      resolvedAddress,
     );
+  }
+
+  async getDopplerHookMigratorForAsset(
+    asset: Address,
+  ): Promise<DopplerHookMigrator> {
+    const assetData = await this.getAirlockAssetData(asset);
+    if (assetData.liquidityMigrator === ZERO_ADDRESS) {
+      throw new Error(`Asset ${asset} has no configured liquidity migrator`);
+    }
+    return this.getDopplerHookMigrator(assetData.liquidityMigrator);
+  }
+
+  getStreamableFeesLockerV2(address: Address): StreamableFeesLockerV2 {
+    if (address === ZERO_ADDRESS) {
+      throw new Error('StreamableFeesLockerV2 address must not be zero');
+    }
+    return new StreamableFeesLockerV2(
+      this.publicClient,
+      this.walletClient,
+      address,
+    );
+  }
+
+  async getStreamableFeesLockerForAsset(
+    asset: Address,
+  ): Promise<StreamableFeesLockerV2> {
+    const migrator = await this.getDopplerHookMigratorForAsset(asset);
+    return this.getStreamableFeesLockerV2(await migrator.getLockerAddress());
   }
 
   /**
@@ -289,10 +288,12 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
    * @param tokenAddress The address of the token created by the auction (called "asset" in contracts; V4 pools don't have addresses, so the token is used as the lookup key)
    */
   async getMulticurvePool(tokenAddress: Address): Promise<MulticurvePool> {
+    const { poolInitializer } = await this.getAirlockAssetData(tokenAddress);
     return new MulticurvePool(
       this.publicClient,
       this.walletClient,
       tokenAddress,
+      poolInitializer,
     );
   }
 
@@ -403,6 +404,15 @@ export class DopplerSDK<C extends SupportedChainId = SupportedChainId> {
    */
   async getAirlockOwner(): Promise<Address> {
     return fetchAirlockOwner(this.publicClient);
+  }
+  async getAirlockAssetData(asset: Address): Promise<AirlockAssetData> {
+    const result = await (this.publicClient as PublicClient).readContract({
+      address: getAddresses(this.chainId).airlock,
+      abi: airlockAbi,
+      functionName: 'getAssetData',
+      args: [asset],
+    });
+    return normalizeAirlockAssetData(result);
   }
 
   /**

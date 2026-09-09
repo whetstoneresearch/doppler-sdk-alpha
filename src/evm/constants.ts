@@ -93,8 +93,8 @@ export const DEFAULT_V3_START_TICK = 175000;
 export const DEFAULT_V3_END_TICK = 225000;
 export const DEFAULT_V3_NUM_POSITIONS = 15;
 export const DEFAULT_V3_FEE = 10000; // 1% fee tier
-export const DEFAULT_V3_INITIAL_VOTING_DELAY = 172800; // 2 days
-export const DEFAULT_V3_INITIAL_VOTING_PERIOD = 1209600; // 14 days
+export const DEFAULT_V3_INITIAL_VOTING_DELAY = SECONDS_PER_DAY; // 1 day
+export const DEFAULT_V3_INITIAL_VOTING_PERIOD = 7 * SECONDS_PER_DAY; // 7 days
 export const DEFAULT_V3_INITIAL_PROPOSAL_THRESHOLD = 0n;
 export const DEFAULT_V3_VESTING_DURATION = BigInt(SECONDS_PER_YEAR);
 export const DEFAULT_V3_INITIAL_SUPPLY = parseEther('1000000000'); // 1 billion tokens
@@ -104,8 +104,8 @@ export const DEFAULT_V3_PRE_MINT = parseEther('9000000'); // 9 million tokens (0
 export const DEFAULT_V3_MAX_SHARE_TO_BE_SOLD = parseEther('0.35'); // 35%
 
 // V4 Default parameters
-export const DEFAULT_V4_INITIAL_VOTING_DELAY = 7200; // 2 hours
-export const DEFAULT_V4_INITIAL_VOTING_PERIOD = 50400; // 14 hours
+export const DEFAULT_V4_INITIAL_VOTING_DELAY = SECONDS_PER_DAY; // 1 day
+export const DEFAULT_V4_INITIAL_VOTING_PERIOD = 7 * SECONDS_PER_DAY; // 7 days
 export const DEFAULT_V4_INITIAL_PROPOSAL_THRESHOLD = 0n;
 export const DEFAULT_V4_YEARLY_MINT_RATE = parseEther('0.02'); // 2% yearly mint rate
 

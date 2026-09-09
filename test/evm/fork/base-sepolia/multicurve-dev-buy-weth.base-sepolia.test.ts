@@ -7,6 +7,7 @@ import {
   derc20Abi,
   getAddresses,
   rehypeDopplerHookInitializerAbi,
+  computePoolId,
   weth9Abi,
 } from '../../../../src/evm';
 import {
@@ -19,6 +20,7 @@ import {
   isAnvilForkEnabled,
   mineToTimestamp,
 } from '../../utils';
+import { executeBuySwap } from '../utils';
 
 const chainId = CHAIN_IDS.BASE_SEPOLIA;
 const directSalt = `0x${'41'.repeat(32)}` as const;
@@ -180,9 +182,14 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
         durationSeconds: 0,
         feeRoutingMode: 0,
         feeDistributionInfo,
+        integratorFeeConfig: {
+          feeShare: 200_000,
+          automaticPayout: false,
+        },
         farTick: 200_000,
       })
       .withGovernance({ type: 'noOp' })
+      .withIntegrator(clients.account.address)
       .withMigration({ type: 'noOp' })
       .withUserAddress(clients.account.address)
       .withDopplerHookInitializer(addresses.dopplerHookInitializer!)
@@ -263,6 +270,98 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
         simulated.devBuy?.simulatedAmountOut,
       );
 
+      const pool = await (
+        await sdk.getMulticurvePool(result.tokenAddress)
+      ).getState();
+      await executeBuySwap({
+        addresses,
+        publicClient: clients.publicClient,
+        sdk,
+        walletClient: clients.walletClient,
+        poolKey: pool.poolKey,
+        account: clients.account,
+      });
+      const poolId = computePoolId(pool.poolKey);
+      const routing = await clients.publicClient.readContract({
+        address: rehypeHook,
+        abi: rehypeDopplerHookInitializerAbi,
+        functionName: 'getIntegratorRoutingConfig',
+        args: [poolId],
+      });
+      expect(routing[0].toLowerCase()).toBe(
+        clients.account.address.toLowerCase(),
+      );
+      expect(routing[3]).toBe(false);
+
+      const pending = await clients.publicClient.readContract({
+        address: rehypeHook,
+        abi: rehypeDopplerHookInitializerAbi,
+        functionName: 'getPendingIntegratorFees',
+        args: [poolId],
+      });
+      const claimableBeforeCollection = await clients.publicClient.readContract(
+        {
+          address: rehypeHook,
+          abi: rehypeDopplerHookInitializerAbi,
+          functionName: 'getClaimableIntegratorFees',
+          args: [poolId],
+        },
+      );
+      expect(
+        pending[0] > 0n ||
+          pending[1] > 0n ||
+          claimableBeforeCollection[0] > 0n ||
+          claimableBeforeCollection[1] > 0n,
+      ).toBe(true);
+
+      const collectHash = await clients.walletClient.writeContract({
+        address: rehypeHook,
+        abi: rehypeDopplerHookInitializerAbi,
+        functionName: 'collectFees',
+        args: [result.tokenAddress],
+        chain: clients.walletClient.chain,
+        account: clients.account,
+      });
+      await clients.publicClient.waitForTransactionReceipt({
+        hash: collectHash,
+      });
+      const claimable = await clients.publicClient.readContract({
+        address: rehypeHook,
+        abi: rehypeDopplerHookInitializerAbi,
+        functionName: 'getClaimableIntegratorFees',
+        args: [poolId],
+      });
+      expect(claimable[0] > 0n || claimable[1] > 0n).toBe(true);
+      const claimedAssetFees =
+        pool.poolKey.currency0.toLowerCase() ===
+        result.tokenAddress.toLowerCase()
+          ? claimable[0]
+          : claimable[1];
+      const assetBalanceBeforeIntegratorClaim = await balanceOf(
+        result.tokenAddress,
+        clients.account.address,
+      );
+
+      const integratorClaimHash = await clients.walletClient.writeContract({
+        address: rehypeHook,
+        abi: rehypeDopplerHookInitializerAbi,
+        functionName: 'claimIntegratorFees',
+        args: [result.tokenAddress, clients.account.address],
+        chain: clients.walletClient.chain,
+        account: clients.account,
+      });
+      await clients.publicClient.waitForTransactionReceipt({
+        hash: integratorClaimHash,
+      });
+      expect(
+        await clients.publicClient.readContract({
+          address: rehypeHook,
+          abi: rehypeDopplerHookInitializerAbi,
+          functionName: 'getClaimableIntegratorFees',
+          args: [poolId],
+        }),
+      ).toEqual([0n, 0n]);
+
       const bundler = sdk.getBundler(result.devBuy!.bundler);
       const vesting = await bundler.getVesting(result.tokenAddress);
       expect(vesting).toMatchObject({
@@ -278,7 +377,7 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
       );
       expect(
         await balanceOf(result.tokenAddress, clients.account.address),
-      ).toBe(0n);
+      ).toBe(assetBalanceBeforeIntegratorClaim + claimedAssetFees);
 
       await mineToTimestamp(
         clients.testClient,
@@ -293,7 +392,11 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
 
       expect(
         await balanceOf(result.tokenAddress, clients.account.address),
-      ).toBe(result.devBuy!.amountOut);
+      ).toBe(
+        assetBalanceBeforeIntegratorClaim +
+          claimedAssetFees +
+          result.devBuy!.amountOut,
+      );
       expect(await balanceOf(result.tokenAddress, result.devBuy!.bundler)).toBe(
         0n,
       );

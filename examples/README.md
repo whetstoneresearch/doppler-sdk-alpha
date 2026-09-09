@@ -60,11 +60,7 @@ Simulate, and optionally broadcast, a Base mainnet initializer-side Rehype multi
 
 Focus on `graduationMarketCap` behavior for a Rehype multicurve pool on Base Sepolia. Use this when you want to see how market-cap thresholds must fit inside the configured curve range, how the `$50M+` tail keeps the curve open above the finite target range, and how the SDK converts the graduation target into the hook's `farTick`.
 
-### 7f. [Dynamic Auction Rehype Migrator](./rehype/dynamic-auction-rehype-migrator.ts)
-
-Create a dynamic auction that configures `RehypeDopplerHookMigrator` on the Doppler Hook migrator path instead of the initializer-side multicurve path. This is for launches that graduate into a Doppler Hook migration, with Rehype fee routing configured on the migrated pool rather than on a live multicurve initializer.
-
-### 7g. [Multicurve Rehype Fee Distribution Controller](./rehype/multicurve-fee-distribution-controller-base-sepolia.ts)
+### 7f. [Multicurve Rehype Fee Distribution Controller](./rehype/multicurve-fee-distribution-controller-base-sepolia.ts)
 
 Create a Base Sepolia Rehype multicurve pool with a fee-beneficiary matrix and a separately configured fee distribution controller. The example updates the matrix after launch, executes a V4 swap, verifies the stored distribution, and claims the resulting beneficiary fees.
 
@@ -132,37 +128,15 @@ Full production-style decay multicurve launch with integrator, beneficiaries, mu
 
 Deploy a decay multicurve pool on Base mainnet, then simulate buys across fee-decay checkpoints using the Pure Markets swap flow. Requires `CONFIRM_BASE_MAINNET=true`.
 
-### 18. [Scheduled Multicurve Launch (Ethereum Sepolia)](./multicurve-scheduled-eth-sepolia.ts)
-
-Create and simulate a multicurve launch on Ethereum Sepolia using no-op governance. Launches immediately tradable by default; set `ETH_SEPOLIA_START_DELAY_SECONDS>0` for scheduled mode. Broadcasts by default; set `EXECUTE_ETH_SEPOLIA=false` for simulation-only mode.
-
-### 19. [Opening Auction Lifecycle](./opening-auction-lifecycle.ts)
+### 18. [Opening Auction Lifecycle](./opening-auction-lifecycle.ts)
 
 Demonstrates the full opening auction lifecycle: creating an opening auction, monitoring its phase transitions, and settling the auction once it closes.
 
-### 20. [Opening Auction Bidding](./opening-auction-bidding.ts)
+### 19. [Opening Auction Bidding](./opening-auction-bidding.ts)
 
 Demonstrates bid placement, withdrawal, and management in an opening auction. Covers placing bids at specific tick ranges, checking bid status, and withdrawing or modifying bids.
 
-### 21. [Swap + Transfer (Ethereum Sepolia)](./multicurve-swap-transfer-eth-sepolia.ts)
-
-Use an existing Ethereum Sepolia multicurve token to quote and execute a buy swap through Universal Router, then optionally transfer purchased tokens to another address.
-
-Quick run:
-
-```bash
-export PRIVATE_KEY=0x...
-export ALCHEMY_API_KEY=...
-export TOKEN_ADDRESS=0x... # launched multicurve token
-export TRANSFER_TO=0x...   # optional
-pnpm tsx examples/multicurve-swap-transfer-eth-sepolia.ts
-```
-
-### 22. [TopUpDistributor Top-ups](./top-up-distributor.ts)
-
-Build ETH and ERC20 top-up calldata by default, simulate with explicit asset and amount env vars, and only broadcast with `EXECUTE_TOP_UP=true` plus `CONFIRM_TOP_UP=true`. ERC20 top-ups require a prior approval for the TopUpDistributor.
-
-### 23. [Split Migrator + Launchpad Governance](./split-migrator-launchpad-governance.ts)
+### 20. [Split Migrator + Launchpad Governance](./split-migrator-launchpad-governance.ts)
 
 Minimal builder examples for `uniswapV2Split` / `uniswapV4Split` migrations and launchpad governance.
 

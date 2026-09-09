@@ -8,20 +8,6 @@ export {
   feesManagerAbi,
 } from './multicurve/feeClaimsAbi';
 
-export const topUpDistributorAbi = [
-  {
-    type: 'function',
-    name: 'topUp',
-    inputs: [
-      { name: 'asset', type: 'address', internalType: 'address' },
-      { name: 'numeraire', type: 'address', internalType: 'address' },
-      { name: 'amount', type: 'uint256', internalType: 'uint256' },
-    ],
-    outputs: [],
-    stateMutability: 'payable',
-  },
-] as const;
-
 export const airlockAbi = [
   {
     type: 'constructor',
@@ -1221,6 +1207,25 @@ export const dopplerERC20V1Abi = [
   },
   {
     type: 'function',
+    name: 'getPastTotalSupply',
+    inputs: [
+      {
+        name: 'timepoint',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     name: 'getPastVotesTotalSupply',
     inputs: [
       {
@@ -1685,6 +1690,25 @@ export const dopplerERC20V1Abi = [
   {
     type: 'function',
     name: 'totalAllocatedOf',
+    inputs: [
+      {
+        name: 'beneficiary',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'totalUnreleasedOf',
     inputs: [
       {
         name: 'beneficiary',
@@ -4092,26 +4116,6 @@ export const streamableFeesLockerAbi = [
       { name: 'startDate', type: 'uint32', internalType: 'uint32' },
       { name: 'lockDuration', type: 'uint32', internalType: 'uint32' },
       { name: 'isUnlocked', type: 'bool', internalType: 'bool' },
-      {
-        name: 'beneficiaries',
-        type: 'tuple[]',
-        internalType: 'struct BeneficiaryData[]',
-        components: [
-          { name: 'beneficiary', type: 'address', internalType: 'address' },
-          { name: 'shares', type: 'uint96', internalType: 'uint96' },
-        ],
-      },
-      {
-        name: 'positions',
-        type: 'tuple[]',
-        internalType: 'struct Position[]',
-        components: [
-          { name: 'tickLower', type: 'int24', internalType: 'int24' },
-          { name: 'tickUpper', type: 'int24', internalType: 'int24' },
-          { name: 'liquidity', type: 'uint128', internalType: 'uint128' },
-          { name: 'salt', type: 'bytes32', internalType: 'bytes32' },
-        ],
-      },
     ],
     stateMutability: 'view',
   },
@@ -4127,10 +4131,154 @@ export const streamableFeesLockerV2Abi = [
   {
     type: 'function',
     name: 'approvedMigrators',
+    inputs: [{ name: 'migrator', type: 'address', internalType: 'address' }],
+    outputs: [{ name: 'approved', type: 'bool', internalType: 'bool' }],
     stateMutability: 'view',
-    inputs: [{ name: 'migrator', type: 'address' }],
-    outputs: [{ name: 'approved', type: 'bool' }],
   },
+  {
+    type: 'function',
+    name: 'collectFees',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [
+      { name: 'fees0', type: 'uint128', internalType: 'uint128' },
+      { name: 'fees1', type: 'uint128', internalType: 'uint128' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getCumulatedFees0',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [
+      { name: 'cumulatedFees0', type: 'uint256', internalType: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getCumulatedFees1',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [
+      { name: 'cumulatedFees1', type: 'uint256', internalType: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getPoolKey',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [
+      { name: 'currency0', type: 'address', internalType: 'Currency' },
+      { name: 'currency1', type: 'address', internalType: 'Currency' },
+      { name: 'fee', type: 'uint24', internalType: 'uint24' },
+      { name: 'tickSpacing', type: 'int24', internalType: 'int24' },
+      { name: 'hooks', type: 'address', internalType: 'contract IHooks' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getShares',
+    inputs: [
+      { name: 'poolId', type: 'bytes32', internalType: 'PoolId' },
+      { name: 'beneficiary', type: 'address', internalType: 'address' },
+    ],
+    outputs: [{ name: 'shares', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'streams',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [
+      {
+        name: 'poolKey',
+        type: 'tuple',
+        internalType: 'struct PoolKey',
+        components: [
+          { name: 'currency0', type: 'address', internalType: 'Currency' },
+          { name: 'currency1', type: 'address', internalType: 'Currency' },
+          { name: 'fee', type: 'uint24', internalType: 'uint24' },
+          { name: 'tickSpacing', type: 'int24', internalType: 'int24' },
+          {
+            name: 'hooks',
+            type: 'address',
+            internalType: 'contract IHooks',
+          },
+        ],
+      },
+      { name: 'recipient', type: 'address', internalType: 'address' },
+      { name: 'startDate', type: 'uint32', internalType: 'uint32' },
+      { name: 'lockDuration', type: 'uint32', internalType: 'uint32' },
+      { name: 'isUnlocked', type: 'bool', internalType: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'unlock',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'updateBeneficiary',
+    inputs: [
+      { name: 'poolId', type: 'bytes32', internalType: 'PoolId' },
+      { name: 'newBeneficiary', type: 'address', internalType: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    name: 'Collect',
+    inputs: [
+      {
+        name: 'poolId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'PoolId',
+      },
+      {
+        name: 'fees0',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+      {
+        name: 'fees1',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'Unlock',
+    inputs: [
+      {
+        name: 'poolId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'PoolId',
+      },
+      {
+        name: 'recipient',
+        type: 'address',
+        indexed: false,
+        internalType: 'address',
+      },
+    ],
+    anonymous: false,
+  },
+  { type: 'error', name: 'CallerNotRecipient', inputs: [] },
+  { type: 'error', name: 'LockNotExpired', inputs: [] },
+  { type: 'error', name: 'StreamAlreadyUnlocked', inputs: [] },
+  { type: 'error', name: 'StreamNotFound', inputs: [] },
 ] as const;
 
 export const v4MulticurveMigratorAbi = [
@@ -4759,6 +4907,66 @@ export const rehypeDopplerHookInitializerAbi = [
   },
   {
     type: 'function',
+    name: 'getIntegratorFeeShare',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [{ name: '', type: 'uint24', internalType: 'uint24' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getIntegratorRoutingConfig',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [
+      { name: 'integrator', type: 'address', internalType: 'address' },
+      {
+        name: 'assetFeesToNumeraireRatio',
+        type: 'uint32',
+        internalType: 'uint32',
+      },
+      {
+        name: 'numeraireFeesToAssetRatio',
+        type: 'uint32',
+        internalType: 'uint32',
+      },
+      { name: 'automaticPayout', type: 'bool', internalType: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getPendingIntegratorFees',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [
+      { name: 'fees0', type: 'uint128', internalType: 'uint128' },
+      { name: 'fees1', type: 'uint128', internalType: 'uint128' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getClaimableIntegratorFees',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [
+      { name: 'fees0', type: 'uint128', internalType: 'uint128' },
+      { name: 'fees1', type: 'uint128', internalType: 'uint128' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'claimIntegratorFees',
+    inputs: [
+      { name: 'asset', type: 'address', internalType: 'address' },
+      { name: 'to', type: 'address', internalType: 'address' },
+    ],
+    outputs: [
+      { name: 'fees0', type: 'uint128', internalType: 'uint128' },
+      { name: 'fees1', type: 'uint128', internalType: 'uint128' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'getHookFees',
     inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
     outputs: [
@@ -4933,6 +5141,170 @@ export const rehypeDopplerHookInitializerAbi = [
     anonymous: false,
   },
   {
+    type: 'event',
+    name: 'IntegratorAutomaticPayoutSet',
+    inputs: [
+      {
+        name: 'poolId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'PoolId',
+      },
+      {
+        name: 'automaticPayout',
+        type: 'bool',
+        indexed: false,
+        internalType: 'bool',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'IntegratorConversionRatiosSet',
+    inputs: [
+      {
+        name: 'poolId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'PoolId',
+      },
+      {
+        name: 'assetFeesToNumeraireRatio',
+        type: 'uint32',
+        indexed: false,
+        internalType: 'uint32',
+      },
+      {
+        name: 'numeraireFeesToAssetRatio',
+        type: 'uint32',
+        indexed: false,
+        internalType: 'uint32',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'IntegratorFeeShareSet',
+    inputs: [
+      {
+        name: 'poolId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'PoolId',
+      },
+      {
+        name: 'feeShare',
+        type: 'uint24',
+        indexed: false,
+        internalType: 'uint24',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'IntegratorFeesClaimed',
+    inputs: [
+      {
+        name: 'poolId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'PoolId',
+      },
+      {
+        name: 'integrator',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'to',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'fees0',
+        type: 'uint128',
+        indexed: false,
+        internalType: 'uint128',
+      },
+      {
+        name: 'fees1',
+        type: 'uint128',
+        indexed: false,
+        internalType: 'uint128',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'IntegratorSet',
+    inputs: [
+      {
+        name: 'poolId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'PoolId',
+      },
+      {
+        name: 'oldIntegrator',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'newIntegrator',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'function',
+    name: 'setIntegratorConversionRatios',
+    inputs: [
+      { name: 'poolId', type: 'bytes32', internalType: 'PoolId' },
+      {
+        name: 'assetFeesToNumeraireRatio',
+        type: 'uint32',
+        internalType: 'uint32',
+      },
+      {
+        name: 'numeraireFeesToAssetRatio',
+        type: 'uint32',
+        internalType: 'uint32',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'setIntegratorAutomaticPayout',
+    inputs: [
+      { name: 'poolId', type: 'bytes32', internalType: 'PoolId' },
+      { name: 'automaticPayout', type: 'bool', internalType: 'bool' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'setIntegrator',
+    inputs: [
+      { name: 'poolId', type: 'bytes32', internalType: 'PoolId' },
+      { name: 'newIntegrator', type: 'address', internalType: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
     type: 'function',
     name: 'setFeeDistribution',
     inputs: [
@@ -4977,6 +5349,10 @@ export const rehypeDopplerHookInitializerAbi = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
+  { type: 'error', name: 'InvalidIntegrator', inputs: [] },
+  { type: 'error', name: 'InvalidIntegratorClaimDestination', inputs: [] },
+  { type: 'error', name: 'InvalidIntegratorConversionRatio', inputs: [] },
+  { type: 'error', name: 'SenderNotIntegrator', inputs: [] },
   { type: 'error', name: 'FeeBeneficiariesNotConfigured', inputs: [] },
   {
     type: 'error',
@@ -5031,184 +5407,173 @@ export const rehypeDopplerHookInitializerAbi = [
 /** @deprecated Use rehypeDopplerHookInitializerAbi instead. */
 export const rehypeDopplerHookAbi = rehypeDopplerHookInitializerAbi;
 
-export const rehypeDopplerHookMigratorAbi = [
+export const dopplerHookMigratorAbi = [
   {
     type: 'function',
-    name: 'MIGRATOR',
-    inputs: [],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'claimAirlockOwnerFees',
-    inputs: [{ name: 'asset', type: 'address', internalType: 'address' }],
-    outputs: [
-      { name: 'fees0', type: 'uint128', internalType: 'uint128' },
-      { name: 'fees1', type: 'uint128', internalType: 'uint128' },
-    ],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'collectFees',
-    inputs: [{ name: 'asset', type: 'address', internalType: 'address' }],
-    outputs: [{ name: 'fees', type: 'int256', internalType: 'BalanceDelta' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'getFeeDistributionInfo',
-    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
-    outputs: [
-      {
-        name: 'assetFeesToAssetBuybackWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'assetFeesToNumeraireBuybackWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'assetFeesToBeneficiaryWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      { name: 'assetFeesToLpWad', type: 'uint256', internalType: 'uint256' },
-      {
-        name: 'numeraireFeesToAssetBuybackWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'numeraireFeesToNumeraireBuybackWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'numeraireFeesToBeneficiaryWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'numeraireFeesToLpWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'getFeeRoutingMode',
-    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
-    outputs: [{ name: '', type: 'uint8', internalType: 'enum FeeRoutingMode' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'getHookFees',
-    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
-    outputs: [
-      { name: 'fees0', type: 'uint128', internalType: 'uint128' },
-      { name: 'fees1', type: 'uint128', internalType: 'uint128' },
-      { name: 'beneficiaryFees0', type: 'uint128', internalType: 'uint128' },
-      { name: 'beneficiaryFees1', type: 'uint128', internalType: 'uint128' },
-      { name: 'airlockOwnerFees0', type: 'uint128', internalType: 'uint128' },
-      { name: 'airlockOwnerFees1', type: 'uint128', internalType: 'uint128' },
-      { name: 'customFee', type: 'uint24', internalType: 'uint24' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'getPoolInfo',
-    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
-    outputs: [
-      { name: 'asset', type: 'address', internalType: 'address' },
-      { name: 'numeraire', type: 'address', internalType: 'address' },
-      { name: 'buybackDst', type: 'address', internalType: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'getPosition',
-    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
-    outputs: [
-      { name: 'tickLower', type: 'int24', internalType: 'int24' },
-      { name: 'tickUpper', type: 'int24', internalType: 'int24' },
-      { name: 'liquidity', type: 'uint128', internalType: 'uint128' },
-      { name: 'salt', type: 'bytes32', internalType: 'bytes32' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'poolManager',
-    inputs: [],
-    outputs: [
-      { name: '', type: 'address', internalType: 'contract IPoolManager' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'quoter',
-    inputs: [],
-    outputs: [{ name: '', type: 'address', internalType: 'contract Quoter' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'setFeeDistribution',
+    name: 'claimMigrationRefund',
     inputs: [
       { name: 'poolId', type: 'bytes32', internalType: 'PoolId' },
-      {
-        name: 'assetFeesToAssetBuybackWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'assetFeesToNumeraireBuybackWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'assetFeesToBeneficiaryWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      { name: 'assetFeesToLpWad', type: 'uint256', internalType: 'uint256' },
-      {
-        name: 'numeraireFeesToAssetBuybackWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'numeraireFeesToNumeraireBuybackWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'numeraireFeesToBeneficiaryWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'numeraireFeesToLpWad',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
+      { name: 'to', type: 'address', internalType: 'address' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
   },
-  { type: 'error', name: 'FeeDistributionMustAddUpToWAD', inputs: [] },
-  { type: 'error', name: 'SenderNotAirlockOwner', inputs: [] },
-  { type: 'error', name: 'SenderNotAuthorized', inputs: [] },
+  {
+    type: 'function',
+    name: 'getAssetData',
+    inputs: [
+      { name: 'token0', type: 'address', internalType: 'address' },
+      { name: 'token1', type: 'address', internalType: 'address' },
+    ],
+    outputs: [
+      { name: 'isToken0', type: 'bool', internalType: 'bool' },
+      {
+        name: 'poolKey',
+        type: 'tuple',
+        internalType: 'struct PoolKey',
+        components: [
+          { name: 'currency0', type: 'address', internalType: 'Currency' },
+          { name: 'currency1', type: 'address', internalType: 'Currency' },
+          { name: 'fee', type: 'uint24', internalType: 'uint24' },
+          { name: 'tickSpacing', type: 'int24', internalType: 'int24' },
+          {
+            name: 'hooks',
+            type: 'address',
+            internalType: 'contract IHooks',
+          },
+        ],
+      },
+      { name: 'lockDuration', type: 'uint32', internalType: 'uint32' },
+      {
+        name: 'feeOrInitialDynamicFee',
+        type: 'uint24',
+        internalType: 'uint24',
+      },
+      { name: 'useDynamicFee', type: 'bool', internalType: 'bool' },
+      { name: 'dopplerHook', type: 'address', internalType: 'address' },
+      {
+        name: 'onInitializationCalldata',
+        type: 'bytes',
+        internalType: 'bytes',
+      },
+      { name: 'status', type: 'uint8', internalType: 'enum PoolStatus' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getMigrationRefund',
+    inputs: [{ name: 'poolId', type: 'bytes32', internalType: 'PoolId' }],
+    outputs: [
+      { name: 'recipient', type: 'address', internalType: 'address' },
+      { name: 'currency0', type: 'address', internalType: 'Currency' },
+      { name: 'currency1', type: 'address', internalType: 'Currency' },
+      { name: 'amount0', type: 'uint256', internalType: 'uint256' },
+      { name: 'amount1', type: 'uint256', internalType: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getPair',
+    inputs: [{ name: 'asset', type: 'address', internalType: 'address' }],
+    outputs: [
+      { name: 'token0', type: 'address', internalType: 'address' },
+      { name: 'token1', type: 'address', internalType: 'address' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getTotalClaimableMigrationRefund',
+    inputs: [{ name: 'currency', type: 'address', internalType: 'Currency' }],
+    outputs: [{ name: 'amount', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'locker',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'contract StreamableFeesLockerV2',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'event',
+    name: 'MigrationRefundClaimed',
+    inputs: [
+      {
+        name: 'poolId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'PoolId',
+      },
+      {
+        name: 'recipient',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'to',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'amount0',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+      {
+        name: 'amount1',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'MigrationRefundRecorded',
+    inputs: [
+      {
+        name: 'poolId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'PoolId',
+      },
+      {
+        name: 'recipient',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'amount0',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+      {
+        name: 'amount1',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+    ],
+    anonymous: false,
+  },
+  { type: 'error', name: 'CallerNotRefundRecipient', inputs: [] },
+  { type: 'error', name: 'InvalidRefundDestination', inputs: [] },
+  { type: 'error', name: 'NoMigrationRefund', inputs: [] },
 ] as const;
 
 // Export bytecodes for CREATE2 address calculation

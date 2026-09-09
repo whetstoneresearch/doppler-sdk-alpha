@@ -4,7 +4,6 @@ import {
   baseSepolia,
   ink,
   mainnet,
-  sepolia,
   unichain,
 } from 'viem/chains';
 import { CHAIN_IDS, type SupportedChainId } from './addresses';
@@ -14,7 +13,6 @@ import type { Address, Hash, Hex, WalletClient } from 'viem';
 
 export type SupportedChain =
   | typeof mainnet
-  | typeof sepolia
   | typeof arbitrum
   | typeof base
   | typeof baseSepolia
@@ -168,7 +166,6 @@ export type VestingConfig =
 // Chains where no-op governance is enabled
 export const NO_OP_ENABLED_CHAIN_IDS = [
   CHAIN_IDS.MAINNET,
-  CHAIN_IDS.ETH_SEPOLIA,
   CHAIN_IDS.ARBITRUM,
   CHAIN_IDS.BASE,
   CHAIN_IDS.BASE_SEPOLIA,
@@ -216,7 +213,9 @@ export function isLaunchpadEnabledChain(
 export type GovernanceDefault = { type: 'default' };
 export interface GovernanceCustom {
   type: 'custom';
+  /** Duration in token-clock units; seconds for timestamp-clock deployments. */
   initialVotingDelay: number;
+  /** Duration in token-clock units; seconds for timestamp-clock deployments. */
   initialVotingPeriod: number;
   initialProposalThreshold: bigint;
 }
@@ -286,39 +285,6 @@ export interface MulticurvePoolState {
 }
 
 // Migration configuration (discriminated union)
-export interface RehypeDopplerHookMigratorConfig {
-  // Optional hook address override. Defaults to chain rehypeDopplerHookMigrator.
-  hookAddress?: Address;
-  // Destination address for buyback tokens / beneficiary fee claims.
-  buybackDestination: Address;
-  // Custom swap fee in hundredths of a bip (1e6 = 100%).
-  customFee: number;
-  // Routing mode for buyback-designated fees. Defaults to DirectBuyback.
-  feeRoutingMode?:
-    | RehypeFeeRoutingMode
-    | 'directBuyback'
-    | 'routeToBeneficiaryFees';
-  // Current fee routing matrix API.
-  feeDistributionInfo?: RehypeFeeDistributionInfo;
-
-  /**
-   * @deprecated Use feeDistributionInfo.* fields instead.
-   * If feeDistributionInfo is omitted, legacy percentages are mirrored to both rows.
-   */
-  assetBuybackPercentWad?: bigint;
-  /**
-   * @deprecated Use feeDistributionInfo.* fields instead.
-   */
-  numeraireBuybackPercentWad?: bigint;
-  /**
-   * @deprecated Use feeDistributionInfo.* fields instead.
-   */
-  beneficiaryPercentWad?: bigint;
-  /**
-   * @deprecated Use feeDistributionInfo.* fields instead.
-   */
-  lpPercentWad?: bigint;
-}
 
 export interface DopplerHookMigratorConfig {
   type: 'dopplerHookMigrator';
@@ -337,8 +303,6 @@ export interface DopplerHookMigratorConfig {
     hookAddress: Address;
     onInitializationCalldata?: `0x${string}`;
   };
-  // Ergonomic helper for RehypeDopplerHookMigrator initialization.
-  rehype?: RehypeDopplerHookMigratorConfig;
   // Optional proceeds split paid out during migration.
   proceedsSplit?: {
     recipient: Address;
@@ -400,7 +364,7 @@ export interface UniswapV4SplitMigrationConfig {
 
 export type MigrationConfig =
   | UniswapV2MigrationConfig // Basic migration to a new Uniswap v2 pool
-  | UniswapV2SplitMigrationConfig // V2 migration with proceeds split + TopUpDistributor support
+  | UniswapV2SplitMigrationConfig // V2 migration with an optional proceeds split
   | UniswapV4MigrationConfig
   | UniswapV4SplitMigrationConfig
   | DopplerHookMigratorConfig // Dynamic-only: migration via DopplerHookMigrator
@@ -963,6 +927,30 @@ export interface RehypeFeeDistributionInfo {
   numeraireFeesToLpWad: bigint;
 }
 
+export interface RehypeIntegratorFeeConfig {
+  /**
+   * Rehype integrator address. Defaults to the launch's top-level integrator.
+   */
+  integrator?: Address;
+  /**
+   * Share of the gross Rehype hook fee, in millionths.
+   * Valid range: 1 through 750_000.
+   */
+  feeShare: number;
+  /**
+   * Portion of asset-denominated fees converted to numeraire.
+   * Denominator: 1_000_000_000. Defaults to 0.
+   */
+  assetFeesToNumeraireRatio?: number;
+  /**
+   * Portion of numeraire-denominated fees converted to asset.
+   * Denominator: 1_000_000_000. Defaults to 0.
+   */
+  numeraireFeesToAssetRatio?: number;
+  /** Whether processed fees are automatically paid to the integrator. */
+  automaticPayout?: boolean;
+}
+
 export enum RehypeFeeRoutingMode {
   DirectBuyback = 0,
   RouteToBeneficiaryFees = 1,
@@ -980,6 +968,7 @@ type RehypeDopplerHookInitializerCommonConfig = {
   durationSeconds?: number | bigint;
   startingTime?: number | bigint | Date;
   feeDistributionInfo?: RehypeFeeDistributionInfo;
+  integratorFeeConfig?: RehypeIntegratorFeeConfig;
 
   /**
    * @deprecated Use startFee/endFee instead. When provided alone, maps to startFee=endFee=customFee.
@@ -1288,6 +1277,5 @@ export interface ModuleAddressOverrides {
   v4Migrator?: Address;
   v4MigratorSplit?: Address;
   dopplerHookMigrator?: Address;
-  rehypeDopplerHookMigrator?: Address;
   noOpMigrator?: Address;
 }

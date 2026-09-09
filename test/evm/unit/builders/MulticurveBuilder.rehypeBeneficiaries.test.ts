@@ -21,6 +21,10 @@ const secondBeneficiary = getAddress(
   '0x2222222222222222222222222222222222222222',
 );
 
+const integrator = getAddress('0x7777777777777777777777777777777777777777');
+const rehypeIntegrator = getAddress(
+  '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+);
 type CommonConfig = {
   hookAddress: Address;
   startFee: number;
@@ -351,6 +355,132 @@ describe('MulticurveBuilder RehypeDopplerHookInitializer beneficiaries', () => {
         .withFeeDistributionController(firstBeneficiary),
     ).toThrow(
       'Rehype buybackDestination and withFeeDistributionController are mutually exclusive',
+    );
+  });
+
+  it('does not enable Rehype integrator fees for old configurations', () => {
+    const params = buildBaseBuilder()
+      .withIntegrator(integrator)
+      .withRehypeDopplerHookInitializer({
+        hookAddress,
+        buybackDestination,
+        startFee: 3_000,
+        feeDistributionInfo: feeDistributionInfo(),
+      })
+      .build();
+
+    if (params.initializer?.type !== 'rehype') {
+      throw new Error('Expected RehypeDopplerHookInitializer config');
+    }
+    expect(params.integrator).toBe(integrator);
+    expect(params.initializer.config.integratorFeeConfig).toBeUndefined();
+  });
+
+  it('inherits the Rehype integrator in either builder call order', () => {
+    const config: RehypeDopplerHookInitializerConfig = {
+      hookAddress,
+      buybackDestination,
+      startFee: 3_000,
+      feeDistributionInfo: feeDistributionInfo(),
+      integratorFeeConfig: { feeShare: 200_000 },
+    };
+
+    const integratorFirst = buildBaseBuilder()
+      .withIntegrator(integrator)
+      .withRehypeDopplerHookInitializer(config)
+      .build();
+    const rehypeFirst = buildBaseBuilder()
+      .withRehypeDopplerHookInitializer(config)
+      .withIntegrator(integrator)
+      .build();
+
+    if (
+      integratorFirst.initializer?.type !== 'rehype' ||
+      rehypeFirst.initializer?.type !== 'rehype'
+    ) {
+      throw new Error('Expected RehypeDopplerHookInitializer config');
+    }
+    expect(integratorFirst.initializer.config.integratorFeeConfig).toEqual({
+      integrator,
+      feeShare: 200_000,
+      assetFeesToNumeraireRatio: 0,
+      numeraireFeesToAssetRatio: 0,
+      automaticPayout: false,
+    });
+    expect(rehypeFirst.initializer.config.integratorFeeConfig).toEqual(
+      integratorFirst.initializer.config.integratorFeeConfig,
+    );
+  });
+
+  it('prefers an explicit Rehype integrator over withIntegrator', () => {
+    const params = buildBaseBuilder()
+      .withIntegrator(integrator)
+      .withRehypeDopplerHookInitializer({
+        hookAddress,
+        buybackDestination,
+        startFee: 3_000,
+        feeDistributionInfo: feeDistributionInfo(),
+        integratorFeeConfig: {
+          integrator: rehypeIntegrator,
+          feeShare: 750_000,
+          assetFeesToNumeraireRatio: 1_000_000_000,
+          numeraireFeesToAssetRatio: 1_000_000_000,
+          automaticPayout: true,
+        },
+      })
+      .build();
+
+    if (params.initializer?.type !== 'rehype') {
+      throw new Error('Expected RehypeDopplerHookInitializer config');
+    }
+    expect(params.integrator).toBe(integrator);
+    expect(params.initializer.config.integratorFeeConfig?.integrator).toBe(
+      rehypeIntegrator,
+    );
+  });
+
+  it.each([
+    [{ feeShare: 0 }, 'feeShare'],
+    [{ feeShare: 750_001 }, 'feeShare'],
+    [
+      { feeShare: 1, assetFeesToNumeraireRatio: 1_000_000_001 },
+      'assetFeesToNumeraireRatio',
+    ],
+    [
+      { feeShare: 1, numeraireFeesToAssetRatio: -1 },
+      'numeraireFeesToAssetRatio',
+    ],
+  ])(
+    'rejects invalid Rehype integrator config %#',
+    (integratorFeeConfig, error) => {
+      expect(() =>
+        buildBaseBuilder()
+          .withIntegrator(integrator)
+          .withRehypeDopplerHookInitializer({
+            hookAddress,
+            buybackDestination,
+            startFee: 3_000,
+            feeDistributionInfo: feeDistributionInfo(),
+            integratorFeeConfig,
+          })
+          .build(),
+      ).toThrow(error);
+    },
+  );
+
+  it('requires an address source for enabled Rehype integrator fees', () => {
+    expect(() =>
+      buildBaseBuilder()
+        .withRehypeDopplerHookInitializer({
+          hookAddress,
+          buybackDestination,
+          startFee: 3_000,
+          feeDistributionInfo: feeDistributionInfo(),
+          integratorFeeConfig: { feeShare: 1 },
+        })
+        .build(),
+    ).toThrow(
+      'Rehype integratorFeeConfig requires integrator or withIntegrator',
     );
   });
 });

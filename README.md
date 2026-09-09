@@ -459,8 +459,7 @@ const salt =
   '0x1111111111111111111111111111111111111111111111111111111111111111' satisfies Hex;
 
 const deterministicParams = { ...params, salt };
-const preview =
-  await sdk.factory.simulateCreateMulticurve(deterministicParams);
+const preview = await sdk.factory.simulateCreateMulticurve(deterministicParams);
 ```
 
 Persist and reuse the salt with otherwise identical inputs for a later
@@ -468,7 +467,6 @@ independent create operation. Builder users can call `.withSalt(salt)` before
 `.build()`. Omitting the salt, or clearing it with `.withSalt(undefined)`,
 preserves the generated-salt behavior. Explicit salts must be `0x` followed by
 exactly 64 hexadecimal characters.
-
 
 **Market Cap Presets (Low / Medium / High):**
 
@@ -984,7 +982,7 @@ For a runnable release-focused example covering legacy DERC20, DERC20 V2 schedul
 
 DopplerERC20V1 is the default token template when `type` is omitted. Set `type: 'dopplerERC20V1'` to make that choice explicit, or set `type: 'standard'` to use the legacy token path, where cliff/allocation vesting routes to the legacy DERC20 template. The SDK uses the configured `dopplerERC20V1Factory` by default; `withTokenFactory(address)` takes precedence but must point to a factory compatible with the selected token path and token data ABI. `controller` is optional and defaults to the zero address, so set it only if early balance-limit disable should be possible.
 
-When balance limiting is enabled on the default DopplerERC20V1 integration, the SDK encodes user exclusions plus determinable protocol recipients for the selected auction path into deployment-time `excludedFromBalanceLimit`, including initializers, hooks, PoolManager, migrators, known migration pools, no-op governance, launchpad governance multisigs, and standard GovernanceFactory timelocks for `default` or `custom` governance. Custom `withTokenFactory(address)` paths receive only the `excludedFromBalanceLimit` entries supplied in `tokenConfig`, so custom token factory users must provide any required deployment-time exclusions themselves. Custom `withGovernanceFactory(address)` paths skip standard-governance timelock auto-exclusion, so custom governance factory users must provide any required timelock exclusions themselves. Exclusions cannot be added later through the controller or governance.
+When balance limiting is enabled on the default DopplerERC20V1 integration, the SDK encodes user exclusions plus determinable protocol recipients for the selected auction path into deployment-time `excludedFromBalanceLimit`, including initializers, hooks, PoolManager, migrators, known migration pools, no-op governance, and launchpad governance multisigs. It cannot safely predict the nonce-based timelock created by `default` or `custom` governance. For those governance modes, the SDK rejects configurations where `initialSupply - numTokensToSell - vesting allocations` exceeds `maxBalanceLimit`, because Airlock would transfer that excess to the non-excluded timelock and revert. Allocate enough tokens to the sale or vesting, increase the limit, or use no-op or launchpad governance. Custom `withTokenFactory(address)` paths receive only the `excludedFromBalanceLimit` entries supplied in `tokenConfig`, so custom token factory users must provide required deployment-time protocol exclusions themselves. Exclusions cannot be added later through the controller or governance.
 
 DopplerERC20V1 supports vesting through `withVesting` while staying on the DopplerERC20V1 factory path: use `duration` with optional `cliffDuration` for a shared schedule, or `allocations` for per-beneficiary schedules.
 
@@ -1246,7 +1244,7 @@ migration: {
 }
 ```
 
-### Migrate to Uniswap V2 with Proceeds Split + Top-ups
+### Migrate to Uniswap V2 with Proceeds Split
 
 ```typescript
 migration: {
@@ -1259,9 +1257,8 @@ migration: {
 ```
 
 - The split recipient receives the configured share of numeraire proceeds during migration.
-- If the asset/numeraire pair was topped up in `TopUpDistributor` before migration, the split recipient also receives those top-ups automatically.
 
-### Migrate to Uniswap V4 with Proceeds Split + Top-ups
+### Migrate to Uniswap V4 with Proceeds Split
 
 ```typescript
 migration: {
@@ -1284,50 +1281,11 @@ migration: {
 
 - `streamableFees` is required for `uniswapV4Split`.
 - Beneficiaries must sum to `1e18`, and the Airlock owner must be included with at least 5% shares.
-- The split recipient also receives any `TopUpDistributor` funds pulled during migration.
-
-### TopUpDistributor Top-ups
-
-The SDK exposes `sdk.topUpDistributor` and `sdk.getTopUpDistributor(address?)`
-for building, simulating, and submitting `topUp({ asset, numeraire, amount })`
-transactions where `getAddresses(chainId).topUpDistributor` is configured. The helper methods
-accept the same object shape for `buildTopUpTransaction({ asset, numeraire, amount })` and
-`simulateTopUp({ asset, numeraire, amount })`. ETH top-ups use `numeraire = ZERO_ADDRESS` and
-send `value = amount`; ERC20 top-ups send no native value and require the user to approve the
-`TopUpDistributor` before calling `topUp`.
-
-```typescript
-import { ZERO_ADDRESS } from '@whetstone-research/doppler-sdk/evm';
-import { parseEther } from 'viem';
-
-const topUps = sdk.topUpDistributor;
-
-const tx = topUps.buildTopUpTransaction({
-  asset: tokenAddress,
-  numeraire: ZERO_ADDRESS,
-  amount: parseEther('1'),
-});
-
-const simulation = await topUps.simulateTopUp({
-  asset: tokenAddress,
-  numeraire: ZERO_ADDRESS,
-  amount: parseEther('1'),
-});
-
-await topUps.topUp({
-  asset: tokenAddress,
-  numeraire: ZERO_ADDRESS,
-  amount: parseEther('1'),
-});
-```
-
-Split migrators pull any TopUpDistributor balance for the asset/numeraire pair during migration
-and pay it to the configured split recipient.
 
 ### Migrate via DopplerHookMigrator (Dynamic Auctions)
 
-Use this mode when you want rehypothecation / custom hook behavior on the
-migrated V4 pool. This migration type is only supported for dynamic auctions.
+Use this mode when the migrated V4 pool needs an optional generic Doppler hook.
+This migration type is only supported for dynamic auctions.
 
 ```typescript
 const params = sdk
@@ -1357,71 +1315,26 @@ const params = sdk
     lockDuration: 30 * 24 * 60 * 60,
     beneficiaries: [
       { beneficiary: '0xYourBeneficiary...', shares: parseEther('0.95') },
-      await sdk.getAirlockBeneficiary(), // required protocol owner entry (>=5%)
+      await sdk.getAirlockBeneficiary(),
     ],
-    rehype: {
-      buybackDestination: '0xYourBuybackDestination...',
-      customFee: 3000,
-      feeRoutingMode: 'directBuyback',
-      feeDistributionInfo: {
-        assetFeesToAssetBuybackWad: parseEther('0.25'),
-        assetFeesToNumeraireBuybackWad: parseEther('0.25'),
-        assetFeesToBeneficiaryWad: parseEther('0.25'),
-        assetFeesToLpWad: parseEther('0.25'),
-        numeraireFeesToAssetBuybackWad: parseEther('0.25'),
-        numeraireFeesToNumeraireBuybackWad: parseEther('0.25'),
-        numeraireFeesToBeneficiaryWad: parseEther('0.25'),
-        numeraireFeesToLpWad: parseEther('0.25'),
-      },
+    hook: {
+      hookAddress: '0xYourDopplerHook...',
+      onInitializationCalldata: '0x...',
     },
   })
   .withUserAddress('0xYourAddress...')
   .build();
 ```
 
-Note: `dopplerHookMigrator` beneficiaries must include the current Airlock owner
-with at least 5% shares, and total shares must sum to `1e18`.
-Unlike initializer-side Rehype pools, migrator-side Rehype uses a static
-`customFee`; there is no fee decay schedule in this mode.
+`dopplerHookMigrator` beneficiaries must include the current Airlock owner with
+at least 5% shares, and total shares must sum to `1e18`. Omit `hook` for a
+standard migrated pool without custom hook behavior.
+
 For backwards compatibility, the deprecated `DopplerHookMigrationConfig` type
 and its `type: 'dopplerHook'` discriminator remain accepted. New code should use
 `DopplerHookMigratorConfig` with `type: 'dopplerHookMigrator'`. Multicurve
 initializer params similarly accept the deprecated `type: 'dopplerHook'`
 discriminator, which resolves to `dopplerHookInitializer`.
-
-```typescript
-migration: {
-  type: 'dopplerHookMigrator',
-  fee: 3000,
-  useDynamicFee: false,
-  tickSpacing: 10,
-  lockDuration: 30 * 24 * 60 * 60,
-  beneficiaries: [
-    { beneficiary: '0xYourBeneficiary...', shares: parseEther('1') },
-  ],
-  rehype: {
-    // optional; defaults to chain rehypeDopplerHookMigrator address
-    // hookAddress: '0xRehypeMigratorHook...',
-    buybackDestination: '0xYourBuybackDestination...',
-    customFee: 3000,
-    feeRoutingMode: 'directBuyback',
-    feeDistributionInfo: {
-      assetFeesToAssetBuybackWad: parseEther('0.25'),
-      assetFeesToNumeraireBuybackWad: parseEther('0.25'),
-      assetFeesToBeneficiaryWad: parseEther('0.25'),
-      assetFeesToLpWad: parseEther('0.25'),
-      numeraireFeesToAssetBuybackWad: parseEther('0.25'),
-      numeraireFeesToNumeraireBuybackWad: parseEther('0.25'),
-      numeraireFeesToBeneficiaryWad: parseEther('0.25'),
-      numeraireFeesToLpWad: parseEther('0.25'),
-    },
-  },
-  proceedsSplit: {
-    recipient: '0xProceedsRecipient...',
-    share: parseEther('0.1'),
-  },
-}
-```
 
 To make configuring the first beneficiary simpler, the SDK now exposes helpers for resolving the
 airlock owner and creating the default 5% entry:
@@ -1885,7 +1798,6 @@ ALCHEMY_API_KEY=your_key_here pnpm test:fork
 ALCHEMY_API_KEY=your_key_here TEST_CHAIN=base pnpm test:fork
 ALCHEMY_API_KEY=your_key_here TEST_CHAIN=base-sepolia pnpm test:fork
 ALCHEMY_API_KEY=your_key_here TEST_CHAIN=mainnet pnpm test:fork
-ALCHEMY_API_KEY=your_key_here TEST_CHAIN=eth-sepolia pnpm test:fork
 ```
 
 You can also provide chain-specific RPC URLs directly:
@@ -1893,7 +1805,6 @@ You can also provide chain-specific RPC URLs directly:
 ```bash
 ETH_MAINNET_RPC_URL=https://... TEST_CHAIN=mainnet pnpm test:fork
 ARBITRUM_RPC_URL=https://... TEST_CHAIN=arbitrum pnpm test:fork
-ETH_SEPOLIA_RPC_URL=https://... TEST_CHAIN=eth-sepolia pnpm test:fork
 ```
 
 ## Migration from Previous SDKs
