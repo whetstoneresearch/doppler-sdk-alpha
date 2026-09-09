@@ -150,7 +150,7 @@ describe('OpeningAuctionBuilder', () => {
   });
 
   describe('governance defaults by chain', () => {
-    it.each([CHAIN_IDS.BASE, CHAIN_IDS.ARBITRUM] as const)(
+    it.each([CHAIN_IDS.BASE, CHAIN_IDS.ARBITRUM, CHAIN_IDS.BSC] as const)(
       'defaults to noOp governance on no-op-enabled chain %s',
       (chainId) => {
         const params = buildValidOpeningAuction(chainId).build();
@@ -168,6 +168,7 @@ describe('OpeningAuctionBuilder', () => {
     it.each([
       CHAIN_IDS.MAINNET,
       CHAIN_IDS.ARBITRUM,
+      CHAIN_IDS.BSC,
       CHAIN_IDS.BASE,
       CHAIN_IDS.BASE_SEPOLIA,
       CHAIN_IDS.MONAD_MAINNET,

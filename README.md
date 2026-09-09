@@ -15,7 +15,7 @@ The Doppler SDK exposes network-specific entrypoints for creating, managing, and
 - **Solana Clients and React**: Read clients, PDA helpers, generated codecs, and optional React bindings
 - **Token Management**: Built-in EVM support for DERC20 tokens with vesting
 - **Type Safety**: Full TypeScript support across EVM and Solana entrypoints
-- **Network Support**: EVM deployments on Base, Arbitrum One, Unichain, Ink, and other supported chains; Solana/SVM support via explicit Solana program deployments
+- **Network Support**: EVM deployments on Base, Arbitrum One, BNB Smart Chain (BSC), Unichain, Ink, and other supported chains; Solana/SVM support via explicit Solana program deployments
 
 ## Installation
 
@@ -1763,7 +1763,7 @@ pnpm dev
 
 The SDK includes comprehensive tests covering:
 
-- **Airlock Whitelisting**: Verifies that all modules are properly whitelisted on Ethereum Mainnet, Arbitrum One, Monad Mainnet, Base Mainnet, Base Sepolia, and Robinhood Chain
+- **Airlock Whitelisting**: Verifies that all modules are properly whitelisted on Ethereum Mainnet, Arbitrum One, BNB Smart Chain (BSC), Monad Mainnet, Base Mainnet, Base Sepolia, and Robinhood Chain
 - **Multicurve Functionality**: Tests multicurve auction creation and quoting
 - **Token Address Mining**: Tests for generating optimized token addresses
 
@@ -1777,14 +1777,14 @@ pnpm test:whitelisting
 ALCHEMY_API_KEY=your_key_here pnpm test:whitelisting
 
 # Limit to specific whitelist-audit chains when needed
-TEST_CHAINS=mainnet,base,base-sepolia,arbitrum,monad-mainnet,robinhood pnpm test:whitelisting
+TEST_CHAINS=mainnet,base,base-sepolia,arbitrum,bsc,monad-mainnet,robinhood pnpm test:whitelisting
 ```
 
-The whitelisting suite is scoped to the release-audit chains: Ethereum Mainnet, Arbitrum One, Monad Mainnet, Base Mainnet, Base Sepolia, and Robinhood Chain.
+The whitelisting suite is scoped to the release-audit chains: Ethereum Mainnet, Arbitrum One, BNB Smart Chain (BSC), Monad Mainnet, Base Mainnet, Base Sepolia, and Robinhood Chain.
 
 Whitelisting test RPC priority is:
 
-1. Chain-specific RPC URL env var (`ETH_MAINNET_RPC_URL`, `ARBITRUM_RPC_URL`, `BASE_RPC_URL`, `BASE_SEPOLIA_RPC_URL`)
+1. Chain-specific RPC URL env var (`ETH_MAINNET_RPC_URL`, `ARBITRUM_RPC_URL`, `BSC_RPC_URL`, `BASE_RPC_URL`, `BASE_SEPOLIA_RPC_URL`)
 2. `ALCHEMY_API_KEY` fallback for supported Alchemy networks, including Monad Mainnet
 3. Public/default RPC URL
 

@@ -27,7 +27,7 @@ import {
   createTestClient,
   http,
 } from 'viem';
-import { arbitrum, base, baseSepolia, mainnet } from 'viem/chains';
+import { arbitrum, base, baseSepolia, bsc, mainnet } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createRateLimitedClient } from './rpc';
 import { CHAIN_IDS } from '../../../src/evm';
@@ -98,6 +98,11 @@ const CHAIN_CONFIG: Record<number, ChainTestConfig> = {
     chain: arbitrum,
     envVar: 'ARBITRUM_RPC_URL',
     alchemyNetwork: 'arb-mainnet',
+  },
+  [CHAIN_IDS.BSC]: {
+    chain: bsc,
+    envVar: 'BSC_RPC_URL',
+    alchemyNetwork: 'bnb-mainnet',
   },
   [CHAIN_IDS.BASE]: {
     chain: base,
@@ -201,6 +206,7 @@ export function getRpcEnvVar(chainId: number): string | undefined {
 // Convenience exports for commonly used chains
 export const getMainnetClient = () => getTestClient(CHAIN_IDS.MAINNET);
 export const getArbitrumClient = () => getTestClient(CHAIN_IDS.ARBITRUM);
+export const getBscClient = () => getTestClient(CHAIN_IDS.BSC);
 export const getBaseClient = () => getTestClient(CHAIN_IDS.BASE);
 export const getBaseSepoliaClient = () => getTestClient(CHAIN_IDS.BASE_SEPOLIA);
 export const getRobinhoodClient = () => getTestClient(CHAIN_IDS.ROBINHOOD);

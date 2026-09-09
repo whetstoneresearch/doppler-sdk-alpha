@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       chains:
-        description: 'Chains to test (comma-separated: base,base-sepolia,arbitrum,mainnet,monad-mainnet,robinhood or "all")'
+        description: 'Chains to test (comma-separated: base,base-sepolia,arbitrum,bsc,mainnet,monad-mainnet,robinhood or "all")'
         required: false
-        default: 'base,base-sepolia,arbitrum,mainnet,monad-mainnet,robinhood'
+        default: 'base,base-sepolia,arbitrum,bsc,mainnet,monad-mainnet,robinhood'
         type: string
       rpc_delay_ms:
         description: 'Delay between RPC calls in ms (increase if rate limited)'
@@ -31,7 +31,7 @@ jobs:
     env:
       ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
       # workflow_dispatch can specify chains; automated runs keep a reduced default set
-      TEST_CHAINS: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.chains || 'base,base-sepolia,arbitrum,mainnet,monad-mainnet,robinhood') || 'base,base-sepolia,arbitrum,mainnet,monad-mainnet,robinhood' }}
+      TEST_CHAINS: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.chains || 'base,base-sepolia,arbitrum,bsc,mainnet,monad-mainnet,robinhood') || 'base,base-sepolia,arbitrum,bsc,mainnet,monad-mainnet,robinhood' }}
       RPC_DELAY_MS: ${{ github.event.inputs.rpc_delay_ms || '1000' }}
       CI: true
 

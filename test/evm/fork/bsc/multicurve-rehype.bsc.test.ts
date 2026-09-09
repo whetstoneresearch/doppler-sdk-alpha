@@ -17,20 +17,20 @@ import {
   type ForkClients,
 } from '../../utils'
 
-const chainId = CHAIN_IDS.ARBITRUM
+const chainId = CHAIN_IDS.BSC
 const hasForkRpc = Boolean(
-  process.env.ARBITRUM_RPC_URL || process.env.ALCHEMY_API_KEY,
+  process.env.BSC_RPC_URL || process.env.ALCHEMY_API_KEY,
 )
 const fixedSalt = `0x${'42'.repeat(32)}` as const
 
-describe('Arbitrum multicurve Rehype fork launch', () => {
+describe('BNB Smart Chain multicurve Rehype fork launch', () => {
   if (!isAnvilForkEnabled()) {
     it.skip('requires ANVIL_FORK_ENABLED=true')
     return
   }
 
   if (!hasForkRpc) {
-    it.skip('requires ARBITRUM_RPC_URL or ALCHEMY_API_KEY')
+    it.skip('requires BSC_RPC_URL or ALCHEMY_API_KEY')
     return
   }
 
@@ -52,7 +52,7 @@ describe('Arbitrum multicurve Rehype fork launch', () => {
     async () => {
       const rehypeHook = addresses.rehypeDopplerHookInitializer
       if (!rehypeHook) {
-        throw new Error('Arbitrum Rehype hook initializer is required')
+        throw new Error('BSC Rehype hook initializer is required')
       }
 
       const sdk = new DopplerSDK({
@@ -79,9 +79,9 @@ describe('Arbitrum multicurve Rehype fork launch', () => {
       const params = sdk
         .buildMulticurveAuction()
         .tokenConfig({
-          name: 'TEST Arbitrum Multicurve Rehype Fork',
-          symbol: 'TESTAMRF',
-          tokenURI: 'ipfs://arbitrum-multicurve-rehype-fork.json',
+          name: 'TEST BSC Multicurve Rehype Fork',
+          symbol: 'TESTBMRF',
+          tokenURI: 'ipfs://bsc-multicurve-rehype-fork.json',
           maxBalanceLimit: parseEther('25000'),
           balanceLimitEnd: Math.floor(Date.now() / 1000) + DAY_SECONDS,
           controller: clients.account.address,
@@ -93,7 +93,7 @@ describe('Arbitrum multicurve Rehype fork launch', () => {
           numeraire: addresses.weth,
         })
         .withCurves({
-          numerairePrice: 3500,
+          numerairePrice: 600,
           fee: 0,
           tickSpacing: 8,
           beneficiaries: poolFeeBeneficiaries,

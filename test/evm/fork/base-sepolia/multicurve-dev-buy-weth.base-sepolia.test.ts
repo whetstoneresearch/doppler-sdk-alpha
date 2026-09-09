@@ -1,5 +1,12 @@
+import { CommandBuilder, V4ActionBuilder, V4ActionType } from 'doppler-router';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { parseEther, zeroAddress, type Address } from 'viem';
+import {
+  parseAbi,
+  parseEther,
+  parseEventLogs,
+  zeroAddress,
+  type Address,
+} from 'viem';
 import {
   CHAIN_IDS,
   DopplerSDK,
@@ -20,7 +27,6 @@ import {
   isAnvilForkEnabled,
   mineToTimestamp,
 } from '../../utils';
-import { executeBuySwap } from '../utils';
 
 const chainId = CHAIN_IDS.BASE_SEPOLIA;
 const directSalt = `0x${'41'.repeat(32)}` as const;
@@ -115,8 +121,8 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
       .buildMulticurveAuction()
       .tokenConfig({
         type: 'standard',
-        name: 'Native Dev Buy Fork',
-        symbol: 'NDBF',
+        name: 'TEST Native Dev Buy Fork',
+        symbol: 'TESTNDBF',
         tokenURI: 'ipfs://native-dev-buy-fork',
       })
       .saleConfig({
@@ -156,8 +162,8 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
       .buildMulticurveAuction()
       .tokenConfig({
         type: 'standard',
-        name: 'Vested Rehype Dev Buy Fork',
-        symbol: 'VRDBF',
+        name: 'TEST Vested Rehype Dev Buy Fork',
+        symbol: 'TESTVRDBF',
         tokenURI: 'ipfs://vested-rehype-dev-buy-fork',
       })
       .saleConfig({
@@ -184,6 +190,8 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
         feeDistributionInfo,
         integratorFeeConfig: {
           feeShare: 200_000,
+          assetFeesToNumeraireRatio: 500_000_000,
+          numeraireFeesToAssetRatio: 250_000_000,
           automaticPayout: false,
         },
         farTick: 200_000,
@@ -273,14 +281,6 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
       const pool = await (
         await sdk.getMulticurvePool(result.tokenAddress)
       ).getState();
-      await executeBuySwap({
-        addresses,
-        publicClient: clients.publicClient,
-        sdk,
-        walletClient: clients.walletClient,
-        poolKey: pool.poolKey,
-        account: clients.account,
-      });
       const poolId = computePoolId(pool.poolKey);
       const routing = await clients.publicClient.readContract({
         address: rehypeHook,
@@ -292,27 +292,182 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
         clients.account.address.toLowerCase(),
       );
       expect(routing[3]).toBe(false);
+      expect(routing[1]).toBe(500_000_000);
+      expect(routing[2]).toBe(250_000_000);
+      expect(
+        await clients.publicClient.readContract({
+          address: rehypeHook,
+          abi: rehypeDopplerHookInitializerAbi,
+          functionName: 'getIntegratorFeeShare',
+          args: [poolId],
+        }),
+      ).toBe(200_000);
 
-      const pending = await clients.publicClient.readContract({
+      const assetIndex =
+        pool.poolKey.currency0.toLowerCase() ===
+        result.tokenAddress.toLowerCase()
+          ? 0
+          : 1;
+      const numeraireIndex = assetIndex === 0 ? 1 : 0;
+      let claimableBeforeCollection = await clients.publicClient.readContract({
         address: rehypeHook,
         abi: rehypeDopplerHookInitializerAbi,
-        functionName: 'getPendingIntegratorFees',
+        functionName: 'getClaimableIntegratorFees',
         args: [poolId],
       });
-      const claimableBeforeCollection = await clients.publicClient.readContract(
-        {
+      // The bundled dev buy is exempt from integrator fees.
+      expect(claimableBeforeCollection).toEqual([0n, 0n]);
+
+      // Exact-input buys charge asset fees; exact-output buys charge WETH fees.
+      // Exercise both conversion directions without selling the vested dev buy.
+      for (const exactOutput of [false, true]) {
+        const buyAmount = parseEther('0.01');
+        const outputAmount = result.devBuy!.amountOut!;
+        const zeroForOne = numeraireIndex === 0;
+        const quoteParams = {
+          poolKey: pool.poolKey,
+          zeroForOne,
+          hookData: '0x',
+        };
+        const maxInput = exactOutput
+          ? ((
+              await sdk.quoter.quoteExactOutputV4({
+                ...quoteParams,
+                exactAmount: outputAmount,
+              })
+            ).amountIn *
+              105n) /
+            100n
+          : buyAmount;
+        const actions = new V4ActionBuilder();
+        if (exactOutput) {
+          actions.addSwapExactOutSingle(
+            pool.poolKey,
+            zeroForOne,
+            outputAmount,
+            maxInput,
+            '0x',
+          );
+        } else {
+          const quote = await sdk.quoter.quoteExactInputV4({
+            ...quoteParams,
+            exactAmount: buyAmount,
+          });
+          actions.addSwapExactInSingle(
+            pool.poolKey,
+            zeroForOne,
+            buyAmount,
+            (quote.amountOut * 95n) / 100n,
+            '0x',
+          );
+        }
+        actions.addAction(V4ActionType.SETTLE, [addresses.weth, 0n, false]);
+        actions.addAction(V4ActionType.TAKE_ALL, [result.tokenAddress, 0n]);
+        const commands = new CommandBuilder();
+        commands.addWrapEth(
+          '0x0000000000000000000000000000000000000002',
+          maxInput,
+        );
+        commands.addV4Swap(...actions.build());
+        commands.addSweep(addresses.weth, clients.account.address, 0n);
+        const swapHash = await clients.walletClient.writeContract({
+          address: addresses.universalRouter,
+          abi: parseAbi([
+            'function execute(bytes commands, bytes[] inputs) payable',
+          ]),
+          functionName: 'execute',
+          args: commands.build(),
+          value: maxInput,
+          chain: clients.walletClient.chain,
+          account: clients.account,
+        });
+        const receipt = await clients.publicClient.waitForTransactionReceipt({
+          hash: swapHash,
+        });
+        expect(receipt.status).toBe('success');
+        const swaps = parseEventLogs({
+          abi: parseAbi([
+            'event Swap(bytes32 indexed id, address indexed sender, int128 amount0, int128 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick, uint24 fee)',
+          ]),
+          logs: receipt.logs.filter(
+            (log) =>
+              log.address.toLowerCase() === addresses.poolManager.toLowerCase(),
+          ),
+        }).filter((log) => log.args.id === poolId);
+        const outerSwap = swaps[0]!.args;
+        expect(outerSwap.sender.toLowerCase()).toBe(
+          addresses.universalRouter.toLowerCase(),
+        );
+        const deltas = [outerSwap.amount0, outerSwap.amount1];
+        const feeIndex = exactOutput ? numeraireIndex : assetIndex;
+        const convertedIndex = feeIndex === 0 ? 1 : 0;
+        const feeBase = exactOutput ? -deltas[feeIndex]! : deltas[feeIndex]!;
+        const grossFee = (feeBase * 3000n) / 1_000_000n;
+        const integratorFee = (grossFee * 200_000n) / 1_000_000n;
+        const convertedInput =
+          (integratorFee * (exactOutput ? 250_000_000n : 500_000_000n)) /
+          1_000_000_000n;
+        expect(convertedInput).toBeGreaterThan(0n);
+        const residualBuyback =
+          (grossFee - grossFee / 20n - integratorFee) / 4n;
+        const conversion = swaps[1]!.args;
+        expect(conversion.sender.toLowerCase()).toBe(rehypeHook.toLowerCase());
+        const conversionDeltas = [conversion.amount0, conversion.amount1];
+        expect(-conversionDeltas[feeIndex]!).toBe(
+          residualBuyback + convertedInput,
+        );
+        const convertedOutput =
+          (conversionDeltas[convertedIndex]! * convertedInput) /
+          (residualBuyback + convertedInput);
+        expect(convertedOutput).toBeGreaterThan(0n);
+        // This account also receives buybacks: exclude those transfers when
+        // proving automaticPayout=false leaves all integrator fees in custody.
+        const transfers = parseEventLogs({
+          abi: parseAbi([
+            'event Transfer(address indexed from, address indexed to, uint256 value)',
+          ]),
+          logs: receipt.logs,
+        }).filter(
+          (log) =>
+            log.args.from.toLowerCase() === rehypeHook.toLowerCase() &&
+            log.args.to.toLowerCase() === clients.account.address.toLowerCase(),
+        );
+        for (const index of [feeIndex, convertedIndex]) {
+          const currency =
+            index === 0 ? pool.poolKey.currency0 : pool.poolKey.currency1;
+          const paid = transfers
+            .filter(
+              (log) => log.address.toLowerCase() === currency.toLowerCase(),
+            )
+            .reduce((total, log) => total + log.args.value, 0n);
+          expect(paid).toBe(
+            index === feeIndex
+              ? residualBuyback
+              : conversionDeltas[convertedIndex]! - convertedOutput,
+          );
+        }
+        const accrued = await clients.publicClient.readContract({
           address: rehypeHook,
           abi: rehypeDopplerHookInitializerAbi,
           functionName: 'getClaimableIntegratorFees',
           args: [poolId],
-        },
-      );
-      expect(
-        pending[0] > 0n ||
-          pending[1] > 0n ||
-          claimableBeforeCollection[0] > 0n ||
-          claimableBeforeCollection[1] > 0n,
-      ).toBe(true);
+        });
+        expect(accrued[feeIndex] - claimableBeforeCollection[feeIndex]).toBe(
+          integratorFee - convertedInput,
+        );
+        expect(
+          accrued[convertedIndex] - claimableBeforeCollection[convertedIndex],
+        ).toBe(convertedOutput);
+        expect(
+          await clients.publicClient.readContract({
+            address: rehypeHook,
+            abi: rehypeDopplerHookInitializerAbi,
+            functionName: 'getPendingIntegratorFees',
+            args: [poolId],
+          }),
+        ).toEqual([0n, 0n]);
+        claimableBeforeCollection = accrued;
+      }
 
       const collectHash = await clients.walletClient.writeContract({
         address: rehypeHook,
@@ -331,14 +486,18 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
         functionName: 'getClaimableIntegratorFees',
         args: [poolId],
       });
-      expect(claimable[0] > 0n || claimable[1] > 0n).toBe(true);
-      const claimedAssetFees =
-        pool.poolKey.currency0.toLowerCase() ===
-        result.tokenAddress.toLowerCase()
-          ? claimable[0]
-          : claimable[1];
+      // Beneficiary collection must not release the deferred integrator payout.
+      expect(claimable).toEqual(claimableBeforeCollection);
+      expect(claimable[0]).toBeGreaterThan(0n);
+      expect(claimable[1]).toBeGreaterThan(0n);
+      const claimedAssetFees = claimable[assetIndex];
+      const claimedNumeraireFees = claimable[numeraireIndex];
       const assetBalanceBeforeIntegratorClaim = await balanceOf(
         result.tokenAddress,
+        clients.account.address,
+      );
+      const numeraireBalanceBeforeIntegratorClaim = await balanceOf(
+        addresses.weth,
         clients.account.address,
       );
 
@@ -361,6 +520,9 @@ describe('Multicurve dev buy (Base Sepolia fork)', () => {
           args: [poolId],
         }),
       ).toEqual([0n, 0n]);
+      expect(await balanceOf(addresses.weth, clients.account.address)).toBe(
+        numeraireBalanceBeforeIntegratorClaim + claimedNumeraireFees,
+      );
 
       const bundler = sdk.getBundler(result.devBuy!.bundler);
       const vesting = await bundler.getVesting(result.tokenAddress);
