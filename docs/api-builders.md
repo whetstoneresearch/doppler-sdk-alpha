@@ -839,7 +839,7 @@ const { tokenAddress: token4, openingAuctionHookAddress } =
 
 Notes:
 
-- Doppler404 launches require a configured `doppler404Factory`. They are currently supported on Robinhood, Base, and Base Sepolia. A generic `withTokenFactory(address)` override does not enable Doppler404 on another chain.
+- Doppler404 launches require a configured `doppler404Factory`. They are currently supported on Robinhood, BNB Smart Chain (BSC), Base, and Base Sepolia. A generic `withTokenFactory(address)` override does not enable Doppler404 on another chain.
 - Doppler404 tokenConfig supports optional `unit?: bigint`. It defaults to `WAD` (`1e18`), so one full 18-decimal ERC-20 token corresponds to one NFT. Set `unit` explicitly to choose another ERC-20 base-unit threshold.
 - Size `initialSupply` and `unit` together: the maximum NFT count is approximately `initialSupply / unit`. Very large NFT counts can make launch transfers exceed practical gas limits.
 - Doppler404 does not support vesting. The factory rejects any Doppler404 launch with `withVesting(...)`.

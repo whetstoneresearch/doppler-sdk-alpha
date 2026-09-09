@@ -57,6 +57,7 @@ const CHAIN_PORTS: Record<number, number> = {
   [CHAIN_IDS.MONAD_MAINNET]: 8547,
   [CHAIN_IDS.MAINNET]: 8548,
   [CHAIN_IDS.ARBITRUM]: 8550,
+  [CHAIN_IDS.BSC]: 8551,
 };
 
 /** Fork RPC URLs for each chain */
@@ -77,6 +78,13 @@ function getForkUrl(chainId: number): string | undefined {
         process.env.ARBITRUM_RPC_URL ||
         (alchemyKey
           ? `https://arb-mainnet.g.alchemy.com/v2/${alchemyKey}`
+          : undefined)
+      );
+    case CHAIN_IDS.BSC:
+      return (
+        process.env.BSC_RPC_URL ||
+        (alchemyKey
+          ? `https://bnb-mainnet.g.alchemy.com/v2/${alchemyKey}`
           : undefined)
       );
     case CHAIN_IDS.BASE:

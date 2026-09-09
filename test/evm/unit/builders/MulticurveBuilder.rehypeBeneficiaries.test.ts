@@ -440,8 +440,15 @@ describe('MulticurveBuilder RehypeDopplerHookInitializer beneficiaries', () => {
   });
 
   it.each([
+    [{ integrator: zeroAddress, feeShare: 1 }, 'integrator'],
+    [{ integrator: '0x1234' as Address, feeShare: 1 }, 'integrator'],
     [{ feeShare: 0 }, 'feeShare'],
     [{ feeShare: 750_001 }, 'feeShare'],
+    [{ feeShare: 1.5 }, 'feeShare'],
+    [
+      { feeShare: 1, assetFeesToNumeraireRatio: 0.5 },
+      'assetFeesToNumeraireRatio',
+    ],
     [
       { feeShare: 1, assetFeesToNumeraireRatio: 1_000_000_001 },
       'assetFeesToNumeraireRatio',
@@ -467,6 +474,40 @@ describe('MulticurveBuilder RehypeDopplerHookInitializer beneficiaries', () => {
       ).toThrow(error);
     },
   );
+
+  it('rejects a non-boolean integrator automatic payout at runtime', () => {
+    const config = {
+      hookAddress,
+      buybackDestination,
+      startFee: 3_000,
+      feeDistributionInfo: feeDistributionInfo(),
+      integratorFeeConfig: {
+        integrator,
+        feeShare: 200_000,
+        automaticPayout: 'false',
+      },
+    };
+
+    expect(() =>
+      Reflect.apply(normalizeRehypeDopplerHookInitializerConfig, undefined, [
+        config,
+      ]),
+    ).toThrow('automaticPayout');
+  });
+
+  it('rejects a zero inherited integrator after deferred validation', () => {
+    const builder = buildBaseBuilder()
+      .withRehypeDopplerHookInitializer({
+        hookAddress,
+        buybackDestination,
+        startFee: 3_000,
+        feeDistributionInfo: feeDistributionInfo(),
+        integratorFeeConfig: { feeShare: 1 },
+      })
+      .withIntegrator(zeroAddress);
+
+    expect(() => builder.build()).toThrow('integrator');
+  });
 
   it('requires an address source for enabled Rehype integrator fees', () => {
     expect(() =>

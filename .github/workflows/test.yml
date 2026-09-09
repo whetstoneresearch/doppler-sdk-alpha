@@ -98,7 +98,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chain: [base, base-sepolia, arbitrum]
+        chain: [base, base-sepolia, arbitrum, bsc]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

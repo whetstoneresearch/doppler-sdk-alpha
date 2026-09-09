@@ -516,6 +516,32 @@ describe('DopplerFactory governance encoding', () => {
     },
   );
 
+  const legacyAddresses = getAddresses(CHAIN_IDS.BASE_SEPOLIA);
+  const legacyTokenParams: CreateStaticAuctionParams = {
+    token: {
+      type: 'standard',
+      name: 'Legacy Clock Token',
+      symbol: 'CLK',
+      tokenURI: 'https://example.com/token.json',
+    },
+    sale: {
+      initialSupply: parseEther('1000000'),
+      numTokensToSell: parseEther('500000'),
+      numeraire: legacyAddresses.weth,
+    },
+    pool: { startTick: -276400, endTick: -276200, fee: 10000 },
+    governance: { type: 'default' },
+    migration: { type: 'uniswapV2' },
+    userAddress: account.address,
+    // Supply missing legacy modules without changing the token clock.
+    modules: {
+      tokenFactory: legacyAddresses.tokenFactory,
+      v3Initializer: legacyAddresses.v3Initializer,
+      v2Migrator: legacyAddresses.v2Migrator,
+      governanceFactory: legacyAddresses.governanceFactory,
+    },
+  };
+
   it.each([
     [CHAIN_IDS.MAINNET, 7_200, 50_400],
     [CHAIN_IDS.ARBITRUM, 7_200, 50_400],
@@ -526,56 +552,46 @@ describe('DopplerFactory governance encoding', () => {
     [CHAIN_IDS.UNICHAIN_SEPOLIA, 86_400, 604_800],
     [CHAIN_IDS.MONAD_MAINNET, 216_000, 1_512_000],
     [CHAIN_IDS.MONAD_TESTNET, 216_000, 1_512_000],
-    [CHAIN_IDS.ROBINHOOD, undefined, undefined],
   ] as const)(
     'uses the legacy token clock cadence on chain %s',
     async (chainId, delay, period) => {
       const chainFactory = new DopplerFactory(publicClient, undefined, chainId);
-      const addresses = getAddresses(CHAIN_IDS.BASE_SEPOLIA);
-      const params: CreateStaticAuctionParams = {
-        token: {
-          type: 'standard',
-          name: 'Legacy Clock Token',
-          symbol: 'CLK',
-          tokenURI: 'https://example.com/token.json',
-        },
-        sale: {
-          initialSupply: parseEther('1000000'),
-          numTokensToSell: parseEther('500000'),
-          numeraire: addresses.weth,
-        },
-        pool: { startTick: -276400, endTick: -276200, fee: 10000 },
-        governance: { type: 'default' },
-        migration: { type: 'uniswapV2' },
-        userAddress: account.address,
-        // Supply missing legacy modules without changing the token clock.
-        modules: {
-          tokenFactory: addresses.tokenFactory,
-          v3Initializer: addresses.v3Initializer,
-          v2Migrator: addresses.v2Migrator,
-          governanceFactory: addresses.governanceFactory,
-        },
-      };
+      const result =
+        await chainFactory.encodeCreateStaticAuctionParams(legacyTokenParams);
+      expect(result.governanceFactoryData).toBe(
+        encodeAbiParameters(governanceAbi, [
+          legacyTokenParams.token.name,
+          delay,
+          period,
+          0n,
+        ]),
+      );
+    },
+  );
 
-      if (delay === undefined || period === undefined) {
-        await expect(
-          chainFactory.encodeCreateStaticAuctionParams(params),
-        ).rejects.toThrow(/custom governance/i);
-        params.governance = {
+  it.each([CHAIN_IDS.ROBINHOOD, CHAIN_IDS.BSC])(
+    'requires explicit custom governance for an unknown legacy clock on chain %s',
+    async (chainId) => {
+      const chainFactory = new DopplerFactory(publicClient, undefined, chainId);
+      await expect(
+        chainFactory.encodeCreateStaticAuctionParams(legacyTokenParams),
+      ).rejects.toThrow(/custom governance/i);
+
+      const result = await chainFactory.encodeCreateStaticAuctionParams({
+        ...legacyTokenParams,
+        governance: {
           type: 'custom',
           initialVotingDelay: 123,
           initialVotingPeriod: 456,
           initialProposalThreshold: 789n,
-        };
-      }
-
-      const result = await chainFactory.encodeCreateStaticAuctionParams(params);
+        },
+      });
       expect(result.governanceFactoryData).toBe(
         encodeAbiParameters(governanceAbi, [
-          params.token.name,
-          delay ?? 123,
-          period ?? 456,
-          delay === undefined ? 789n : 0n,
+          legacyTokenParams.token.name,
+          123,
+          456,
+          789n,
         ]),
       );
     },

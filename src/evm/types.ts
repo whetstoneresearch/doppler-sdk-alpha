@@ -2,6 +2,7 @@ import {
   arbitrum,
   base,
   baseSepolia,
+  bsc,
   ink,
   mainnet,
   unichain,
@@ -16,6 +17,7 @@ export type SupportedChain =
   | typeof arbitrum
   | typeof base
   | typeof baseSepolia
+  | typeof bsc
   | typeof ink
   | typeof unichain;
 // Use a wide type to avoid cross-package viem type identity issues when linking packages locally.
@@ -169,6 +171,7 @@ export const NO_OP_ENABLED_CHAIN_IDS = [
   CHAIN_IDS.ARBITRUM,
   CHAIN_IDS.BASE,
   CHAIN_IDS.BASE_SEPOLIA,
+  CHAIN_IDS.BSC,
   CHAIN_IDS.UNICHAIN,
   CHAIN_IDS.UNICHAIN_SEPOLIA,
   CHAIN_IDS.ROBINHOOD,
@@ -193,6 +196,7 @@ export const LAUNCHPAD_ENABLED_CHAIN_IDS = [
   CHAIN_IDS.ARBITRUM,
   CHAIN_IDS.BASE,
   CHAIN_IDS.BASE_SEPOLIA,
+  CHAIN_IDS.BSC,
   CHAIN_IDS.ROBINHOOD,
   CHAIN_IDS.MONAD_MAINNET,
 ] as const;

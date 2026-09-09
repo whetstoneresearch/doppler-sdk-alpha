@@ -10,7 +10,7 @@ import { promisify } from 'util'
 const execAsync = promisify(exec)
 
 // Known Anvil ports used by tests (from test/utils/anvil.ts)
-const ANVIL_PORTS = [8545, 8546, 8547, 8548, 8549]
+const ANVIL_PORTS = [8545, 8546, 8547, 8548, 8549, 8550, 8551]
 
 async function killAnvilOnPort(port: number): Promise<void> {
   try {
